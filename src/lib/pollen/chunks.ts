@@ -16,6 +16,11 @@ export type Chunk = {
   body: string;
   /** Full plain text of the chunk. */
   text: string;
+  /** Italic date line of a bullet ("Mon 26 Oct @ 9:30-12:30 — De Pijp"), split at the em dash. */
+  when: string | null;
+  place: string | null;
+  /** Text left after removing the title and the date line. */
+  blurb: string;
   url: string | null;
   key: string | null;
 };
@@ -37,7 +42,14 @@ export function parseChunks(html: string): Chunk[] {
     const anchorText = a ? clean(a.text) : "";
     const title = (anchorText.length >= 4 ? anchorText : text).replace(/\s*[\u{1F300}-\u{1FAFF}]\s*$/u, "").slice(0, 90);
     const body = anchorText && text.startsWith(anchorText) ? clean(text.slice(anchorText.length)) : anchorText ? text : "";
-    out.push({ id: out.length, section, group: grp, kind, title, body, text, url, key: url ? normalizeUrl(url) : null });
+    const em = kind === "bullet" ? el.querySelector("em") : null;
+    const dateLine = em ? clean(em.text) : null;
+    const parts = dateLine ? dateLine.split(/\s+[—–-]\s+/) : [];
+    const when = dateLine ? (parts.length > 1 ? parts.slice(0, -1).join(" — ") : dateLine) : null;
+    const place = parts.length > 1 ? parts[parts.length - 1] : null;
+    let rest = anchorText && text.startsWith(anchorText) ? text.slice(anchorText.length) : text;
+    if (dateLine) rest = rest.replace(dateLine, "");
+    out.push({ id: out.length, section, group: grp, kind, title, body, text, when, place, blurb: clean(rest), url, key: url ? normalizeUrl(url) : null });
   };
   for (let i = 0; i < nodes.length; i++) {
     const n = nodes[i];
