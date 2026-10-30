@@ -18,12 +18,12 @@ export default function Home() {
   const max = Math.max(...top.map((c) => c.score!));
   return (
     <main className="min-h-dvh">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
+      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <Logo height={56} />
         <AuthLink className="rounded-xl px-4 py-2 text-sm font-semibold underline-offset-4 hover:underline" loggedOut="Log in" loggedIn="Open app" />
       </header>
 
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-16">
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 pb-16 pt-8 lg:grid-cols-[1.1fr_1fr] lg:pt-16">
         <div className="flex flex-col gap-6">
           <p className="w-fit rounded-full bg-chip px-3 py-1 text-sm font-semibold text-ink-deep">Newsletter to Buffer drafts</p>
           <h1 className="text-5xl leading-[1.05] sm:text-6xl">
@@ -47,7 +47,7 @@ export default function Home() {
       </section>
 
       <section className="bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl px-6 py-16">
           <h2 className="mb-10 text-3xl sm:text-4xl">Three steps. Zero copy-paste.</h2>
           <ol className="grid gap-6 md:grid-cols-3">
             {STEPS.map((s) => (
@@ -61,7 +61,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.1fr]">
+      <section className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1fr_1.1fr]">
         <div className="flex flex-col gap-4">
           <p className="w-fit rounded-full bg-accent px-3 py-1 text-sm font-bold text-ink-deep">The click-data approach</p>
           <h2 className="text-3xl sm:text-4xl">Your readers already told you what to post.</h2>
@@ -97,7 +97,7 @@ export default function Home() {
       </section>
 
       <section className="bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl px-6 py-16">
           <h2 className="mb-10 text-3xl sm:text-4xl">What people use it for</h2>
           <div className="grid gap-6 md:grid-cols-2">
             <article className="rounded-2xl bg-card p-7">
@@ -135,7 +135,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-5xl items-center gap-10 px-4 py-16 sm:px-6 md:grid-cols-[320px_1fr] md:gap-16">
+      <section className="mx-auto grid max-w-5xl items-center gap-10 px-6 py-16 md:grid-cols-[320px_1fr] md:gap-16">
         <div className="relative mx-auto w-full max-w-[320px]">
           <span aria-hidden className="absolute -left-3 -top-3 size-full rotate-[-4deg] rounded-[2rem] bg-accent" />
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -164,7 +164,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10 text-sm sm:px-6">
+      <footer className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-10 text-sm">
         <span>
           {BRAND_NAME}, built for Buffer Commit 2026.
         </span>

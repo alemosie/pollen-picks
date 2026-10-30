@@ -18,7 +18,7 @@ const DOTS = [
 export function StepTree({ current, hrefs = {} }: { current: 1 | 2 | 3 | 4 | 5; hrefs?: Partial<Record<number, string>> }) {
   const progress = AT[current - 1];
   return (
-    <nav aria-label="Progress" className="mx-auto w-full max-w-[50%] max-sm:max-w-full">
+    <nav aria-label="Progress" className="mx-auto w-[30rem] max-w-full">
       <svg viewBox="0 40 1000 147" role="img" aria-label={`Step ${current} of 5: ${STEPS[current - 1]}`} className="h-auto w-full overflow-visible">
         <path d={STEM} fill="none" strokeWidth="7" strokeLinecap="round" className="stroke-[#dcd3c6]" />
         <path d={STEM} fill="none" strokeWidth="7" strokeLinecap="round" pathLength={1} strokeDasharray={`${progress} 1`} className="stroke-ink" />

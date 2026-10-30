@@ -141,7 +141,7 @@ export function Picker({ mode, chunks, hasClicks }: { mode: string; chunks: Chun
       </ul>
 
       <div className="fixed inset-x-0 bottom-0 border-t border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
           <p className="flex-1 text-sm font-semibold" aria-live="polite">
             {picked.length === 0 ? "Select 1 to 20 items" : `${picked.length} of ${MAX} selected`}
             {full && <span className="ml-2 font-normal">Maximum reached</span>}

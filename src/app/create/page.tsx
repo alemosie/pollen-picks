@@ -31,17 +31,17 @@ async function CreateContent({ searchParams }: { searchParams: Promise<Record<st
   const q = encodeURIComponent(ids.join(","));
 
   return (
-    <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
-      <header className="mb-8 flex items-center justify-between">
-        <Logo height={48} href="/source" />
+    <main className="mx-auto max-w-5xl px-6 pb-16 pt-6">
+      <header className="mb-12 flex items-center justify-between">
+        <Logo height={52} href="/source" />
         <Link href="/pick?mode=demo" className="text-sm font-semibold underline underline-offset-4">
           Back to picks
         </Link>
       </header>
       <StepAside current={4} hrefs={{ 1: "/", 2: "/source", 3: "/pick?mode=demo" }} />
-      <div className="mb-8">
-      <h1 className="mb-2 text-3xl sm:text-4xl">Your carousel</h1>
-      <p className="mb-0">
+      <div className="mb-10">
+      <h1 className="mb-3 text-4xl sm:text-5xl">Your carousel</h1>
+      <p className="mb-0 max-w-2xl text-lg">
         {slides.length} slides from {ids.length} {ids.length === 1 ? "pick" : "picks"}. Template editing and captions come next.
       </p>
       </div>
