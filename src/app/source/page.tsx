@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { getSession } from "@/lib/auth";
+import { StepAside } from "@/components/StepTree";
+import { requireSession } from "@/lib/auth";
 
 export const metadata = { title: "Choose your setup · Pollen Picks" };
 
@@ -17,7 +17,7 @@ export default function Start() {
 
 async function StartContent() {
   await connection();
-  if (!(await getSession())) redirect("/");
+  await requireSession("/source");
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
@@ -28,8 +28,11 @@ async function StartContent() {
         </a>
       </header>
 
-      <h1 className="mb-3 text-4xl sm:text-5xl">You&rsquo;re in. Pick a setup.</h1>
-      <p className="mb-10 max-w-2xl text-lg">Buffer is connected. Now choose where the content comes from. You can switch any time.</p>
+      <StepAside current={2} hrefs={{ 1: "/" }} />
+      <div className="mb-10">
+      <h1 className="mb-3 text-4xl sm:text-5xl">Choose your newsletter source</h1>
+      <p className="mb-0 max-w-2xl text-lg">Buffer is connected. Now choose where the content comes from. You can switch any time.</p>
+      </div>
 
       <div className="grid gap-5 md:grid-cols-3">
         <Card

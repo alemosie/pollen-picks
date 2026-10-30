@@ -1,8 +1,7 @@
+import { AuthLink } from "@/components/AuthLink";
 import { Logo } from "@/components/Logo";
 import { BRAND_NAME } from "@/lib/brand";
 import { loadDemoIssue } from "@/lib/demo";
-
-const LOGIN = "/api/auth/buffer/login";
 
 const STEPS = [
   { n: "1", title: "Pick", body: "Choose what to share: your top-clicked picks, a whole section, or any paragraph or bullet from the issue." },
@@ -21,9 +20,7 @@ export default function Home() {
     <main className="min-h-dvh">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6">
         <Logo height={56} />
-        <a href={LOGIN} className="rounded-xl px-4 py-2 text-sm font-semibold underline-offset-4 hover:underline">
-          Log in
-        </a>
+        <AuthLink className="rounded-xl px-4 py-2 text-sm font-semibold underline-offset-4 hover:underline" loggedOut="Log in" loggedIn="Open app" />
       </header>
 
       <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-8 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-16">
@@ -37,12 +34,7 @@ export default function Home() {
             drafts in Buffer. You review. You schedule.
           </p>
           <div className="flex flex-wrap items-center gap-4">
-            <a
-              href={LOGIN}
-              className="rounded-xl bg-accent px-7 py-3.5 text-lg font-bold text-ink-deep shadow-sm transition hover:brightness-95 focus-visible:outline-offset-4"
-            >
-              Log in with Buffer
-            </a>
+            <AuthLink className="rounded-xl bg-accent px-7 py-3.5 text-lg font-bold text-ink-deep shadow-sm transition hover:brightness-95 focus-visible:outline-offset-4" loggedOut="Log in with Buffer" loggedIn="Continue to the app" />
             <span className="text-sm">Free to try. Includes a demo, no Beehiiv needed.</span>
           </div>
           <p className="flex items-center gap-2 text-sm font-medium">
@@ -176,9 +168,7 @@ export default function Home() {
         <span>
           {BRAND_NAME}, built for Buffer Commit 2026.
         </span>
-        <a href={LOGIN} className="font-semibold underline underline-offset-4">
-          Log in with Buffer
-        </a>
+        <AuthLink className="font-semibold underline underline-offset-4" loggedOut="Log in with Buffer" loggedIn="Continue to the app" />
       </footer>
     </main>
   );

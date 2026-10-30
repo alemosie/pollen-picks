@@ -6,7 +6,9 @@ import { BufferSession, SESSION_COOKIE, cookieOpts, seal, unseal } from "@/lib/s
 // token set can be written back to the cookie in the same response.
 export async function GET(req: NextRequest) {
   const session = unseal<BufferSession>(req.cookies.get(SESSION_COOKIE)?.value);
-  const back = new URL("/spike", req.url);
+  const want = req.nextUrl.searchParams.get("next") ?? "/source";
+  // Only same-site relative paths (no open redirect).
+  const back = new URL(want.startsWith("/") && !want.startsWith("//") ? want : "/source", req.url);
   if (!session?.refreshToken) return NextResponse.redirect(new URL("/api/auth/buffer/login", req.url));
   try {
     const next = await refresh(session.refreshToken);

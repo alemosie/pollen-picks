@@ -3,7 +3,8 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
-import { getSession } from "@/lib/auth";
+import { StepAside } from "@/components/StepTree";
+import { requireSession } from "@/lib/auth";
 import { loadDemoIssue } from "@/lib/demo";
 import { planSlides } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
@@ -20,8 +21,8 @@ export default function Create(props: PageProps<"/create">) {
 
 async function CreateContent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection();
-  if (!(await getSession())) redirect("/");
   const { mode, picks } = await searchParams;
+  await requireSession(`/create?mode=${encodeURIComponent(String(mode ?? ""))}&picks=${encodeURIComponent(String(picks ?? ""))}`);
   const ids = String(picks ?? "").split(",").map(Number).filter(Number.isFinite);
   if (mode !== "demo" || ids.length === 0) redirect("/pick?mode=demo");
 
@@ -32,15 +33,18 @@ async function CreateContent({ searchParams }: { searchParams: Promise<Record<st
   return (
     <main className="mx-auto max-w-6xl px-4 pb-16 pt-6 sm:px-6">
       <header className="mb-8 flex items-center justify-between">
-        <Logo height={48} href="/start" />
+        <Logo height={48} href="/source" />
         <Link href="/pick?mode=demo" className="text-sm font-semibold underline underline-offset-4">
           Back to picks
         </Link>
       </header>
+      <StepAside current={4} hrefs={{ 1: "/", 2: "/source", 3: "/pick?mode=demo" }} />
+      <div className="mb-8">
       <h1 className="mb-2 text-3xl sm:text-4xl">Your carousel</h1>
-      <p className="mb-8">
+      <p className="mb-0">
         {slides.length} slides from {ids.length} {ids.length === 1 ? "pick" : "picks"}. Template editing and captions come next.
       </p>
+      </div>
       <ol className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         {slides.map((s, i) => (
           <li key={i} className="flex flex-col gap-2">
