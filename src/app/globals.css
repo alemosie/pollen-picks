@@ -51,3 +51,15 @@
     outline-offset: 2px;
   }
 }
+
+/* Tailwind v4 resets buttons to the default cursor; anything clickable should show the pointer. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"]:not(:disabled),
+  select:not(:disabled),
+  summary,
+  label:has(input:not(:disabled)) {
+    cursor: pointer;
+  }
+}

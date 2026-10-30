@@ -9,13 +9,13 @@ import type { ClickRow } from "./pollen/types";
 export const DEMO_TODAY = "2026-10-21";
 
 export type PickChunk = Chunk & { rank: number | null; score: number | null };
-export type IssueData = { title: string; publishedAt: string; chunks: PickChunk[]; hasClicks: boolean };
+export type IssueData = { title: string; publishedAt: string; url: string; chunks: PickChunk[]; hasClicks: boolean };
 
 export function loadDemoIssue(): IssueData {
   const dir = join(process.cwd(), "fixtures");
   const html = readFileSync(join(dir, "issue-49.html"), "utf8");
   const { post, clicks } = JSON.parse(readFileSync(join(dir, "issue-49.clicks.json"), "utf8")) as {
-    post: { title: string; publishedAt: string };
+    post: { title: string; publishedAt: string; url: string };
     clicks: ClickRow[];
   };
   const reference = post.publishedAt.slice(0, 10);
@@ -25,5 +25,5 @@ export function loadDemoIssue(): IssueData {
     const r = c.key ? byKey.get(c.key) : undefined;
     return { ...c, rank: r?.rank ?? null, score: r?.stats?.score ?? null };
   });
-  return { title: post.title, publishedAt: post.publishedAt, chunks, hasClicks: true };
+  return { title: post.title, publishedAt: post.publishedAt, url: post.url, chunks, hasClicks: true };
 }

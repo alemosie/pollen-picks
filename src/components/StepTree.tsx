@@ -45,13 +45,14 @@ export function StepTree({ current, hrefs = {} }: { current: 1 | 2 | 3 | 4 | 5; 
                 r={r}
                                 className={state === "done" ? "fill-honey" : state === "current" ? "fill-coral" : "fill-[#dcd3c6]"}
               />
-              <rect
-                x={cx - STEPS[i].length * 8}
-                y={(up ? cy - r - 22 : cy + r + 30) + 7}
-                width={STEPS[i].length * 16}
-                height="4"
-                rx="2"
-                className="pointer-events-none fill-coral opacity-0 transition-opacity group-hover:opacity-100"
+              <line
+                x1={cx - STEPS[i].length * 8}
+                x2={cx + STEPS[i].length * 8}
+                y1={(up ? cy - r - 22 : cy + r + 30) + 9}
+                y2={(up ? cy - r - 22 : cy + r + 30) + 9}
+                strokeWidth="3"
+                vectorEffect="non-scaling-stroke"
+                className="pointer-events-none stroke-coral opacity-0 transition-opacity group-hover:opacity-100"
               />
               <text
                 x={cx}

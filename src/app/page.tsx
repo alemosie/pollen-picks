@@ -150,15 +150,15 @@ export default function Home() {
         </div>
         <div>
           <p className="mb-2 text-sm font-bold uppercase tracking-wide">The person behind it</p>
-          <h2 className="mb-4 text-3xl sm:text-4xl">Built by a fellow newsletter creator who wants to spend more time writing, less time posting</h2>
+          <h2 className="mb-4 text-3xl sm:text-4xl">Built by a fellow newsletter creator desperate to spend more time writing, less time posting</h2>
           <p className="text-lg leading-relaxed">
             Hi, I&rsquo;m Alex 👋 I&rsquo;m a toddler mom in Amsterdam, a tech industry veteran, and the founder of{" "}
             <a href="https://amsterdamparentproject.nl" className="font-semibold underline underline-offset-4">
               Amsterdam Parent Project
             </a>
-            , a nonprofit for new parents. For two years I&rsquo;ve published a local, new parent activities digest every other Monday, and every issue used to
+            , a nonprofit building community infrastructure for new parents. For two years I&rsquo;ve published a local, new parent activities digest, and every issue used to
             cost me 6 hours in my newsletter editor and 2 more hours to cross-post that content to Instagram. I built Pollen Picks so that the best newsletter
-            content cross-pollinates to socials, without more work.{" "}
+            content cross-pollinates to socials, without more work from me.{" "}
             <strong>No AI — just delivering more value to more places using the words I&rsquo;ve already written.</strong>
           </p>
         </div>
