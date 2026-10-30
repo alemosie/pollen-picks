@@ -63,3 +63,91 @@
     cursor: pointer;
   }
 }
+
+/* ---- Splash: the pollen path ---- */
+@keyframes pp-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(var(--dx, 14px), var(--dy, -22px), 0); }
+}
+@keyframes pp-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes pp-sway {
+  0%, 100% { transform: rotate(-2.5deg); }
+  50% { transform: rotate(2.5deg); }
+}
+@keyframes pp-blow {
+  0%, 12% { opacity: 1; transform: translate(0, 0) scale(1); }
+  70% { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(var(--bx, 140px), var(--by, -120px)) scale(0.5); }
+}
+@keyframes pp-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(7px); }
+}
+@keyframes pp-pop {
+  0% { transform: scale(0.4); }
+  60% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.pp-pollen { animation: pp-drift var(--dur, 9s) ease-in-out var(--delay, 0s) infinite; }
+.pp-scribble { stroke-dasharray: 1; stroke-dashoffset: 1; animation: pp-draw 0.9s ease-out 0.5s forwards; }
+.pp-sway { transform-origin: 50% 100%; animation: pp-sway 7s ease-in-out infinite; }
+.pp-seed { animation: pp-blow 7s ease-in var(--delay, 0s) infinite; }
+.pp-bob { animation: pp-bob 1.8s ease-in-out infinite; }
+
+/* Reveal on scroll. Server markup is visible; JS only hides what is below the fold. */
+.pp-reveal { transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: var(--d, 0s); }
+.pp-reveal[data-state="hidden"] { opacity: 0; transform: translateY(22px); }
+.pp-bar { width: var(--w); transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--d, 0s) + 0.2s); }
+[data-state="hidden"] .pp-bar { width: 0; }
+.pp-slide { transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0s), opacity 0.6s ease var(--d, 0s); }
+[data-state="hidden"] .pp-slide { opacity: 0; transform: translateX(60px) rotate(8deg); }
+.pp-twig { scale: 0 1; transition: scale 0.5s ease-out 0.15s; }
+[data-reached="true"] .pp-twig { scale: 1 1; }
+.pp-node { background: #dcd3c6; transition: background-color 0.3s ease; }
+[data-reached="true"] .pp-node { background: var(--color-honey); }
+.pp-wiggle { animation: pp-wiggle 0.7s ease-out; }
+@keyframes pp-wiggle {
+  0% { transform: scale(1) translateX(0); }
+  15% { transform: scale(1.5) translateX(-3px); }
+  30% { transform: scale(1.35) translateX(3px); }
+  45% { transform: scale(1.25) translateX(-2px); }
+  60% { transform: scale(1.15) translateX(2px); }
+  80% { transform: scale(1.05) translateX(-1px); }
+  100% { transform: scale(1) translateX(0); }
+}
+.pp-mark { background: linear-gradient(transparent 58%, color-mix(in srgb, var(--color-honey) 75%, transparent) 58% 92%, transparent 92%); padding: 0 0.15em; margin: 0 -0.15em; }
+.pp-tile { transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.pp-tile:hover { transform: rotate(0deg) scale(1.06) !important; z-index: 5; }
+.pp-bloom-dot { transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0s); }
+[data-state="hidden"] .pp-bloom-dot { transform: scale(0) !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pp-pollen, .pp-sway, .pp-seed, .pp-bob { animation: none; }
+  .pp-scribble { animation: none; stroke-dashoffset: 0; }
+  .pp-reveal, .pp-bar, .pp-slide, .pp-twig, .pp-bloom-dot { transition: none; }
+}
+
+/* Hero dandelion head: dots shrink away when scattered, then grow back one by one. */
+.pp-head-dot { transform-box: fill-box; transform-origin: center; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0s), opacity 0.4s ease var(--d, 0s); }
+.pp-head-line { transition: opacity 0.5s ease var(--d, 0s); }
+[data-scattered="true"] .pp-head-dot { transform: scale(0); opacity: 0; transition-delay: 0s; }
+[data-scattered="true"] .pp-head-line { opacity: 0; transition-delay: 0s; }
+
+/* A slow, gentle sway for the hero dandelion head. */
+@keyframes pp-head-sway {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+.pp-head-sway { transform-origin: 50% 50%; animation: pp-head-sway 5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-head-sway { animation: none; }
+}
+
+/* Coral squiggle emphasis: wipes in left to right once its section is revealed. */
+.pp-squig { clip-path: inset(-12px 0 -12px 0); transition: clip-path 0.8s ease-out 0.45s; }
+[data-state="hidden"] .pp-squig { clip-path: inset(-12px 100% -12px 0); }
+@media (prefers-reduced-motion: reduce) { .pp-squig { transition: none; } }
