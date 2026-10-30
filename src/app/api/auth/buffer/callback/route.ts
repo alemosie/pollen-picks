@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const session = await exchangeCode(code, pkce.verifier);
-    const res = NextResponse.redirect(new URL("/spike", req.url));
+    const res = NextResponse.redirect(new URL("/start", req.url));
     res.cookies.set(SESSION_COOKIE, seal(session), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
     res.cookies.delete(PKCE_COOKIE);
     return res;

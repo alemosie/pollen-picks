@@ -1,49 +1,53 @@
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@import "tailwindcss";
+
+/*
+ * Pollen Picks default brand (also the default slide kit, see src/lib/brand.ts: keep the two in sync).
+ * Palette: https://coolors.co/palette/f6bd60-f7ede2-f5cac3-84a59d-f28482 plus one dark ink for all text.
+ * Contrast of ink on each colour: cream 10.3, blush 8.0, honey 7.0, coral 4.8, sage 4.5.
+ * Never put white, sage or coral text on these backgrounds (all under 3:1).
+ */
+@theme {
+  --color-cream: #f7ede2;
+  --color-honey: #f6bd60;
+  --color-blush: #f5cac3;
+  --color-sage: #84a59d;
+  --color-coral: #f28482;
+  --color-ink: #2b3a36;
+  --color-ink-deep: #1f2a27;
+
+  /* Roles: use these in the UI so a kit/theme swap is a one-line change. */
+  --color-page: var(--color-cream);
+  --color-surface: #fffaf3;
+  --color-text: var(--color-ink);
+  --color-accent: var(--color-honey);
+  --color-card: var(--color-blush);
+  --color-chip: var(--color-sage);
+  --color-alert: var(--color-coral);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme inline {
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-madimi), ui-rounded, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-html {
-  height: 100%;
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  min-height: 100%;
-  display: flex;
-  flex-direction: column;
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   html {
-    color-scheme: dark;
+    color-scheme: light;
+  }
+  body {
+    background: var(--color-page);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
   }
 }
