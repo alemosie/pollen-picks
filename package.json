@@ -1,0 +1,27 @@
+{
+  "name": "beehiiv-to-buffer",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3003 --experimental-https",
+    "build": "next build",
+    "start": "next start -p 3003",
+    "lint": "eslint",
+    "pipeline:fixture": "tsx scripts/rank-fixture.ts"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "node-html-parser": "^7.0.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}
