@@ -69,3 +69,16 @@ export async function gql<T = unknown>(accessToken: string, query: string): Prom
   const json = await res.json().catch(() => ({}));
   return { ...json, status: res.status };
 }
+
+export type BufferChannel = { id: string; name: string; service: string };
+
+/** All channels across the account's organizations. */
+export async function listChannels(accessToken: string): Promise<BufferChannel[]> {
+  const acct = await gql<{ account: { organizations: { id: string }[] } }>(accessToken, `{ account { organizations { id } } }`);
+  const out: BufferChannel[] = [];
+  for (const o of acct.data?.account.organizations ?? []) {
+    const r = await gql<{ channels: BufferChannel[] }>(accessToken, `{ channels(input: { organizationId: ${JSON.stringify(o.id)} }) { id name service } }`);
+    out.push(...(r.data?.channels ?? []));
+  }
+  return out;
+}

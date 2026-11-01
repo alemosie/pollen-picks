@@ -8,6 +8,9 @@ import { requireSession } from "@/lib/auth";
 import { loadDemoIssue } from "@/lib/demo";
 import { planSlides } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
+import { listChannels } from "@/lib/buffer";
+import { buildCaption } from "@/lib/caption";
+import { DraftPanel } from "./DraftPanel";
 
 export const metadata = { title: "Create · Pollen Picks" };
 
@@ -22,12 +25,14 @@ export default function Create(props: PageProps<"/create">) {
 async function CreateContent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await connection();
   const { mode, picks } = await searchParams;
-  await requireSession(`/create?mode=${encodeURIComponent(String(mode ?? ""))}&picks=${encodeURIComponent(String(picks ?? ""))}`);
   const ids = String(picks ?? "").split(",").map(Number).filter(Number.isFinite);
   if (mode !== "demo" || ids.length === 0) redirect("/pick?mode=demo");
 
   const issue = loadDemoIssue();
-  const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: "Just a Phase" });
+  const items = slideItemsFor(issue.chunks, ids);
+  const slides = planSlides(items, { newsletter: "Just a Phase" });
+  const session = await requireSession(`/create?mode=${encodeURIComponent(String(mode ?? ""))}&picks=${encodeURIComponent(String(picks ?? ""))}`);
+  const channels = await listChannels(session.accessToken);
   const q = encodeURIComponent(ids.join(","));
 
   return (
@@ -42,7 +47,7 @@ async function CreateContent({ searchParams }: { searchParams: Promise<Record<st
       <div className="mb-10">
       <h1 className="mb-3 text-4xl sm:text-5xl">Your carousel</h1>
       <p className="mb-0 max-w-2xl text-lg">
-        {slides.length} slides from {ids.length} {ids.length === 1 ? "pick" : "picks"}. Template editing and captions come next.
+        {slides.length} slides from {ids.length} {ids.length === 1 ? "pick" : "picks"}. Review the caption, then send it to Buffer as a draft.
       </p>
       </div>
       <ol className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -63,6 +68,7 @@ async function CreateContent({ searchParams }: { searchParams: Promise<Record<st
           </li>
         ))}
       </ol>
+      <DraftPanel channels={channels} picks={ids} initialCaption={buildCaption(items, { newsletter: "Just a Phase" })} />
     </main>
   );
 }
