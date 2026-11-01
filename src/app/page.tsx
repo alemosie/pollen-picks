@@ -58,7 +58,7 @@ export default function Home() {
             .
           </h1>
           <p className="mx-auto max-w-2xl text-xl leading-relaxed">
-            You already wrote the newsletter issue. Now Instagram wants all of it again. Pollen Picks turns what your readers loved into carousels and captions,
+            You already wrote the newsletter issue. Now Instagram wants all of it again. Use Pollen Picks to turn what your readers loved into carousels and captions,
             waiting as drafts in Buffer for you to cross-pollinate to all of your social channels.
           </p>
           <div className="flex flex-col items-center gap-3">
