@@ -13,11 +13,15 @@ function loadFonts() {
     readFile(join(dir, "DMSans-500.woff")),
     readFile(join(dir, "DMSans-700.woff")),
     readFile(join(dir, "MadimiOne-400.woff")),
-  ]).then(([a, b, c, d]) => [
+    readFile(join(dir, "Quicksand-500.woff")),
+    readFile(join(dir, "Quicksand-700.woff")),
+  ]).then(([a, b, c, d, e, f]) => [
     { name: "DM Sans", data: a, weight: 400 as const, style: "normal" as const },
     { name: "DM Sans", data: b, weight: 500 as const, style: "normal" as const },
     { name: "DM Sans", data: c, weight: 700 as const, style: "normal" as const },
     { name: "Madimi One", data: d, weight: 400 as const, style: "normal" as const },
+    { name: "Quicksand", data: e, weight: 500 as const, style: "normal" as const },
+    { name: "Quicksand", data: f, weight: 700 as const, style: "normal" as const },
   ]);
   return fonts;
 }
