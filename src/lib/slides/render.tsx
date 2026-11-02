@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { SlideView } from "./Slide";
+import { stripEmoji } from "./plan";
 import { SLIDE_H, SLIDE_W, type Kit, type Slide } from "./types";
 
 const dir = join(process.cwd(), "src", "assets", "fonts");
@@ -26,8 +27,23 @@ function loadFonts() {
   return fonts;
 }
 
-export async function renderSlide(slide: Slide, kit: Kit): Promise<ImageResponse> {
-  const res = new ImageResponse(<SlideView slide={slide} kit={kit} />, { width: SLIDE_W, height: SLIDE_H, fonts: await loadFonts() });
+const stripDeep = <T,>(v: T): T =>
+  typeof v === "string" ? (stripEmoji(v) as T) : Array.isArray(v) ? (v.map(stripDeep) as T) : v && typeof v === "object" ? (Object.fromEntries(Object.entries(v).map(([k, x]) => [k, stripDeep(x)])) as T) : v;
+
+/** Render to PNG bytes. Emoji are drawn from Twemoji images fetched at render time; if that fails, retry without emoji so the slide still exists. */
+async function draw(slide: Slide, kit: Kit, withEmoji: boolean) {
+  const res = new ImageResponse(<SlideView slide={slide} kit={kit} />, { width: SLIDE_W, height: SLIDE_H, fonts: await loadFonts(), ...(withEmoji ? { emoji: "twemoji" as const } : {}) });
+  return res.arrayBuffer();
+}
+
+export async function renderSlide(slide: Slide, kit: Kit): Promise<Response> {
+  let png: ArrayBuffer;
+  try {
+    png = await draw(slide, kit, true);
+  } catch {
+    png = await draw(stripDeep(slide), kit, false);
+  }
+  const res = new Response(png, { headers: { "Content-Type": "image/png" } });
   // Next's default is max-age=0, so every request re-rendered. The same slide is fetched once per channel (and by every viewer),
   // so let browsers keep it briefly and Netlify's CDN for a day. A new deploy clears the CDN cache, so template changes still show up.
   if (process.env.NODE_ENV === "production") {

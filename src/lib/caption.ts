@@ -20,12 +20,14 @@ export function dayLabel(iso: string): string {
 }
 
 const MAX_LINES = 10;
-const cleanText = (s: string) => stripEmoji(s);
+/** Emoji stay in captions (every network renders them); only whitespace is tidied. */
+const cleanText = (s: string) => s.replace(/\s+/g, " ").trim();
 /** "Thu 22 Oct @ 09:30-10:30 (Weekly)" -> without the recurrence note, which the caption doesn't need. */
 const cleanWhen = (s: string) => cleanText(s).replace(/\s*\((weekly|every[^)]*)\)/i, "").trim();
 
 const byRank = (a: CaptionItem, b: CaptionItem) => (a.rank ?? Infinity) - (b.rank ?? Infinity);
-const byTitle = (a: CaptionItem, b: CaptionItem) => cleanText(a.title).localeCompare(cleanText(b.title), "en", { sensitivity: "base" });
+// Sort on the words, so a leading emoji doesn't push a pick to the top of A–Z.
+const byTitle = (a: CaptionItem, b: CaptionItem) => stripEmoji(a.title).localeCompare(stripEmoji(b.title), "en", { sensitivity: "base" });
 const byDate = (a: CaptionItem, b: CaptionItem) =>
   (a.date ?? "9999").localeCompare(b.date ?? "9999") || (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || byTitle(a, b);
 

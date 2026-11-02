@@ -1,6 +1,6 @@
 import { MAX_IMAGES, type Slide, type SlideItem } from "./types";
 
-// Emoji need a network fetch inside Satori, and read as noise on slides.
+// Emoji are kept by default. Satori fetches their images at render time, so the renderer falls back to stripEmoji if that fails.
 export const stripEmoji = (s: string) =>
   s
     .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, "")
@@ -49,6 +49,60 @@ export function packGroups(items: SlideItem[], k: number): SlideItem[][] {
   return slides;
 }
 
+// Rough layout model, mirroring Slide.tsx: 1080x1350, 72px page padding, 64px header + footer, 28px gaps. A slide's card size depends on how many picks share it.
+const CONTENT_W = 1080 - 2 * 72;
+const BODY_H = 1350 - 2 * 72 - 64 - 64 - 2 * 28;
+const CARD_GAP = 28;
+const Z = {
+  2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, gap: 18 },
+  3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 0, blurbLines: 0, gap: 12 },
+} as const;
+/** A description this many lines over its clamp counts as "too long" and earns a slide of its own. */
+const BLURB_EXTRA_LINES = 2;
+const lines = (text: string, px: number, em: number, width: number) => Math.max(1, Math.ceil((text.length * px * em) / width));
+
+/** Would this pick sit comfortably on a slide shared by `n` picks? (n = 1 always fits: it has the whole slide.) */
+export function fits(item: SlideItem, n: number): boolean {
+  if (n <= 1) return true;
+  const z = Z[Math.min(n, 3) as 2 | 3];
+  const width = CONTENT_W - 2 * z.pad;
+  const titleLines = lines(item.title, z.title, 0.6, width);
+  if (titleLines > (n === 2 ? 2 : z.titleLines)) return false; // title would be cut or crowd the card
+  if (z.blurbLines > 0 && item.blurb && lines(item.blurb, z.blurb, 0.52, width) > z.blurbLines + BLURB_EXTRA_LINES) return false;
+  let h = 2 * z.pad + titleLines * z.title * 1.08;
+  if (item.when) h += z.gap + Math.min(2, lines(item.when, z.meta, 0.55, width)) * z.meta * 1.25;
+  if (item.place) h += 4 + (z.meta - 4) * 1.25;
+  if (z.blurbLines > 0 && item.blurb) h += z.gap + Math.min(z.blurbLines, lines(item.blurb, z.blurb, 0.52, width)) * z.blurb * 1.35;
+  return h <= (BODY_H - (n - 1) * CARD_GAP) / n;
+}
+
+/**
+ * Automatic packing: pack as usual, then any pick that doesn't fit the slide it landed on (title or description too long
+ * for a shared card) is pulled out onto a slide of its own. What's left of that slide is re-checked at its new size.
+ */
+function packAuto(items: SlideItem[]): SlideItem[][] {
+  const split = (group: SlideItem[]): SlideItem[][] => {
+    if (group.length < 2) return [group];
+    const bad = group.filter((it) => !fits(it, group.length));
+    if (bad.length === 0) return [group];
+    const out: SlideItem[][] = [];
+    let rest: SlideItem[] = [];
+    const flush = () => {
+      if (rest.length) out.push(...split(rest));
+      rest = [];
+    };
+    for (const it of group) {
+      if (bad.includes(it)) {
+        flush();
+        out.push([it]);
+      } else rest.push(it);
+    }
+    flush();
+    return out;
+  };
+  return packGroups(items, picksPerSlide(items.length)).flatMap(split);
+}
+
 export type PlanOptions = {
   newsletter: string;
   /** Cover headline. */
@@ -65,16 +119,19 @@ export type PlanOptions = {
 
 /** cover + pick slides + closing, never more than MAX_IMAGES. */
 export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
+  const tidy = (s: string) => s.replace(/\s+/g, " ").trim();
   const items = raw.map((i) => ({
     ...i,
-    title: stripEmoji(i.title),
-    group: i.group ? stripEmoji(i.group) : undefined,
-    when: i.when ? stripEmoji(i.when) : null,
-    place: i.place ? stripEmoji(i.place) : null,
-    blurb: i.blurb ? stripEmoji(i.blurb) : undefined,
+    title: tidy(i.title),
+    group: i.group ? tidy(i.group) : undefined,
+    when: i.when ? tidy(i.when) : null,
+    place: i.place ? tidy(i.place) : null,
+    blurb: i.blurb ? tidy(i.blurb) : undefined,
   }));
   let k: number = opts.perSlide ?? picksPerSlide(items.length);
-  let groups = packGroups(items, k);
+  // Automatic mode lets long picks take their own slide; if that would need too many slides, fall back to plain packing.
+  let groups = opts.perSlide ? packGroups(items, k) : packAuto(items);
+  if (groups.length > MAX_IMAGES - 2) groups = packGroups(items, k);
   while (groups.length > MAX_IMAGES - 2 && k < 3) {
     k++;
     groups = packGroups(items, k);

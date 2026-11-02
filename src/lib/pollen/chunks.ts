@@ -40,14 +40,18 @@ export function parseChunks(html: string): Chunk[] {
     const a = el.querySelector("a");
     const url = a?.getAttribute("href") ?? null;
     const anchorText = a ? clean(a.text) : "";
-    const title = (anchorText.length >= 4 ? anchorText : text).replace(/\s*[\u{1F300}-\u{1FAFF}]\s*$/u, "").slice(0, 90);
-    const body = anchorText && text.startsWith(anchorText) ? clean(text.slice(anchorText.length)) : anchorText ? text : "";
+    // The title is the link text; a bullet without a link ("**Local Trick or Treating**") uses its bold text, else its first paragraph.
+    const boldText = kind === "bullet" ? clean(el.querySelector("strong")?.text ?? "") : "";
+    const firstPara = kind === "bullet" ? clean(el.querySelector("p")?.text ?? "") : "";
+    const lead = [anchorText, boldText, firstPara].find((t) => t.length >= 4 && t.length < text.length) ?? "";
+    const title = (lead || text).replace(/\s*[\u{1F300}-\u{1FAFF}]\s*$/u, "").slice(0, 90);
+    const body = lead && text.startsWith(lead) ? clean(text.slice(lead.length)) : lead ? text : "";
     const em = kind === "bullet" ? el.querySelector("em") : null;
     const dateLine = em ? clean(em.text) : null;
     const parts = dateLine ? dateLine.split(/\s+[—–-]\s+/) : [];
     const when = dateLine ? (parts.length > 1 ? parts.slice(0, -1).join(" — ") : dateLine) : null;
     const place = parts.length > 1 ? parts[parts.length - 1] : null;
-    let rest = anchorText && text.startsWith(anchorText) ? text.slice(anchorText.length) : text;
+    let rest = lead && text.startsWith(lead) ? text.slice(lead.length) : text;
     if (dateLine) rest = rest.replace(dateLine, "");
     out.push({ id: out.length, section, group: grp, kind, title, body, text, when, place, blurb: clean(rest), url, key: url ? normalizeUrl(url) : null });
   };

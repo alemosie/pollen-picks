@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPicked, savePicked } from "@/lib/progress";
 import Link from "next/link";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
@@ -202,10 +202,10 @@ export function Picker({ mode, chunks, hasClicks, initialView }: { mode: string;
                       {(c.when || c.place) && (
                         <span className="mt-0.5 block text-sm font-semibold text-ink/80">{[c.when, c.place].filter(Boolean).join(" · ")}</span>
                       )}
-                      {c.blurb && <span className="mt-1 block text-sm leading-relaxed">{c.blurb}</span>}
+                      {c.blurb && <Description text={c.blurb} className="mt-1" />}
                     </>
                   ) : (
-                    c.body && <span className="mt-0.5 block text-sm leading-relaxed">{clamp(c.body, 140)}</span>
+                    c.body && <Description text={c.body} className="mt-0.5" />
                   )}
                   {c.score != null && (
                     <span className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink/70">
@@ -252,3 +252,43 @@ export function Picker({ mode, chunks, hasClicks, initialView }: { mode: string;
 }
 
 const clamp = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
+
+/** A description limited to two lines, with Expand / Collapse when it runs longer. The toggle never changes the pick. */
+function Description({ text, className = "" }: { text: string; className?: string }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  const [long, setLong] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Only measure while clamped; once expanded the text always fits.
+    const measure = () => {
+      if (!open) setLong(el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [text, open]);
+  return (
+    <span className={`block ${className}`}>
+      <span ref={ref} className={`block text-sm leading-relaxed ${open ? "" : "line-clamp-2"}`}>
+        {text}
+      </span>
+      {(long || open) && (
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen((v) => !v);
+          }}
+          className="mt-0.5 text-xs font-bold underline underline-offset-4"
+        >
+          {open ? "Collapse" : "Expand"}
+        </button>
+      )}
+    </span>
+  );
+}

@@ -6,7 +6,8 @@ import { SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types"
 // Satori (next/og) renders this: flexbox only, inline styles, no Tailwind.
 const DISPLAY_FONT = "Madimi One";
 const BODY_FONT = "DM Sans";
-const clamp = (n: number) => ({ lineClamp: n }) as CSSProperties;
+// Satori only honours lineClamp on display:block elements, so the clamp sets it (spread after the element's own display).
+const clamp = (n: number) => ({ lineClamp: n, display: "block" }) as CSSProperties;
 const P = 72;
 
 function Brand({ kit, size, logo, fontSize, stacked, color }: { kit: Kit; size: number; logo?: string; fontSize: number; stacked?: boolean; color?: string }) {
@@ -70,9 +71,9 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
               <path d="M3 14h48M38 3l13 11-13 11" stroke={c.text} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
           </div>
-          {slide.images?.length ? <CoverImages images={slide.images} /> : <Dots c={c} />}
+          {slide.images?.length ? <CoverImages images={slide.images} /> : <Credit kit={kit} />}
         </div>
-        <Credit kit={kit} />
+        {slide.images?.length ? <Credit kit={kit} /> : null}
         </div>
       </div>
     );
@@ -98,9 +99,9 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
           <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: dark ? c.accent : c.text, color: dark ? c.background : c.card, borderRadius: 999, padding: "16px 36px" }}>
             {slide.cta ?? "Subscribe · link in bio"}
           </div>
-          {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : <div style={{ display: "flex", width: 56, height: 56, borderRadius: 999, background: c.highlight }} />}
+          {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : <Credit kit={kit} />}
         </div>
-        <Credit kit={kit} />
+        {slide.images?.length ? <Credit kit={kit} /> : null}
         </div>
       </div>
     );
@@ -128,9 +129,7 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
           {slide.items.length === 1 && slide.items[0].image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={slide.items[0].image} width={104} height={104} alt="" style={{ borderRadius: 22, objectFit: "cover" }} />
-          ) : (
-            <div style={{ display: "flex", width: 36, height: 36, borderRadius: 999, background: c.highlight }} />
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -173,16 +172,6 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text }: { item: Sli
         </div>
       )}
       {z.blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(z.blurbLines) }}>{item.blurb}</div>}
-    </div>
-  );
-}
-
-function Dots({ c }: { c: Kit["colors"] }) {
-  return (
-    <div style={{ display: "flex", gap: 14 }}>
-      {[c.card, c.background, c.chip, c.highlight].map((col, i) => (
-        <div key={i} style={{ display: "flex", width: 52, height: 52, borderRadius: 999, background: col }} />
-      ))}
     </div>
   );
 }
