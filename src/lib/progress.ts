@@ -7,7 +7,13 @@ const TEMPLATE = "pollen-picks:template";
 
 import type { CustomSpec } from "@/lib/slides/options";
 
-export const STEP_NAMES = ["Source", "Pick", "Create", "Format", "Send"] as const;
+export const STEP_NAMES = [
+  "Source",
+  "Pick",
+  "Design",
+  "Prepare",
+  "Send",
+] as const;
 
 export type Progress = { href: string; step: number; savedAt: number };
 
@@ -26,12 +32,19 @@ function write(key: string, value: unknown) {
 }
 
 export const loadProgress = () => read<Progress>(KEY);
-export const saveProgress = (href: string, step: number) => write(KEY, { href, step, savedAt: Date.now() } satisfies Progress);
+export const saveProgress = (href: string, step: number) =>
+  write(KEY, { href, step, savedAt: Date.now() } satisfies Progress);
 
 export const loadPicked = () => read<number[]>(PICKED);
 export const savePicked = (ids: number[]) => write(PICKED, ids);
 
-export type FormatState = { sig: string; selected: string[]; order: string; edited: Record<string, string>; tab: string };
+export type FormatState = {
+  sig: string;
+  selected: string[];
+  order: string;
+  edited: Record<string, string>;
+  tab: string;
+};
 export const loadFormat = () => read<FormatState>(FORMAT);
 export const saveFormat = (s: FormatState) => write(FORMAT, s);
 

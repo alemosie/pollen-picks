@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 
 /** A very slight wave: ~3px either way, one swing every ~140px. Drawn in real pixels, from y=18 (the first dot) down to h. */
 function wavePath(h: number) {
@@ -11,10 +17,18 @@ function wavePath(h: number) {
   return d;
 }
 
-const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const reduced = () =>
+  typeof window !== "undefined" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** The branch: a rail down the left edge that grows as you scroll. Stops hang off it on twigs. */
-export function PathRail({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function PathRail({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   const wrap = useRef<HTMLDivElement>(null);
   const grown = useRef<SVGPathElement>(null);
   const base = useRef<SVGPathElement>(null);
@@ -40,7 +54,9 @@ export function PathRail({ children, className = "" }: { children: ReactNode; cl
         lastH = h;
         // Drawn in real pixels (no stretching), so the line stays thin and even and a dash can grow it with a round tip.
         const d = wavePath(h);
-        svgs.current.forEach((svg) => svg?.setAttribute("viewBox", `0 0 24 ${h}`));
+        svgs.current.forEach((svg) =>
+          svg?.setAttribute("viewBox", `0 0 24 ${h}`),
+        );
         svgs.current.forEach((svg) => svg && (svg.style.height = `${h}px`));
         g.setAttribute("d", d);
         b.setAttribute("d", d);
@@ -56,7 +72,8 @@ export function PathRail({ children, className = "" }: { children: ReactNode; cl
             else hi = mid;
           }
           const node = st.querySelector<HTMLElement>(".pp-node");
-          if (node) node.style.marginLeft = `${b.getPointAtLength(hi).x - 12}px`;
+          if (node)
+            node.style.marginLeft = `${b.getPointAtLength(hi).x - 12}px`;
         });
       }
       const r = el.getBoundingClientRect();
@@ -114,9 +131,26 @@ export function PathRail({ children, className = "" }: { children: ReactNode; cl
           style={{ height: "100%" }}
         >
           {i === 0 ? (
-            <path ref={base} d={D} fill="none" strokeWidth="2.5" strokeLinecap="round" className="stroke-[#dcd3c6]" />
+            <path
+              ref={base}
+              d={D}
+              fill="none"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              className="stroke-[#dcd3c6]"
+            />
           ) : (
-            <path ref={grown} d={D} fill="none" strokeWidth="2.5" strokeLinecap="round" pathLength={1} strokeDasharray="1 2" strokeDashoffset={1} className="stroke-ink" />
+            <path
+              ref={grown}
+              d={D}
+              fill="none"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              pathLength={1}
+              strokeDasharray="1 2"
+              strokeDashoffset={1}
+              className="stroke-ink"
+            />
           )}
         </svg>
       ))}
@@ -167,19 +201,35 @@ export function Reveal({
 
   const Comp = Tag as "div";
   return (
-    <Comp ref={ref} data-state={state} className={`pp-reveal ${className}`} style={{ "--d": `${delay}s` } as CSSProperties}>
+    <Comp
+      ref={ref}
+      data-state={state}
+      className={`pp-reveal ${className}`}
+      style={{ "--d": `${delay}s` } as CSSProperties}
+    >
       {children}
     </Comp>
   );
 }
 
 /** One stop on the branch: a dot on the rail, a twig leaning right, and the content. The dot turns coral once you reach it. */
-export function Stop({ label, children, className = "" }: { label: string; children: ReactNode; className?: string }) {
+export function Stop({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <section data-stop data-reached="false" className={`relative pb-24 pl-10 pr-0 md:pl-12 md:pr-6 ${className}`}>
-      <span aria-hidden className="pp-node absolute left-[10px] top-2 z-10 size-5 -translate-x-1/2 rounded-full" />
-      {/* The label is kept for screen readers; visually the headline leads. */}
-      <p className="sr-only">{label}</p>
+    <section
+      data-stop
+      data-reached="false"
+      className={`relative pb-24 pl-10 pr-0 md:pl-12 md:pr-6 ${className}`}
+    >
+      <span
+        aria-hidden
+        className="pp-node absolute left-[10px] top-2 z-10 size-5 -translate-x-1/2 rounded-full"
+      />
       <div className="sm:-mt-3">{children}</div>
     </section>
   );
@@ -231,7 +281,10 @@ export function PollenCursor() {
     "size-2 bg-coral/60",
   ];
   return (
-    <div aria-hidden className="pointer-events-none fixed left-0 top-0 z-50 hidden [@media(pointer:fine)]:block">
+    <div
+      aria-hidden
+      className="pointer-events-none fixed left-0 top-0 z-50 hidden [@media(pointer:fine)]:block"
+    >
       {styles.map((s, i) => (
         <span
           key={i}

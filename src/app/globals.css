@@ -69,9 +69,9 @@
   0%, 100% { transform: translate3d(0, 0, 0); }
   50% { transform: translate3d(var(--dx, 14px), var(--dy, -22px), 0); }
 }
-@keyframes pp-draw {
-  from { stroke-dashoffset: 1; }
-  to { stroke-dashoffset: 0; }
+@keyframes pp-wipe {
+  from { clip-path: inset(-12px 100% -12px 0); }
+  to { clip-path: inset(-12px 0 -12px 0); }
 }
 @keyframes pp-sway {
   0%, 100% { transform: rotate(-2.5deg); }
@@ -93,7 +93,7 @@
 }
 
 .pp-pollen { animation: pp-drift var(--dur, 9s) ease-in-out var(--delay, 0s) infinite; }
-.pp-scribble { stroke-dasharray: 1; stroke-dashoffset: 1; animation: pp-draw 0.9s ease-out 0.5s forwards; }
+.pp-wipe { animation: pp-wipe 0.9s ease-out 0.5s both; }
 .pp-sway { transform-origin: 50% 100%; animation: pp-sway 7s ease-in-out infinite; }
 .pp-seed { animation: pp-blow 7s ease-in var(--delay, 0s) infinite; }
 .pp-bob { animation: pp-bob 1.8s ease-in-out infinite; }
@@ -101,10 +101,8 @@
 /* Reveal on scroll. Server markup is visible; JS only hides what is below the fold. */
 .pp-reveal { transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); transition-delay: var(--d, 0s); }
 .pp-reveal[data-state="hidden"] { opacity: 0; transform: translateY(22px); }
-.pp-bar { width: var(--w); transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--d, 0s) + 0.2s); }
+.pp-bar { width: var(--w); transition: width 1s cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--d, 0s) + 0.2s), background-color 0.3s ease; }
 [data-state="hidden"] .pp-bar { width: 0; }
-.pp-slide { transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0s), opacity 0.6s ease var(--d, 0s); }
-[data-state="hidden"] .pp-slide { opacity: 0; transform: translateX(60px) rotate(8deg); }
 .pp-twig { scale: 0 1; transition: scale 0.5s ease-out 0.15s; }
 [data-reached="true"] .pp-twig { scale: 1 1; }
 .pp-node { background: #dcd3c6; transition: background-color 0.3s ease; }
@@ -120,15 +118,13 @@
   100% { transform: scale(1) translateX(0); }
 }
 .pp-mark { background: linear-gradient(transparent 58%, color-mix(in srgb, var(--color-honey) 75%, transparent) 58% 92%, transparent 92%); padding: 0 0.15em; margin: 0 -0.15em; }
-.pp-tile { transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
-.pp-tile:hover { transform: rotate(0deg) scale(1.06) !important; z-index: 5; }
 .pp-bloom-dot { transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0s); }
 [data-state="hidden"] .pp-bloom-dot { transform: scale(0) !important; }
 
 @media (prefers-reduced-motion: reduce) {
   .pp-pollen, .pp-sway, .pp-seed, .pp-bob { animation: none; }
-  .pp-scribble { animation: none; stroke-dashoffset: 0; }
-  .pp-reveal, .pp-bar, .pp-slide, .pp-twig, .pp-bloom-dot { transition: none; }
+  .pp-wipe { animation: none; }
+  .pp-reveal, .pp-bar, .pp-twig, .pp-bloom-dot { transition: none; }
 }
 
 /* Hero dandelion head: dots shrink away when scattered, then grow back one by one. */
@@ -147,7 +143,31 @@
   .pp-head-sway { animation: none; }
 }
 
-/* Coral squiggle emphasis: wipes in left to right once its section is revealed. */
-.pp-squig { clip-path: inset(-12px 0 -12px 0); transition: clip-path 0.8s ease-out 0.45s; }
-[data-state="hidden"] .pp-squig { clip-path: inset(-12px 100% -12px 0); }
+/* Coral squiggle emphasis: a background underline, so it follows the text onto each wrapped line. Grows in left to right once its section is revealed. */
+.pp-squig {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 24' preserveAspectRatio='none'%3E%3Cpath d='M3 14 C 40 3 70 22 110 12 S 180 4 217 13' fill='none' stroke='%23f28482' stroke-width='6' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E") left bottom / 100% 0.3em no-repeat;
+  padding-bottom: 0.22em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  transition: background-size 0.8s ease-out 0.45s;
+}
+[data-state="hidden"] .pp-squig { background-size: 0% 0.3em; }
 @media (prefers-reduced-motion: reduce) { .pp-squig { transition: none; } }
+
+/* Step loader (FlowLoader): ribbons slide one full wave per loop; the whole stage fades in after a short beat. */
+@keyframes pp-flow { from { transform: translateX(0); } to { transform: translateX(var(--pp-shift)); } }
+@keyframes pp-flow-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pp-grain { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+.pp-grain { animation: pp-grain 1.8s ease-in-out infinite; }
+.pp-flow-stage { animation: pp-flow-in 0.5s ease-out 0.8s both; }
+@media (prefers-reduced-motion: reduce) {
+  .pp-flow-stage svg g, .pp-grain { animation: none !important; }
+}
+
+@keyframes pp-pop { from { opacity: 0; transform: translateY(10px) rotate(1deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(1deg) scale(1); } }
+.pp-pop { animation: pp-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) { .pp-pop { animation: none; } }
+
+@keyframes pp-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.pp-rise { animation: pp-rise 0.4s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .pp-rise { animation: none; } }

@@ -240,8 +240,8 @@ export function SlideBuilder({
   );
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
-      <div className="grid gap-3">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+      <div className="grid min-w-0 grid-cols-1 gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="m-0 text-2xl">Slides</h2>
           <div className="flex gap-4 text-sm font-semibold">
@@ -391,7 +391,7 @@ export function SlideBuilder({
                     </button>
                   </>
                 ) : (
-                  <ul className="m-0 grid list-none gap-1.5 p-0">
+                  <ul className="m-0 grid grid-cols-1 list-none gap-1.5 p-0">
                     {ids.map((id, pi) => (
                       <li
                         key={id}
@@ -489,14 +489,14 @@ export function SlideBuilder({
         )}
       </div>
 
-      <aside className="flex min-h-0 flex-col rounded-2xl bg-card pt-5 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]">
+      <aside className="hidden min-h-0 flex-col lg:flex rounded-2xl bg-card pt-5 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]">
         <h2 className="mb-1 px-5 text-2xl">
           Your picks ({picks.split(",").filter(Boolean).length})
         </h2>
         <p className="mb-3 mt-0 px-5 text-sm">
           Drag a pick onto a slide, or tap + to add it to the highlighted slide.
         </p>
-        <ul className="m-0 grid min-h-0 list-none content-start gap-1.5 overflow-y-auto p-0 pb-5 pl-5 pr-3 pt-1 [scrollbar-color:rgba(43,58,54,0.3)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-ink/30 [&::-webkit-scrollbar-track]:bg-transparent">
+        <ul className="m-0 grid min-h-0 grid-cols-1 list-none content-start gap-1.5 overflow-y-auto p-0 pb-5 pl-5 pr-3 pt-1 [scrollbar-color:rgba(43,58,54,0.3)_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-ink/30 [&::-webkit-scrollbar-track]:bg-transparent">
           {items.map((it, i) => {
             const at = placedAt.get(it.id!);
             const heading =
@@ -562,7 +562,13 @@ export function SlideBuilder({
                       setDragId(it.id!);
                     }}
                     onDragEnd={() => setDragId(null)}
-                    className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold ${at != null ? "bg-surface/50 text-ink/70 ring-1 ring-ink/10" : "bg-surface ring-1 ring-ink/10"} ${dragId === it.id ? "opacity-40" : ""}`}
+                    onClick={at == null ? () => quickAdd(it.id!) : undefined}
+                    title={
+                      at == null
+                        ? "Click to add to the selected slide, or drag"
+                        : undefined
+                    }
+                    className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold ${at != null ? "cursor-grab bg-surface/50 text-ink/70 ring-1 ring-ink/10" : "cursor-pointer bg-surface ring-1 ring-ink/10 hover:ring-ink/40"} ${dragId === it.id ? "opacity-40" : ""}`}
                   >
                     <GripVertical
                       aria-hidden
@@ -594,7 +600,6 @@ export function SlideBuilder({
                     ) : (
                       <button
                         type="button"
-                        onClick={() => quickAdd(it.id!)}
                         aria-label={`Add ${edited(it.id!)} to a slide`}
                         className="grid size-6 shrink-0 place-items-center rounded-full bg-ink/10 hover:bg-ink/20"
                       >

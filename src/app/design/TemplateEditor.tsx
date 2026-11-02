@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Link2 } from "lucide-react";
+import { SavedFlash } from "@/components/SavedFlash";
+import { StepWord } from "@/components/StepWord";
+import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import {
@@ -68,24 +70,30 @@ export function TemplateEditor({
   const applied: TemplateOptions = custom ? { spec: clean } : {};
   const extra = templateParams(applied).toString();
   const q = picks.join(",");
-  const next = `/format?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
+  const next = `/prepare?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
 
-  const [copied, setCopied] = useState(false);
-  async function copyLink() {
-    const url = `${window.location.origin}/create?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      window.prompt("Copy this link", url);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2200);
-  }
+  const shareUrl = () =>
+    `${window.location.origin}/design?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
 
   const standard = planSlides(items, { newsletter: "Just a Phase" });
 
   return (
     <>
+      <div className="mb-6">
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
+          <h1 className="mb-3 text-4xl sm:text-5xl">
+            <StepWord>Design</StepWord> your carousel
+          </h1>
+          <div className="flex shrink-0 items-center gap-3 sm:mt-2">
+            <SavedFlash />
+            <ShareLinkButton getUrl={shareUrl} />
+          </div>
+        </div>
+        <p className="mb-0 max-w-2xl text-lg">
+          Use the standard layout, or build your own slides.
+        </p>
+      </div>
+
       <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2">
         <div role="radiogroup" aria-label="Template" className="flex gap-2">
           {[
@@ -112,21 +120,6 @@ export function TemplateEditor({
             ? "Drag picks into your own slides, and click any slide to edit its text."
             : "Pollen Picks' default layout and wording."}
         </p>
-        <button
-          type="button"
-          onClick={copyLink}
-          title="Anyone with this link can open this carousel and post it from their own Buffer account"
-          className="inline-flex items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
-        >
-          {copied ? (
-            <Check aria-hidden className="size-4" strokeWidth={3} />
-          ) : (
-            <Link2 aria-hidden className="size-4" />
-          )}
-          <span role="status">
-            {copied ? "Link copied" : "Copy share link"}
-          </span>
-        </button>
       </div>
 
       {custom ? (
