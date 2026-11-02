@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refresh } from "@/lib/buffer";
+import { refresh, siteUrl } from "@/lib/buffer";
 import { BufferSession, SESSION_COOKIE, cookieOpts, seal, unseal } from "@/lib/session";
 
 // Refresh tokens are single-use, so this runs in a route handler where the new
@@ -8,15 +8,15 @@ export async function GET(req: NextRequest) {
   const session = unseal<BufferSession>(req.cookies.get(SESSION_COOKIE)?.value);
   const want = req.nextUrl.searchParams.get("next") ?? "/source";
   // Only same-site relative paths (no open redirect).
-  const back = new URL(want.startsWith("/") && !want.startsWith("//") ? want : "/source", req.url);
-  if (!session?.refreshToken) return NextResponse.redirect(new URL("/api/auth/buffer/login", req.url));
+  const back = siteUrl(want.startsWith("/") && !want.startsWith("//") ? want : "/source");
+  if (!session?.refreshToken) return NextResponse.redirect(siteUrl("/api/auth/buffer/login"));
   try {
     const next = await refresh(session.refreshToken);
     const res = NextResponse.redirect(back);
     res.cookies.set(SESSION_COOKIE, seal(next), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
     return res;
   } catch {
-    const res = NextResponse.redirect(new URL("/api/auth/buffer/login", req.url));
+    const res = NextResponse.redirect(siteUrl("/api/auth/buffer/login"));
     res.cookies.delete(SESSION_COOKIE);
     return res;
   }

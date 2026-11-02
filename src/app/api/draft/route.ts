@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { gql } from "@/lib/buffer";
+import { gql, siteOrigin } from "@/lib/buffer";
 import { requireSession } from "@/lib/guard";
 import { loadDemoIssue } from "@/lib/demo";
 import { planSlides } from "@/lib/slides/plan";
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!body.channelId) return NextResponse.json({ error: "Choose a channel." }, { status: 400 });
   if (picks.length === 0) return NextResponse.json({ error: "No picks." }, { status: 400 });
 
-  const base = (process.env.PUBLIC_BASE_URL ?? req.nextUrl.origin).replace(/\/$/, "");
+  const base = (process.env.PUBLIC_BASE_URL ?? siteOrigin()).replace(/\/$/, "");
   if (/localhost|127\.0\.0\.1/.test(base)) {
     return NextResponse.json({ error: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` }, { status: 400 });
   }

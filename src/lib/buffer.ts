@@ -11,6 +11,13 @@ export function env() {
   return { clientId, clientSecret: process.env.BUFFER_CLIENT_SECRET, redirectUri };
 }
 
+/**
+ * Canonical site origin (from the registered redirect URI). Redirects must use this, not req.url:
+ * on Netlify req.url can be the per-deploy host (<id>--site.netlify.app), where the session cookie does not exist.
+ */
+export const siteOrigin = () => new URL(env().redirectUri).origin;
+export const siteUrl = (path: string) => new URL(path, siteOrigin());
+
 export function authorizeUrl(state: string, codeChallenge: string): string {
   const { clientId, redirectUri } = env();
   const p = new URLSearchParams({

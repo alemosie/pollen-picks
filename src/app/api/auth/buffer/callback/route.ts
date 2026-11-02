@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exchangeCode } from "@/lib/buffer";
+import { exchangeCode, siteUrl } from "@/lib/buffer";
 import { PKCE_COOKIE, SESSION_COOKIE, cookieOpts, seal, unseal } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const session = await exchangeCode(code, pkce.verifier);
-    const res = NextResponse.redirect(new URL("/source", req.url));
+    const res = NextResponse.redirect(siteUrl("/source"));
     res.cookies.set(SESSION_COOKIE, seal(session), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
     res.cookies.delete(PKCE_COOKIE);
     return res;
