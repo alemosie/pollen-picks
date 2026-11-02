@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const error = url.searchParams.get("error");
   if (error) return NextResponse.json({ error, description: url.searchParams.get("error_description") }, { status: 400 });
 
-  const pkce = unseal<{ verifier: string; state: string }>(req.cookies.get(PKCE_COOKIE)?.value);
+  const pkce = unseal<{ verifier: string; state: string; next?: string }>(req.cookies.get(PKCE_COOKIE)?.value);
   const code = url.searchParams.get("code");
   if (!pkce || !code || url.searchParams.get("state") !== pkce.state) {
     return NextResponse.json({ error: "Invalid OAuth state" }, { status: 400 });
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const session = await exchangeCode(code, pkce.verifier);
-    const res = NextResponse.redirect(siteUrl("/source"));
+    const res = NextResponse.redirect(siteUrl(pkce.next && pkce.next.startsWith("/") && !pkce.next.startsWith("//") ? pkce.next : "/source"));
     res.cookies.set(SESSION_COOKIE, seal(session), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
     res.cookies.delete(PKCE_COOKIE);
     return res;

@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { Check, Link2 } from "lucide-react";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
-import { saveTemplate, templateSnapshot, type TemplateState } from "@/lib/progress";
-import { templateParams, type CustomSpec, type TemplateOptions } from "@/lib/slides/options";
+import {
+  saveTemplate,
+  templateSnapshot,
+  type TemplateState,
+} from "@/lib/progress";
+import {
+  templateParams,
+  type CustomSpec,
+  type TemplateOptions,
+} from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import type { SlideItem } from "@/lib/slides/types";
 import { SlideBuilder } from "./SlideBuilder";
@@ -12,7 +21,15 @@ import { SlideBuilder } from "./SlideBuilder";
 /** URLs longer than this risk being refused by servers or proxies. */
 const SPEC_WARN = 6000;
 
-export function TemplateEditor({ items, picks, initial }: { items: SlideItem[]; picks: number[]; initial: TemplateOptions }) {
+export function TemplateEditor({
+  items,
+  picks,
+  initial,
+}: {
+  items: SlideItem[];
+  picks: number[];
+  initial: TemplateOptions;
+}) {
   // The URL only carries a layout once you've moved on; otherwise pick up where you left off (mode and slides) from this browser.
   const stored = useSyncExternalStore(
     () => () => {},
@@ -27,7 +44,9 @@ export function TemplateEditor({ items, picks, initial }: { items: SlideItem[]; 
       return null;
     }
   }, [stored]);
-  const base: TemplateState = initial.spec ? { custom: true, spec: initial.spec } : (saved ?? { custom: false, spec: { slides: [[]] } });
+  const base: TemplateState = initial.spec
+    ? { custom: true, spec: initial.spec }
+    : (saved ?? { custom: false, spec: { slides: [[]] } });
   const [mine, setMine] = useState<TemplateState | null>(null);
   const { custom, spec } = mine ?? base;
   const update = (t: TemplateState) => {
@@ -39,7 +58,10 @@ export function TemplateEditor({ items, picks, initial }: { items: SlideItem[]; 
 
   const poolIds = new Set(picks);
   // Only picks still selected on /pick can be on a slide.
-  const clean: CustomSpec = { ...spec, slides: spec.slides.map((g) => g.filter((id) => poolIds.has(id))) };
+  const clean: CustomSpec = {
+    ...spec,
+    slides: spec.slides.map((g) => g.filter((id) => poolIds.has(id))),
+  };
   const placed = clean.slides.flat().length;
   const slideCount = clean.slides.filter((g) => g.length).length;
 
@@ -47,6 +69,18 @@ export function TemplateEditor({ items, picks, initial }: { items: SlideItem[]; 
   const extra = templateParams(applied).toString();
   const q = picks.join(",");
   const next = `/format?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
+
+  const [copied, setCopied] = useState(false);
+  async function copyLink() {
+    const url = `${window.location.origin}/create?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("Copy this link", url);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  }
 
   const standard = planSlides(items, { newsletter: "Just a Phase" });
 
@@ -58,13 +92,41 @@ export function TemplateEditor({ items, picks, initial }: { items: SlideItem[]; 
             { id: false, title: "Standard" },
             { id: true, title: "Customize" },
           ].map((m) => (
-            <label key={String(m.id)} className="cursor-pointer rounded-xl bg-surface px-5 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 has-[:checked]:bg-ink has-[:checked]:text-cream has-[:checked]:ring-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
-              <input type="radio" name="template" checked={custom === m.id} onChange={() => setCustom(m.id)} className="sr-only" />
+            <label
+              key={String(m.id)}
+              className="cursor-pointer rounded-xl bg-surface px-5 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 has-[:checked]:bg-ink has-[:checked]:text-cream has-[:checked]:ring-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink"
+            >
+              <input
+                type="radio"
+                name="template"
+                checked={custom === m.id}
+                onChange={() => setCustom(m.id)}
+                className="sr-only"
+              />
               {m.title}
             </label>
           ))}
         </div>
-        <p className="m-0 text-sm">{custom ? "Drag picks into your own slides, and click any slide to edit its text." : "Pollen Picks' default layout and wording."}</p>
+        <p className="m-0 flex-1 text-sm">
+          {custom
+            ? "Drag picks into your own slides, and click any slide to edit its text."
+            : "Pollen Picks' default layout and wording."}
+        </p>
+        <button
+          type="button"
+          onClick={copyLink}
+          title="Anyone with this link can open this carousel and post it from their own Buffer account"
+          className="inline-flex items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
+        >
+          {copied ? (
+            <Check aria-hidden className="size-4" strokeWidth={3} />
+          ) : (
+            <Link2 aria-hidden className="size-4" />
+          )}
+          <span role="status">
+            {copied ? "Link copied" : "Copy share link"}
+          </span>
+        </button>
       </div>
 
       {custom ? (
@@ -83,7 +145,12 @@ export function TemplateEditor({ items, picks, initial }: { items: SlideItem[]; 
                 className="aspect-[4/5] w-full rounded-2xl bg-surface ring-1 ring-ink/10"
               />
               <span className="text-xs font-semibold">
-                {i + 1}. {s.kind === "cover" ? "Cover" : s.kind === "closing" ? "Closing" : `${s.items.length} ${s.items.length === 1 ? "pick" : "picks"}`}
+                {i + 1}.{" "}
+                {s.kind === "cover"
+                  ? "Cover"
+                  : s.kind === "closing"
+                    ? "Closing"
+                    : `${s.items.length} ${s.items.length === 1 ? "pick" : "picks"}`}
               </span>
             </li>
           ))}

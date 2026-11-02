@@ -13,7 +13,8 @@ export async function requireSession(next: string): Promise<BufferSession> {
   const s = await read();
   if (s && !isExpired(s)) return s;
   if (s?.refreshToken) redirect(`/api/auth/buffer/refresh?next=${encodeURIComponent(next)}`);
-  redirect("/");
+  // Not logged in: go straight to the Buffer login and come back to this page afterwards (a shared link keeps working).
+  redirect(`/api/auth/buffer/login?next=${encodeURIComponent(next)}`);
 }
 
 /** True when the visitor can get back in without logging in again (valid token, or a refresh token). */

@@ -9,14 +9,15 @@ export async function GET(req: NextRequest) {
   const want = req.nextUrl.searchParams.get("next") ?? "/source";
   // Only same-site relative paths (no open redirect).
   const back = siteUrl(want.startsWith("/") && !want.startsWith("//") ? want : "/source");
-  if (!session?.refreshToken) return NextResponse.redirect(siteUrl("/api/auth/buffer/login"));
+  const login = siteUrl(`/api/auth/buffer/login?next=${encodeURIComponent(want)}`);
+  if (!session?.refreshToken) return NextResponse.redirect(login);
   try {
     const next = await refresh(session.refreshToken);
     const res = NextResponse.redirect(back);
     res.cookies.set(SESSION_COOKIE, seal(next), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
     return res;
   } catch {
-    const res = NextResponse.redirect(siteUrl("/api/auth/buffer/login"));
+    const res = NextResponse.redirect(login);
     res.cookies.delete(SESSION_COOKIE);
     return res;
   }

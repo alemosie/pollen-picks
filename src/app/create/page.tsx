@@ -25,7 +25,11 @@ async function CreateContent({ searchParams }: { searchParams: Promise<Record<st
   await connection();
   const sp = await searchParams;
   const { mode, picks } = sp;
-  await requireSession(`/create?mode=${encodeURIComponent(String(mode ?? ""))}&picks=${encodeURIComponent(String(picks ?? ""))}`);
+  // Keep every param (the custom layout lives in `spec`), so a shared link survives the Buffer login round trip.
+  const back = new URLSearchParams();
+  for (const [k, v] of Object.entries(sp)) if (typeof v === "string") back.set(k, v);
+  else if (Array.isArray(v) && v[0]) back.set(k, v[0]);
+  await requireSession(`/create?${back.toString()}`);
   const ids = String(picks ?? "").split(",").map(Number).filter(Number.isFinite);
   if (mode !== "demo" || ids.length === 0) redirect("/pick?mode=demo");
 
