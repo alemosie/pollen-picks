@@ -49,6 +49,9 @@ export async function renderSlide(slide: Slide, kit: Kit): Promise<Response> {
   if (process.env.NODE_ENV === "production") {
     res.headers.set("Cache-Control", "public, max-age=300");
     res.headers.set("Netlify-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=86400");
+    // Netlify's CDN ignores the query string in its cache key unless told otherwise. Every slide is the same path with different
+    // ?picks=&n=&spec= params, so without this the first slide rendered gets served for all of them (duplicate slides).
+    res.headers.set("Netlify-Vary", "query");
   }
   return res;
 }
