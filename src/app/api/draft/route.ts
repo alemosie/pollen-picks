@@ -4,18 +4,23 @@ import { requireSession } from "@/lib/guard";
 import { loadDemoIssue } from "@/lib/demo";
 import { planSlides } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
+import { parseTemplateFrom, templateParams } from "@/lib/slides/options";
+import { imageLimit, unsupportedReason } from "@/lib/channels";
+
+export type DraftResult = { channelId: string; ok: boolean; postId?: string; error?: string; slides?: number; note?: string };
 
 /**
- * Demo mode: create a Buffer draft (never published) from picked demo chunks.
+ * Demo mode: create one Buffer draft (never published) per selected channel from picked demo chunks.
  * Buffer fetches the slide images itself, so the URLs must be publicly reachable (not localhost).
  */
 export async function POST(req: NextRequest) {
   const g = await requireSession(req);
   if ("response" in g) return g.response;
 
-  const body = (await req.json().catch(() => ({}))) as { channelId?: string; service?: string; picks?: number[]; caption?: string };
+  const body = (await req.json().catch(() => ({}))) as { channels?: { id: string; service: string }[]; picks?: number[]; caption?: string; captions?: Record<string, string>; template?: string };
   const picks = (body.picks ?? []).filter(Number.isFinite);
-  if (!body.channelId) return NextResponse.json({ error: "Choose a channel." }, { status: 400 });
+  const channels = (body.channels ?? []).filter((c) => c?.id);
+  if (channels.length === 0) return NextResponse.json({ error: "Choose at least one channel." }, { status: 400 });
   if (picks.length === 0) return NextResponse.json({ error: "No picks." }, { status: 400 });
 
   const base = (process.env.PUBLIC_BASE_URL ?? siteOrigin()).replace(/\/$/, "");
@@ -24,31 +29,51 @@ export async function POST(req: NextRequest) {
   }
 
   const issue = loadDemoIssue();
-  const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: "Just a Phase" });
-  const q = picks.join(",");
-  const images = slides.map((_, i) => `${base}/api/slide/preview?picks=${q}&n=${i}`);
-  const assets = images.map((u) => `{ image: { url: ${JSON.stringify(u)} } }`).join(", ");
-  const text = JSON.stringify(body.caption ?? "");
-  const metadata = body.service === "instagram" ? "metadata: { instagram: { type: post, shouldShareToFeed: true } }" : "";
+  const tpl = parseTemplateFrom(new URLSearchParams(body.template ?? ""));
+  const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: "Just a Phase", ...tpl });
+  const extra = templateParams(tpl).toString();
+  const all = slides.map((_, i) => `${base}/api/slide/preview?picks=${picks.join(",")}&n=${i}${extra ? `&${extra}` : ""}`);
 
-  const query = `mutation {
-    createPost(input: {
-      text: ${text}
-      channelId: ${JSON.stringify(body.channelId)}
-      schedulingType: automatic
-      mode: addToQueue
-      saveToDraft: true
-      ${metadata}
-      assets: [${assets}]
-    }) {
-      ... on PostActionSuccess { post { id } }
-      ... on MutationError { message }
+  // Sequential: a handful of channels, and it keeps us well inside Buffer's rate limits.
+  const results: DraftResult[] = [];
+  for (const c of channels) {
+    const blocked = unsupportedReason(c.service);
+    if (blocked) {
+      results.push({ channelId: c.id, ok: false, error: blocked });
+      continue;
     }
-  }`;
-  const r = await gql<{ createPost: { post?: { id: string }; message?: string } }>(g.session.accessToken, query);
-  const cp = r.data?.createPost;
-  if (r.errors?.length || !cp?.post) {
-    return NextResponse.json({ error: cp?.message ?? r.errors?.[0]?.message ?? `Buffer returned ${r.status}`, images }, { status: 502 });
+    const limit = imageLimit(c.service);
+    const images = all.slice(0, limit);
+    const note = images.length < all.length ? `Only the first ${images.length} of ${all.length} slides fit on ${c.service}.` : undefined;
+    const text = JSON.stringify(body.captions?.[c.id] ?? body.caption ?? "");
+    const assets = images.map((u) => `{ image: { url: ${JSON.stringify(u)} } }`).join(", ");
+    const metadata = c.service.toLowerCase() === "instagram" ? "metadata: { instagram: { type: post, shouldShareToFeed: true } }" : "";
+    const query = `mutation {
+      createPost(input: {
+        text: ${text}
+        channelId: ${JSON.stringify(c.id)}
+        schedulingType: automatic
+        mode: addToQueue
+        saveToDraft: true
+        ${metadata}
+        assets: [${assets}]
+      }) {
+        ... on PostActionSuccess { post { id } }
+        ... on MutationError { message }
+      }
+    }`;
+    try {
+      const r = await gql<{ createPost: { post?: { id: string }; message?: string } }>(g.session.accessToken, query);
+      const cp = r.data?.createPost;
+      if (r.errors?.length || !cp?.post) {
+        results.push({ channelId: c.id, ok: false, error: cp?.message ?? r.errors?.[0]?.message ?? `Buffer returned ${r.status}` });
+      } else {
+        results.push({ channelId: c.id, ok: true, postId: cp.post.id, slides: images.length, note });
+      }
+    } catch (e) {
+      results.push({ channelId: c.id, ok: false, error: e instanceof Error ? e.message : String(e) });
+    }
   }
-  return NextResponse.json({ ok: true, postId: cp.post.id, slides: images.length });
+  const okCount = results.filter((r) => r.ok).length;
+  return NextResponse.json({ ok: okCount > 0, results }, { status: okCount > 0 ? 200 : 502 });
 }

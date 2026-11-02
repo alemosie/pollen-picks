@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { loadPicked, savePicked } from "@/lib/progress";
 import Link from "next/link";
+import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { LayoutList, ListChecks, MousePointerClick, X, type LucideIcon } from "lucide-react";
 import type { View } from "./picking";
 
@@ -49,6 +51,20 @@ export function Picker({ mode, chunks, hasClicks, initialView }: { mode: string;
     return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? sections[0];
   });
   const [picked, setPicked] = useState<number[]>(() => (view === "top-clicks" ? topIdsOf(chunks, DEFAULT_TOP) : []));
+  // Remember the selection so leaving and coming back doesn't lose it. Restore after mount (keeps SSR markup identical).
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const valid = new Set(chunks.map((c) => c.id));
+      const saved = (loadPicked() ?? []).filter((id) => valid.has(id));
+      if (saved.length > 0) setPicked(saved);
+      setRestored(true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [chunks]);
+  useEffect(() => {
+    if (restored) savePicked(picked);
+  }, [picked, restored]);
 
   const visible = useMemo(() => {
     if (view === "top-clicks") return chunks.filter((c) => c.rank).sort((a, b) => a.rank! - b.rank!);
@@ -207,28 +223,30 @@ export function Picker({ mode, chunks, hasClicks, initialView }: { mode: string;
 
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 border-t border-ink/10 bg-cream/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
-          <p className="flex-1 text-sm font-semibold" aria-live="polite">
+      <FlowBar
+        back={{ href: "/source", label: "Source" }}
+        status={
+          <>
             {picked.length === 0 ? "Select 1 to 20 items" : `${picked.length} of ${MAX} selected`}
             {full && <span className="ml-2 font-normal">Maximum reached</span>}
-          </p>
-          {picked.length > 0 && (
-            <button onClick={() => setPicked([])} className="text-sm font-semibold underline underline-offset-4">
-              Clear
-            </button>
-          )}
-          {picked.length === 0 ? (
-            <span aria-disabled className="rounded-xl bg-ink/15 px-5 py-3 font-bold text-ink/50">
-              Create posts
-            </span>
-          ) : (
-            <Link href={`/create?mode=${mode}&picks=${picked.join(",")}`} className="rounded-xl bg-ink px-5 py-3 font-bold text-cream hover:bg-ink-deep">
-              Create {picked.length} {picked.length === 1 ? "pick" : "picks"}
-            </Link>
-          )}
-        </div>
-      </div>
+          </>
+        }
+      >
+        {picked.length > 0 && (
+          <button onClick={() => setPicked([])} className="text-sm font-semibold underline underline-offset-4">
+            Clear
+          </button>
+        )}
+        {picked.length === 0 ? (
+          <span aria-disabled className={primaryDisabled}>
+            Continue
+          </span>
+        ) : (
+          <Link href={`/create?mode=${mode}&picks=${picked.join(",")}`} className={primaryButton}>
+            Continue
+          </Link>
+        )}
+      </FlowBar>
     </>
   );
 }

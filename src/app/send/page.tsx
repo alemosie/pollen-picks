@@ -1,0 +1,59 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
+import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/StepTree";
+import { SaveStep } from "@/components/SaveStep";
+import { requireSession } from "@/lib/auth";
+import { listChannels } from "@/lib/buffer";
+import { loadDemoIssue } from "@/lib/demo";
+import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
+import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { planSlides } from "@/lib/slides/plan";
+import { SendConfirm } from "./SendConfirm";
+
+export const metadata = { title: "Send · Pollen Picks" };
+
+export default function Send(props: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return (
+    <Suspense fallback={null}>
+      <SendContent searchParams={props.searchParams} />
+    </Suspense>
+  );
+}
+
+async function SendContent({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await connection();
+  const sp = await searchParams;
+  const tpl = parseTemplateFromPage(sp);
+  const extra = templateParams(tpl).toString();
+  const ids = String(sp.picks ?? "").split(",").map(Number).filter(Number.isFinite);
+  const tail = `${ids.join(",")}${extra ? `&${extra}` : ""}`;
+  const session = await requireSession(`/send?mode=${encodeURIComponent(String(sp.mode ?? ""))}&picks=${tail}`);
+  if (sp.mode !== "demo" || ids.length === 0) redirect("/pick?mode=demo");
+
+  const issue = loadDemoIssue();
+  const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: "Just a Phase", ...tpl });
+  const channels = await listChannels(session.accessToken);
+  const q = ids.join(",");
+
+  return (
+    <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
+      <SaveStep step={5} />
+      <PageHeader
+        current={5}
+        hrefs={{ 1: "/source", 2: "/pick?mode=demo", 3: `/create?mode=demo&picks=${tail}`, 4: `/format?mode=demo&picks=${tail}` }}
+      />
+      <SendConfirm
+        urls={slides.map((_, i) => `/api/slide/preview?picks=${q}&n=${i}${extra ? `&${extra}` : ""}`)}
+        channels={channels}
+        picks={ids}
+        template={extra}
+        link={issue.url}
+        captionItems={captionItemsFor(issue.chunks, ids, issue.publishedAt.slice(0, 10))}
+        newsletter="Just a Phase"
+        heading={tpl.heading}
+        backHref={`/format?mode=demo&picks=${tail}`}
+      />
+    </main>
+  );
+}

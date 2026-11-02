@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { FlowBar, primaryButton } from "@/components/FlowBar";
+import { ResumeBanner } from "@/components/ResumeBanner";
 import { useState } from "react";
 
 type Mode = { id: "demo" | "public" | "own"; title: string; tag: string; body: string; tone: string; href?: string; cta: string };
@@ -62,18 +64,18 @@ export function ModePicker() {
 
       {/* Setup fields for the chosen source will go here. */}
 
-      <div className="mt-8 flex justify-end">
+      <FlowBar status={<ResumeBanner inline />}>
         {selected.href ? (
-          <Link href={selected.href} className="inline-flex items-center gap-2 rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep">
+          <Link href={selected.href} className={`inline-flex items-center gap-2 ${primaryButton}`}>
             {selected.cta}
             <Arrow />
           </Link>
         ) : (
-          <span aria-disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border-2 border-dashed border-ink/30 px-6 py-3 font-semibold text-ink/60">
+          <span aria-disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border-2 border-dashed border-cream/40 px-6 py-3 font-semibold text-cream/60">
             {selected.cta}
           </span>
         )}
-      </div>
+      </FlowBar>
     </div>
   );
 }

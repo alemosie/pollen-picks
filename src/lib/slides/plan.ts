@@ -53,6 +53,12 @@ export type PlanOptions = {
   newsletter: string;
   /** Cover headline. */
   heading?: string;
+  /** Picks per slide; omitted = automatic. */
+  perSlide?: 1 | 2 | 3;
+  closingTitle?: string;
+  closingLine?: string;
+  /** Closing slide button text. */
+  cta?: string;
   /** Items in the source section that were not picked, shown as "+N more" on the closing slide. */
   moreInNewsletter?: number;
 };
@@ -67,7 +73,7 @@ export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
     place: i.place ? stripEmoji(i.place) : null,
     blurb: i.blurb ? stripEmoji(i.blurb) : undefined,
   }));
-  let k: number = picksPerSlide(items.length);
+  let k: number = opts.perSlide ?? picksPerSlide(items.length);
   let groups = packGroups(items, k);
   while (groups.length > MAX_IMAGES - 2 && k < 3) {
     k++;
@@ -84,7 +90,7 @@ export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
       page: i + 1,
       pages: groups.length,
     })),
-    { kind: "closing", title: "Want the full list?", line: `Read every pick in ${opts.newsletter}`, more: (opts.moreInNewsletter ?? 0) + (items.length - shown) },
+    { kind: "closing", title: opts.closingTitle ?? "Want the full list?", line: opts.closingLine ?? `Read every pick in ${opts.newsletter}`, cta: opts.cta, more: (opts.moreInNewsletter ?? 0) + (items.length - shown) },
   ];
   return slides;
 }

@@ -2,6 +2,7 @@ import { AuthLink } from "@/components/AuthLink";
 import { BeehiivMark } from "@/components/BeehiivLogo";
 import { BufferLogo } from "@/components/BufferLogo";
 import { Logo } from "@/components/Logo";
+import { ResumeBanner } from "@/components/ResumeBanner";
 import { PollenBurst } from "@/components/path/PollenBurst";
 import { PathRail, PollenCursor, Reveal, Stop } from "@/components/path/PollenPath";
 import { BRAND_NAME } from "@/lib/brand";
@@ -33,6 +34,8 @@ export default function Home() {
         <Logo height={56} />
         <AuthLink className="rounded-xl px-4 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral" loggedOut="Log in" loggedIn="Open app" />
       </header>
+
+      <div className="mx-auto max-w-5xl px-6"><ResumeBanner /></div>
 
       {/* Hero */}
       <section className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-6 pb-14 pt-0 text-center md:pt-4">

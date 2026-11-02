@@ -27,5 +27,12 @@ function loadFonts() {
 }
 
 export async function renderSlide(slide: Slide, kit: Kit): Promise<ImageResponse> {
-  return new ImageResponse(<SlideView slide={slide} kit={kit} />, { width: SLIDE_W, height: SLIDE_H, fonts: await loadFonts() });
+  const res = new ImageResponse(<SlideView slide={slide} kit={kit} />, { width: SLIDE_W, height: SLIDE_H, fonts: await loadFonts() });
+  // Next's default is max-age=0, so every request re-rendered. The same slide is fetched once per channel (and by every viewer),
+  // so let browsers keep it briefly and Netlify's CDN for a day. A new deploy clears the CDN cache, so template changes still show up.
+  if (process.env.NODE_ENV === "production") {
+    res.headers.set("Cache-Control", "public, max-age=300");
+    res.headers.set("Netlify-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=86400");
+  }
+  return res;
 }

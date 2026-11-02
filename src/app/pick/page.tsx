@@ -1,8 +1,9 @@
 import { Suspense } from "react";
+import { StepWord } from "@/components/StepWord";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
-import { Logo } from "@/components/Logo";
-import { StepAside } from "@/components/StepTree";
+import { PageHeader } from "@/components/StepTree";
+import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
 import { loadDemoIssue } from "@/lib/demo";
 import { Picker } from "./Picker";
@@ -27,15 +28,10 @@ async function PickContent({ searchParams }: { searchParams: Promise<Record<stri
   const issue = loadDemoIssue();
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
-      <header className="mb-12 flex items-center justify-between">
-        <Logo height={52} href="/source" />
-        <a href="/api/auth/buffer/logout" className="text-sm font-semibold underline underline-offset-4">
-          Log out
-        </a>
-      </header>
-      <StepAside current={3} hrefs={{ 1: "/", 2: "/source" }} />
-      <div className="mb-10">
-      <h1 className="mb-4 text-4xl sm:text-5xl">Pick what to post</h1>
+      <SaveStep step={2} />
+      <PageHeader current={2} hrefs={{ 1: "/source" }} />
+      <div className="mb-6">
+      <h1 className="mb-3 text-4xl sm:text-5xl"><StepWord>Pick</StepWord> what to post</h1>
       <p className="mb-0 max-w-2xl text-lg">
         Picking from{" "}
         <a href={issue.url} target="_blank" rel="noopener noreferrer" className="group font-semibold underline decoration-[3px] underline-offset-[7px] transition-colors hover:decoration-coral">
