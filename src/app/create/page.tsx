@@ -3,6 +3,7 @@ import { StepWord } from "@/components/StepWord";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
+import { SavedFlash } from "@/components/SavedFlash";
 import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
 import { loadDemoIssue } from "@/lib/demo";
@@ -32,14 +33,17 @@ async function CreateContent({ searchParams }: { searchParams: Promise<Record<st
   const items = slideItemsFor(issue.chunks, ids);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
+    <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
       <SaveStep step={3} />
       <PageHeader current={3} hrefs={{ 1: "/source", 2: "/pick?mode=demo" }} />
       <div className="mb-6">
-        <h1 className="mb-3 text-4xl sm:text-5xl"><StepWord>Create</StepWord> your carousel</h1>
-        <p className="mb-0 max-w-2xl text-lg">
-          Use the standard template, or customize how picks are laid out and what the text says. You&apos;ll write the caption and choose where it goes next.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <h1 className="mb-3 text-4xl sm:text-5xl"><StepWord>Create</StepWord> your carousel</h1>
+          <div className="mt-2 shrink-0 sm:mt-4">
+            <SavedFlash />
+          </div>
+        </div>
+        <p className="mb-0 max-w-2xl text-lg">Use the standard layout, or build your own slides.</p>
       </div>
       <TemplateEditor items={items} picks={ids} initial={parseTemplateFromPage(sp)} />
     </main>

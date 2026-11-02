@@ -49,7 +49,7 @@ async function SendContent({ searchParams }: { searchParams: Promise<Record<stri
         picks={ids}
         template={extra}
         link={issue.url}
-        captionItems={captionItemsFor(issue.chunks, ids, issue.publishedAt.slice(0, 10))}
+        captionItems={captionItemsFor(issue.chunks, tpl.spec ? tpl.spec.slides.flat().filter((id) => ids.includes(id)) : ids, issue.publishedAt.slice(0, 10), tpl.spec?.edits)}
         newsletter="Just a Phase"
         heading={tpl.heading}
         backHref={`/format?mode=demo&picks=${tail}`}

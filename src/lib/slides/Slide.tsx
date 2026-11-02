@@ -119,7 +119,7 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
       </div>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 28 }}>
         {slide.items.map((it, i) => (
-          <Card key={i} item={it} n={n} tone={i % 2 === 0 ? c.card : c.accent} showGroup={!slide.group} chip={c.chip} display={DISPLAY} dw={DW} text={c.text} />
+          <Card key={i} item={it} n={n} tone={i % 2 === 0 ? c.card : c.accent} showGroup={!slide.group && n <= 2} chip={c.chip} display={DISPLAY} dw={DW} text={c.text} />
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: slide.items.length === 1 && slide.items[0].image ? 104 : 64 }}>
@@ -139,13 +139,14 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
 const SIZES = {
   1: { title: 92, titleLines: 4, meta: 44, blurb: 32, blurbLines: 6, pad: 56, gap: 28 },
   2: { title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, pad: 44, gap: 18 },
-  3: { title: 50, titleLines: 2, meta: 30, blurb: 0, blurbLines: 0, pad: 36, gap: 12 },
+  3: { title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, pad: 36, gap: 12 },
+  4: { title: 42, titleLines: 2, meta: 26, blurb: 22, blurbLines: 1, pad: 28, gap: 8 },
 } as const;
 
-const LOGO_H = { 1: 100, 2: 72, 3: 56 } as const;
+const LOGO_H = { 1: 100, 2: 72, 3: 56, 4: 44 } as const;
 
 function Card({ item, n, tone, showGroup, chip, display, dw, text }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; display: string; dw: number; text: string }) {
-  const z = SIZES[n as 1 | 2 | 3];
+  const z = SIZES[n as 1 | 2 | 3 | 4];
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden" }}>
       {showGroup && item.group && (
@@ -154,22 +155,19 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text }: { item: Sli
       {item.logo && (
         <div style={{ display: "flex", alignItems: "center" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={item.logo} height={LOGO_H[n as 1 | 2 | 3]} width={Math.round(LOGO_H[n as 1 | 2 | 3] * (item.logoAspect ?? 1))} alt="" />
+          <img src={item.logo} height={LOGO_H[n as 1 | 2 | 3 | 4]} width={Math.round(LOGO_H[n as 1 | 2 | 3 | 4] * (item.logoAspect ?? 1))} alt="" />
           {item.partnerLogo && (
             <>
               <div style={{ display: "flex", justifyContent: "center", width: 84, fontSize: z.meta, fontWeight: 700, lineHeight: 1, position: "relative", top: 10 }}>&</div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.partnerLogo} height={Math.round(LOGO_H[n as 1 | 2 | 3] * 0.36)} width={Math.round(LOGO_H[n as 1 | 2 | 3] * 0.36 * (item.partnerAspect ?? 1))} alt="" style={{ position: "relative", top: 10 }} />
+              <img src={item.partnerLogo} height={Math.round(LOGO_H[n as 1 | 2 | 3 | 4] * 0.36)} width={Math.round(LOGO_H[n as 1 | 2 | 3 | 4] * 0.36 * (item.partnerAspect ?? 1))} alt="" style={{ position: "relative", top: 10 }} />
             </>
           )}
         </div>
       )}
       <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: z.title, lineHeight: 1.08, ...clamp(z.titleLines) }}>{item.title}</div>
       {(item.when || item.place) && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {item.when && <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, ...clamp(2) }}>{item.when}</div>}
-          {item.place && <div style={{ display: "flex", fontSize: z.meta - 4, fontWeight: 500, ...clamp(1) }}>{item.place}</div>}
-        </div>
+        <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
       {z.blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(z.blurbLines) }}>{item.blurb}</div>}
     </div>

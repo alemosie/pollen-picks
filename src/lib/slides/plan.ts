@@ -1,3 +1,4 @@
+import type { CustomSpec } from "./options";
 import { MAX_IMAGES, type Slide, type SlideItem } from "./types";
 
 // Emoji are kept by default. Satori fetches their images at render time, so the renderer falls back to stripEmoji if that fails.
@@ -55,7 +56,7 @@ const BODY_H = 1350 - 2 * 72 - 64 - 64 - 2 * 28;
 const CARD_GAP = 28;
 const Z = {
   2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, gap: 18 },
-  3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 0, blurbLines: 0, gap: 12 },
+  3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, gap: 12 },
 } as const;
 /** A description this many lines over its clamp counts as "too long" and earns a slide of its own. */
 const BLURB_EXTRA_LINES = 2;
@@ -70,8 +71,8 @@ export function fits(item: SlideItem, n: number): boolean {
   if (titleLines > (n === 2 ? 2 : z.titleLines)) return false; // title would be cut or crowd the card
   if (z.blurbLines > 0 && item.blurb && lines(item.blurb, z.blurb, 0.52, width) > z.blurbLines + BLURB_EXTRA_LINES) return false;
   let h = 2 * z.pad + titleLines * z.title * 1.08;
-  if (item.when) h += z.gap + Math.min(2, lines(item.when, z.meta, 0.55, width)) * z.meta * 1.25;
-  if (item.place) h += 4 + (z.meta - 4) * 1.25;
+  const meta = [item.when, item.place].filter(Boolean).join(" · ");
+  if (meta) h += z.gap + Math.min(2, lines(meta, z.meta, 0.55, width)) * z.meta * 1.25;
   if (z.blurbLines > 0 && item.blurb) h += z.gap + Math.min(z.blurbLines, lines(item.blurb, z.blurb, 0.52, width)) * z.blurb * 1.35;
   return h <= (BODY_H - (n - 1) * CARD_GAP) / n;
 }
@@ -115,7 +116,49 @@ export type PlanOptions = {
   cta?: string;
   /** Items in the source section that were not picked, shown as "+N more" on the closing slide. */
   moreInNewsletter?: number;
+  /** A hand-built carousel; when set, picks per slide and packing come from it. */
+  spec?: CustomSpec;
 };
+
+/** Slides exactly as the user laid them out: picks (with their text edits) on the slides they chose, cover and closing from the spec. */
+export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptions): Slide[] {
+  const byId = new Map(items.filter((i) => i.id != null).map((i) => [i.id!, i]));
+  const edited = (id: number): SlideItem | null => {
+    const base = byId.get(id);
+    if (!base) return null;
+    const e = spec.edits?.[id];
+    if (!e) return base;
+    return {
+      ...base,
+      title: e.title?.trim() || base.title,
+      when: e.when !== undefined ? e.when.trim() || null : base.when,
+      place: e.place !== undefined ? e.place.trim() || null : base.place,
+      blurb: e.blurb !== undefined ? e.blurb.trim() || undefined : base.blurb,
+    };
+  };
+  const groups = spec.slides
+    .map((ids) => ids.map(edited).filter((i): i is SlideItem => !!i).slice(0, 4))
+    .filter((g) => g.length > 0)
+    .slice(0, MAX_IMAGES - 2);
+  const count = groups.reduce((n, g) => n + g.length, 0);
+  return [
+    { kind: "cover", title: spec.cover?.title?.trim() || opts.heading || "This week's picks", subtitle: spec.cover?.subtitle?.trim() || `${count} ${count === 1 ? "pick" : "picks"} from ${opts.newsletter}` },
+    ...groups.map((g, i): Slide => ({
+      kind: "picks",
+      items: g,
+      group: g.every((x) => x.group === g[0].group) ? g[0].group : undefined,
+      page: i + 1,
+      pages: groups.length,
+    })),
+    {
+      kind: "closing",
+      title: spec.closing?.title?.trim() || opts.closingTitle || "Want the full list?",
+      line: spec.closing?.line?.trim() || opts.closingLine || `Read every pick in ${opts.newsletter}`,
+      cta: spec.closing?.cta?.trim() || opts.cta,
+      more: opts.moreInNewsletter ?? 0,
+    },
+  ];
+}
 
 /** cover + pick slides + closing, never more than MAX_IMAGES. */
 export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
@@ -128,6 +171,7 @@ export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
     place: i.place ? tidy(i.place) : null,
     blurb: i.blurb ? tidy(i.blurb) : undefined,
   }));
+  if (opts.spec) return planCustom(items, opts.spec, opts);
   let k: number = opts.perSlide ?? picksPerSlide(items.length);
   // Automatic mode lets long picks take their own slide; if that would need too many slides, fall back to plain packing.
   let groups = opts.perSlide ? packGroups(items, k) : packAuto(items);

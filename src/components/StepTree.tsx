@@ -83,9 +83,9 @@ export function StepTree({ current, hrefs = {} }: { current: 1 | 2 | 3 | 4 | 5; 
 /** Top row of every step: logo, progress, log out. */
 export function PageHeader({ current, hrefs, logoHref = "/source", right }: { current: 1 | 2 | 3 | 4 | 5; hrefs?: Partial<Record<number, string>>; logoHref?: string; right?: ReactNode }) {
   return (
-    <header className="mb-14 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+    <header className="mb-6 flex flex-wrap sm:mb-14 items-center justify-between gap-x-6 gap-y-2">
       <Logo height={48} href={logoHref} />
-      <div className="order-last flex w-full justify-center sm:order-none sm:w-auto">
+      <div className="order-last mt-8 flex w-full justify-center sm:order-none sm:mt-0 sm:w-auto">
         <StepTree current={current} hrefs={hrefs} />
       </div>
       {right ?? (

@@ -3,6 +3,9 @@
 const KEY = "pollen-picks:progress";
 const PICKED = "pollen-picks:picked";
 const FORMAT = "pollen-picks:format";
+const TEMPLATE = "pollen-picks:template";
+
+import type { CustomSpec } from "@/lib/slides/options";
 
 export const STEP_NAMES = ["Source", "Pick", "Create", "Format", "Send"] as const;
 
@@ -32,9 +35,28 @@ export type FormatState = { sig: string; selected: string[]; order: string; edit
 export const loadFormat = () => read<FormatState>(FORMAT);
 export const saveFormat = (s: FormatState) => write(FORMAT, s);
 
+export type TemplateState = { custom: boolean; spec: CustomSpec };
+export const loadTemplate = () => read<TemplateState>(TEMPLATE);
+/** Raw stored string, for useSyncExternalStore (must be a stable value between reads). */
+export const templateSnapshot = (): string | null => {
+  try {
+    return localStorage.getItem(TEMPLATE);
+  } catch {
+    return null;
+  }
+};
+export const SAVED_EVENT = "pollen-picks:saved";
+export const saveTemplate = (s: TemplateState) => {
+  write(TEMPLATE, s);
+  // Lets the page header flash "Saved".
+  try {
+    window.dispatchEvent(new Event(SAVED_EVENT));
+  } catch {}
+};
+
 /** Forget everything: after a finished send, or "Start over". */
 export function clearProgress() {
   try {
-    for (const k of [KEY, PICKED, FORMAT]) localStorage.removeItem(k);
+    for (const k of [KEY, PICKED, FORMAT, TEMPLATE]) localStorage.removeItem(k);
   } catch {}
 }

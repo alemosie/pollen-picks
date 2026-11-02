@@ -2,6 +2,8 @@ import type { KitColors } from "@/lib/brand";
 
 /** What a slide shows for one pick. */
 export type SlideItem = {
+  /** Chunk id the pick came from (custom slide layouts refer to picks by it). */
+  id?: number;
   title: string;
   /** Neighborhood / group label ("Good for babies", "West"). */
   group?: string;
