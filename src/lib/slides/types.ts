@@ -7,6 +7,8 @@ export type SlideItem = {
   title: string;
   /** Neighborhood / group label ("Good for babies", "West"). */
   group?: string;
+  /** Custom card color (hex). */
+  bg?: string;
   when?: string | null;
   place?: string | null;
   blurb?: string;
@@ -21,9 +23,9 @@ export type SlideItem = {
 };
 
 export type Slide =
-  | { kind: "cover"; title: string; subtitle: string; /** Square images (data URIs) shown in a row at the bottom. */ images?: string[] }
-  | { kind: "picks"; items: SlideItem[]; group?: string; page: number; pages: number }
-  | { kind: "closing"; title: string; line: string; more: number; /** Button text. Default "Subscribe · link in bio". */ cta?: string; /** Draw the slide on the dark background, with the link line in the accent color. */ dark?: boolean; link?: string; images?: string[] };
+  | { kind: "cover"; /** Custom background (hex). */ bg?: string; title: string; subtitle: string; /** Square images (data URIs) shown in a row at the bottom. */ images?: string[] }
+  | { kind: "picks"; /** Custom background (hex). */ bg?: string; items: SlideItem[]; group?: string; page: number; pages: number }
+  | { kind: "closing"; /** Custom background (hex). */ bg?: string; title: string; line: string; more: number; /** Button text. Default "Subscribe · link in bio". */ cta?: string; /** Draw the slide on the dark background, with the link line in the accent color. */ dark?: boolean; link?: string; images?: string[] };
 
 export type Kit = {
   name: string;

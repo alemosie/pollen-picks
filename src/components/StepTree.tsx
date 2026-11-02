@@ -89,9 +89,14 @@ export function PageHeader({ current, hrefs, logoHref = "/source", right }: { cu
         <StepTree current={current} hrefs={hrefs} />
       </div>
       {right ?? (
-        <a href="/api/auth/buffer/logout" className="text-sm font-semibold underline underline-offset-4">
-          Log out
-        </a>
+        <span className="flex items-center gap-5 text-sm font-semibold">
+          <Link href="/settings" className="underline underline-offset-4">
+            Settings
+          </Link>
+          <a href="/api/auth/buffer/logout" className="underline underline-offset-4">
+            Log out
+          </a>
+        </span>
       )}
     </header>
   );

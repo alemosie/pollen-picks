@@ -58,6 +58,10 @@ const Z = {
   2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, gap: 18 },
   3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, gap: 12 },
 } as const;
+/** With 3 or 4 picks on a slide each description is cut at this many characters (then "…"). */
+export const SHORT_BLURB = 75;
+export const oneLineLimit = (picksOnSlide: number) => (picksOnSlide >= 3 ? SHORT_BLURB : Infinity);
+export const shortBlurb = (text: string) => (text.length > SHORT_BLURB ? `${text.slice(0, SHORT_BLURB - 1).trimEnd()}…` : text);
 /** A description this many lines over its clamp counts as "too long" and earns a slide of its own. */
 const BLURB_EXTRA_LINES = 2;
 const lines = (text: string, px: number, em: number, width: number) => Math.max(1, Math.ceil((text.length * px * em) / width));
@@ -134,17 +138,20 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
       when: e.when !== undefined ? e.when.trim() || null : base.when,
       place: e.place !== undefined ? e.place.trim() || null : base.place,
       blurb: e.blurb !== undefined ? e.blurb.trim() || undefined : base.blurb,
+      bg: e.bg || undefined,
     };
   };
-  const groups = spec.slides
-    .map((ids) => ids.map(edited).filter((i): i is SlideItem => !!i).slice(0, 4))
-    .filter((g) => g.length > 0)
+  const placedSlides = spec.slides
+    .map((ids, i) => ({ g: ids.map(edited).filter((x): x is SlideItem => !!x).slice(0, 4), bg: spec.bgs?.[i] || undefined }))
+    .filter((x) => x.g.length > 0)
     .slice(0, MAX_IMAGES - 2);
+  const groups = placedSlides.map((x) => x.g);
   const count = groups.reduce((n, g) => n + g.length, 0);
   return [
-    { kind: "cover", title: spec.cover?.title?.trim() || opts.heading || "This week's picks", subtitle: spec.cover?.subtitle?.trim() || `${count} ${count === 1 ? "pick" : "picks"} from ${opts.newsletter}` },
+    { kind: "cover", bg: spec.cover?.bg, title: spec.cover?.title?.trim() || opts.heading || "This week's picks", subtitle: spec.cover?.subtitle?.trim() || `${count} ${count === 1 ? "pick" : "picks"} from ${opts.newsletter}` },
     ...groups.map((g, i): Slide => ({
       kind: "picks",
+      bg: placedSlides[i].bg,
       items: g,
       group: g.every((x) => x.group === g[0].group) ? g[0].group : undefined,
       page: i + 1,
@@ -152,6 +159,7 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
     })),
     {
       kind: "closing",
+      bg: spec.closing?.bg,
       title: spec.closing?.title?.trim() || opts.closingTitle || "Want the full list?",
       line: spec.closing?.line?.trim() || opts.closingLine || `Read every pick in ${opts.newsletter}`,
       cta: spec.closing?.cta?.trim() || opts.cta,

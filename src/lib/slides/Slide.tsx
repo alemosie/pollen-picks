@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
-import { BRAND_NAME } from "@/lib/brand";
+import { BRAND_NAME, contrast, sameColor } from "@/lib/brand";
 import { MARK_SVG } from "./mark";
+import { shortBlurb } from "./plan";
 import { SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types";
 
 // Satori (next/og) renders this: flexbox only, inline styles, no Tailwind.
@@ -36,9 +37,9 @@ function Brand({ kit, size, logo, fontSize, stacked, color }: { kit: Kit; size: 
   );
 }
 
-function Credit({ kit, size = 26 }: { kit: Kit; size?: number }) {
+function Credit({ kit, size = 26, color: fill }: { kit: Kit; size?: number; color?: string }) {
   if (kit.attribution === false) return null;
-  const color = kit.colors.text;
+  const color = fill ?? kit.colors.text;
   const mark = `data:image/svg+xml;base64,${Buffer.from(MARK_SVG.replaceAll("__FILL__", color)).toString("base64")}`;
   const h = Math.round(size * 2.5);
   return (
@@ -50,14 +51,23 @@ function Credit({ kit, size = 26 }: { kit: Kit; size?: number }) {
   );
 }
 
-export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElement {
+const CREAM = "#f7ede2";
+
+/** Text color for a custom background: the kit's ink, or cream when that reads better. */
+const textOn = (bg: string, ink: string) => (contrast(bg, ink) >= contrast(bg, CREAM) ? ink : CREAM);
+
+export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): ReactElement {
+  // A custom background recolors the slide itself; text on it flips between ink and cream. Cards keep their own ink text.
+  const custom = slide.bg ? slide.bg : undefined;
+  const fg = custom ? textOn(custom, baseKit.colors.text) : undefined;
+  const kit: Kit = custom ? { ...baseKit, onBackground: fg, nameOnBackground: fg } : baseKit;
   const c = kit.colors;
   const DISPLAY = kit.fonts?.display ?? DISPLAY_FONT;
   const DW = kit.fonts ? 700 : 400;
   const base: CSSProperties = { width: SLIDE_W, height: SLIDE_H, display: "flex", flexDirection: "column", fontFamily: kit.fonts?.body ?? BODY_FONT, color: c.text };
   if (slide.kind === "cover") {
     return (
-      <div style={{ ...base, background: c.accent, padding: P, justifyContent: "space-between", position: "relative" }}>
+      <div style={{ ...base, background: custom ?? c.accent, color: fg ?? c.text, padding: P, justifyContent: "space-between", position: "relative" }}>
         <Brand kit={kit} size={150} logo={kit.logoOnAccent ?? kit.logo} fontSize={kit.nameLines ? 56 : 34} stacked />
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: DW, fontSize: kit.coverTitleSize ?? 168, lineHeight: 1, ...clamp(4) }}>{slide.title}</div>
@@ -68,21 +78,21 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 34, fontWeight: 700 }}>
             Swipe
             <svg width="56" height="28" viewBox="0 0 56 28">
-              <path d="M3 14h48M38 3l13 11-13 11" stroke={c.text} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M3 14h48M38 3l13 11-13 11" stroke={fg ?? c.text} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
           </div>
-          {slide.images?.length ? <CoverImages images={slide.images} /> : <Credit kit={kit} />}
+          {slide.images?.length ? <CoverImages images={slide.images} /> : <Credit kit={kit} color={fg} />}
         </div>
-        {slide.images?.length ? <Credit kit={kit} /> : null}
+        {slide.images?.length ? <Credit kit={kit} color={fg} /> : null}
         </div>
       </div>
     );
   }
   if (slide.kind === "closing") {
     const dark = !!slide.dark;
-    const fg = dark ? (kit.onBackground ?? c.text) : c.text;
+    const fgClosing = custom ? fg! : dark ? (kit.onBackground ?? c.text) : c.text;
     return (
-      <div style={{ ...base, background: dark ? c.background : c.card, color: fg, padding: P, justifyContent: "space-between" }}>
+      <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: fgClosing, padding: P, justifyContent: "space-between" }}>
         <Brand kit={kit} size={140} logo={dark ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={dark ? kit.nameOnBackground : undefined} />
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {slide.more > 0 && (
@@ -96,21 +106,21 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: dark ? c.accent : c.text, color: dark ? c.background : c.card, borderRadius: 999, padding: "16px 36px" }}>
+          <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: dark && !custom ? c.accent : fgClosing, color: dark && !custom ? c.background : (custom ?? c.card), borderRadius: 999, padding: "16px 36px" }}>
             {slide.cta ?? "Subscribe · link in bio"}
           </div>
-          {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : <Credit kit={kit} />}
+          {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : <Credit kit={kit} color={fg} />}
         </div>
-        {slide.images?.length ? <Credit kit={kit} /> : null}
+        {slide.images?.length ? <Credit kit={kit} color={fg} /> : null}
         </div>
       </div>
     );
   }
   const n = slide.items.length;
   return (
-    <div style={{ ...base, background: c.background, padding: P, gap: 28, color: kit.onBackground ?? c.text }}>
+    <div style={{ ...base, background: custom ?? c.background, padding: P, gap: 28, color: kit.onBackground ?? c.text }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-        <div style={{ display: "flex", background: slide.group ? c.chip : "transparent", borderRadius: 999, padding: slide.group ? "8px 26px" : 0, fontSize: 32, fontWeight: 700 }}>
+        <div style={{ display: "flex", background: slide.group ? c.chip : "transparent", borderRadius: 999, padding: slide.group ? "8px 26px" : 0, fontSize: 32, fontWeight: 700, color: c.text }}>
           {slide.group ?? <Brand kit={kit} size={64} logo={kit.logoOnBackground ?? kit.logo} fontSize={32} color={kit.nameOnBackground} />}
         </div>
         <div style={{ display: "flex", fontSize: 30, fontWeight: 700 }}>
@@ -119,13 +129,13 @@ export function SlideView({ slide, kit }: { slide: Slide; kit: Kit }): ReactElem
       </div>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 28 }}>
         {slide.items.map((it, i) => (
-          <Card key={i} item={it} n={n} tone={i % 2 === 0 ? c.card : c.accent} showGroup={!slide.group && n <= 2} chip={c.chip} display={DISPLAY} dw={DW} text={c.text} />
+          <Card key={i} item={it} n={n} tone={it.bg ?? cardTone(i % 2 === 0 ? c.card : c.accent, custom, c.background)} showGroup={!slide.group && n <= 2} chip={c.chip} display={DISPLAY} dw={DW} text={it.bg ? textOn(it.bg, c.text) : c.text} outline={!!it.bg && sameColor(it.bg, custom ?? c.background)} />
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: slide.items.length === 1 && slide.items[0].image ? 104 : 64 }}>
         {kit.swipe ? <Swipe color={kit.onBackground ?? c.text} /> : kit.logo ? <div style={{ display: "flex" }} /> : <Brand kit={kit} size={56} logo={undefined} fontSize={28} />}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Credit kit={kit} size={24} />
+          <Credit kit={kit} size={24} color={fg} />
           {slide.items.length === 1 && slide.items[0].image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={slide.items[0].image} width={104} height={104} alt="" style={{ borderRadius: 22, objectFit: "cover" }} />
@@ -145,10 +155,13 @@ const SIZES = {
 
 const LOGO_H = { 1: 100, 2: 72, 3: 56, 4: 44 } as const;
 
-function Card({ item, n, tone, showGroup, chip, display, dw, text }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; display: string; dw: number; text: string }) {
+/** A card the same color as its slide would vanish; swap it for the kit background (or, if that is the slide color, the other card tone). */
+const cardTone = (tone: string, bg: string | undefined, fallback: string) => (bg && tone.toLowerCase() === bg.toLowerCase() ? (fallback.toLowerCase() === bg.toLowerCase() ? "#fffaf3" : fallback) : tone);
+
+function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; display: string; dw: number; text: string; outline?: boolean }) {
   const z = SIZES[n as 1 | 2 | 3 | 4];
   return (
-    <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: outline ? z.pad - 4 : z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden", ...(outline ? { border: `4px solid ${text}` } : {}) }}>
       {showGroup && item.group && (
         <div style={{ display: "flex", alignSelf: "flex-start", background: chip, borderRadius: 999, padding: "4px 20px", fontSize: z.meta - 8, fontWeight: 700 }}>{item.group}</div>
       )}
@@ -169,7 +182,7 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text }: { item: Sli
       {(item.when || item.place) && (
         <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
-      {z.blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(z.blurbLines) }}>{item.blurb}</div>}
+      {z.blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(z.blurbLines) }}>{n >= 3 ? shortBlurb(item.blurb) : item.blurb}</div>}
     </div>
   );
 }

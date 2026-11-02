@@ -1,6 +1,6 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   SPEC_LIMITS,
@@ -9,6 +9,10 @@ import {
   type PickEdit,
 } from "@/lib/slides/options";
 import type { SlideItem } from "@/lib/slides/types";
+import { oneLineLimit } from "@/lib/slides/plan";
+import { usePalette } from "@/components/usePalette";
+import { DEFAULT_COLORS, sameColor } from "@/lib/brand";
+import { textOn } from "@/app/settings/PaletteEditor";
 import { useSettled } from "./useSettled";
 
 export type Target =
@@ -38,7 +42,8 @@ export function previewSrc(
   return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}`;
 }
 
-const input = "rounded-xl bg-surface px-3 py-2 font-normal ring-1 ring-ink/15";
+const input =
+  "rounded-xl bg-surface px-3 py-2 font-normal text-ink ring-1 ring-ink/15";
 
 /** Edit the text of one slide. The header and footer belong to the template and aren't editable. */
 export function EditSlideModal({
@@ -60,6 +65,7 @@ export function EditSlideModal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState<CustomSpec>(() => structuredClone(spec));
+  const palette = usePalette();
   const byId = new Map(items.map((i) => [i.id!, i]));
   const settled = useSettled(draft, 500);
   // Edits are batched: nothing reaches the carousel until the window closes (Done, ✕, Esc or a click outside).
@@ -104,6 +110,7 @@ export function EditSlideModal({
         cta: DEFAULTS.cta,
       }),
       edits: Object.keys(edits).length ? edits : undefined,
+      bgs: d.bgs?.some(Boolean) ? d.bgs : undefined,
     };
   };
   const closing = () => {
@@ -131,19 +138,60 @@ export function EditSlideModal({
     }));
 
   const nd = normalize(draft);
+  const slideIndex = target.kind === "slide" ? target.index : -1;
+  const currentBg =
+    target.kind === "cover"
+      ? draft.cover?.bg
+      : target.kind === "closing"
+        ? draft.closing?.bg
+        : draft.bgs?.[slideIndex];
+  const defaultBg =
+    target.kind === "cover"
+      ? DEFAULT_COLORS.accent
+      : target.kind === "closing"
+        ? DEFAULT_COLORS.card
+        : DEFAULT_COLORS.background;
+  const setBg = (v: string) =>
+    setDraft((d) => {
+      if (target.kind === "cover")
+        return { ...d, cover: { ...d.cover, bg: v || undefined } };
+      if (target.kind === "closing")
+        return { ...d, closing: { ...d.closing, bg: v || undefined } };
+      const bgs = [...(d.bgs ?? [])];
+      while (bgs.length <= target.index) bgs.push("");
+      bgs[target.index] = v;
+      return { ...d, bgs };
+    });
+
+  /** The color a pick's card has on the slide: the chosen one, else the template's alternating default. */
+  const cardColor = (id: number, i: number) =>
+    draft.edits?.[id]?.bg ||
+    (i % 2 === 0 ? DEFAULT_COLORS.card : DEFAULT_COLORS.accent);
+
+  /** A card that is (nearly) the color of its slide or of this window would vanish, so it gets an outline in both. */
+  const blends = (color: string) =>
+    sameColor(color, currentBg || DEFAULT_COLORS.background) ||
+    sameColor(color, DEFAULT_COLORS.background);
+
   const hasEdits =
     target.kind === "cover"
       ? !!nd.cover
       : target.kind === "closing"
         ? !!nd.closing
-        : ids.some((id) => nd.edits?.[id]);
+        : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex];
   const revert = () =>
     setDraft((d) => {
       if (target.kind === "cover") return { ...d, cover: undefined };
       if (target.kind === "closing") return { ...d, closing: undefined };
       const edits = { ...d.edits };
       for (const id of d.slides[target.index] ?? []) delete edits[id];
-      return { ...d, edits: Object.keys(edits).length ? edits : undefined };
+      const bgs = [...(d.bgs ?? [])];
+      bgs[target.index] = "";
+      return {
+        ...d,
+        edits: Object.keys(edits).length ? edits : undefined,
+        bgs,
+      };
     });
 
   const value = (id: number, key: keyof PickEdit) =>
@@ -192,6 +240,27 @@ export function EditSlideModal({
               The header and footer are part of the template. Everything else on
               the slide is yours to change.
             </p>
+
+            <fieldset className="m-0 grid gap-2 border-0 p-0">
+              <legend className="mb-1 p-0 text-sm font-semibold">
+                {target.kind === "slide" ? "Slide background" : "Background"}
+              </legend>
+              <Swatches
+                palette={palette}
+                value={currentBg}
+                fallback={defaultBg}
+                onPick={setBg}
+                label="Background"
+              />
+              <a
+                href="/settings"
+                target="_blank"
+                rel="noreferrer"
+                className="w-fit text-sm font-semibold underline underline-offset-4"
+              >
+                Edit your palette in Settings
+              </a>
+            </fieldset>
 
             {target.kind === "cover" && (
               <>
@@ -252,11 +321,14 @@ export function EditSlideModal({
               ids.map((id, i) => (
                 <fieldset
                   key={id}
-                  className="grid gap-3 rounded-2xl bg-card p-4"
+                  style={{
+                    background: cardColor(id, i),
+                    color: textOn(cardColor(id, i)),
+                  }}
+                  className={`grid gap-3 rounded-2xl p-4 transition-colors ${blends(cardColor(id, i)) ? "ring-2 ring-current" : ""}`}
                 >
-                  <legend className="px-1 text-sm font-bold">
-                    Pick {i + 1}
-                  </legend>
+                  <legend className="sr-only">Pick {i + 1}</legend>
+                  <h3 className="m-0 text-2xl">Pick {i + 1}</h3>
                   <label className="grid gap-1 text-sm font-semibold">
                     Title
                     <input
@@ -266,6 +338,21 @@ export function EditSlideModal({
                       className={input}
                     />
                   </label>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="text-sm font-semibold">Card color</span>
+                    <Swatches
+                      palette={palette}
+                      value={draft.edits?.[id]?.bg}
+                      fallback={
+                        i % 2 === 0
+                          ? DEFAULT_COLORS.card
+                          : DEFAULT_COLORS.accent
+                      }
+                      onPick={(v) => setEdit(id, "bg", v)}
+                      label={`Card color for pick ${i + 1}`}
+                      size="sm"
+                    />
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1 text-sm font-semibold">
                       Date &amp; time
@@ -296,10 +383,13 @@ export function EditSlideModal({
                       className={input}
                     />
                     {ids.length >= 3 && (
-                      <span className="text-xs font-normal">
-                        {value(id, "blurb").length} characters · with{" "}
-                        {ids.length} picks on a slide, only the first line
-                        shows.
+                      <span className="mt-1.5 text-xs font-normal">
+                        <strong>
+                          {value(id, "blurb").length} /{" "}
+                          {oneLineLimit(ids.length)} characters
+                        </strong>{" "}
+                        · with {ids.length} picks on a slide, descriptions are
+                        cut off at {oneLineLimit(ids.length)} characters.
                       </span>
                     )}
                   </label>
@@ -346,5 +436,61 @@ export function EditSlideModal({
         </div>
       </div>
     </dialog>
+  );
+}
+
+/** Default swatch plus the palette. `value` "" / undefined means default. */
+function Swatches({
+  palette,
+  value,
+  fallback,
+  onPick,
+  label,
+  size = "md",
+}: {
+  palette: string[];
+  value?: string;
+  fallback: string;
+  onPick: (hex: string) => void;
+  label: string;
+  size?: "sm" | "md";
+}) {
+  const dim = size === "sm" ? "size-7" : "size-9";
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex flex-wrap items-center gap-2"
+    >
+      {[
+        { hex: "", label: "Default" },
+        ...palette.map((hex) => ({ hex, label: hex })),
+      ].map((o) => {
+        const on = (value ?? "").toLowerCase() === o.hex;
+        const shown = o.hex || fallback;
+        return (
+          <button
+            key={o.label}
+            type="button"
+            onClick={() => onPick(o.hex)}
+            aria-pressed={on}
+            aria-label={o.hex ? `${label} ${o.hex}` : `${label}: default`}
+            title={o.hex || "Default"}
+            style={{ background: shown }}
+            className={`grid ${dim} place-items-center rounded-full text-xs font-bold ring-1 ring-ink/20 ${on ? "outline-2 outline-offset-2 outline-current" : "hover:ring-ink/50"}`}
+          >
+            {!o.hex && <span style={{ color: textOn(shown) }}>A</span>}
+            {on && o.hex && (
+              <Check
+                aria-hidden
+                className="size-4"
+                strokeWidth={3}
+                style={{ color: textOn(o.hex) }}
+              />
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }

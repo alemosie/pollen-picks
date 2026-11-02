@@ -41,6 +41,8 @@ export function SlideBuilder({
   const [active, setActive] = useState(0);
   // Shift-click picks on slides to select several, then remove them together (Delete key or the bar).
   const [sel, setSel] = useState<number[]>([]);
+  // A subsection folds away once all of its picks are on slides; click its name to open or close it by hand.
+  const [fold, setFold] = useState<Record<string, boolean>>({});
   const [anchor, setAnchor] = useState<{ si: number; pi: number } | null>(null);
   const [selecting, setSelecting] = useState<number | null>(null);
   const settled = useSettled(spec, 500);
@@ -54,8 +56,13 @@ export function SlideBuilder({
     spec.edits?.[id]?.title?.trim()
       ? spec.edits[id].title!
       : (byId.get(id)?.title ?? "");
-  const set = (slides: number[][]) =>
-    onChange({ ...spec, slides: slides.length ? slides : [[]] });
+  // Slide colors (`bgs`) are parallel to `slides`: operations that move or drop whole slides pass the matching colors along.
+  const set = (slides: number[][], bgs?: string[]) =>
+    onChange({
+      ...spec,
+      slides: slides.length ? slides : [[]],
+      ...(bgs ? { bgs: slides.length ? bgs : [] } : {}),
+    });
 
   /** Put pick `id` on slide `to` (before position `at`, default the end), taking it off wherever it was. */
   function place(id: number, to: number, at?: number) {
@@ -119,6 +126,12 @@ export function SlideBuilder({
     [g[pi], g[to]] = [g[to], g[pi]];
     set(slides);
   };
+  const groupIds = new Map<string, number[]>();
+  for (const it of items)
+    if (it.group)
+      groupIds.set(it.group, [...(groupIds.get(it.group) ?? []), it.id!]);
+  const isCollapsed = (g: string) =>
+    fold[g] ?? (groupIds.get(g) ?? []).every((id) => placedAt.has(id));
   const removeMany = (ids: number[]) => {
     set(spec.slides.map((g) => g.filter((x) => !ids.includes(x))));
     setSel([]);
@@ -158,7 +171,21 @@ export function SlideBuilder({
     set([...spec.slides, []]);
     setActive(spec.slides.length);
   };
-  const deleteSlide = (i: number) => set(spec.slides.filter((_, k) => k !== i));
+  const moveSlide = (i: number, by: -1 | 1) => {
+    const to = i + by;
+    if (to < 0 || to >= spec.slides.length) return;
+    const slides = [...spec.slides];
+    [slides[i], slides[to]] = [slides[to], slides[i]];
+    const bgs = slides.map((_, k) => spec.bgs?.[k] ?? "");
+    [bgs[i], bgs[to]] = [bgs[to], bgs[i]];
+    setActive(to);
+    set(slides, bgs);
+  };
+  const deleteSlide = (i: number) =>
+    set(
+      spec.slides.filter((_, k) => k !== i),
+      spec.slides.map((_, k) => spec.bgs?.[k] ?? "").filter((_, k) => k !== i),
+    );
   const autoFill = () => {
     const planned = planSlides(items, { newsletter: "Just a Phase" }).filter(
       (s) => s.kind === "picks",
@@ -169,6 +196,7 @@ export function SlideBuilder({
           ? s.items.map((x) => x.id!).filter((x) => x != null)
           : [],
       ),
+      planned.map(() => ""),
     );
   };
 
@@ -227,7 +255,9 @@ export function SlideBuilder({
             {placed > 0 && (
               <button
                 type="button"
-                onClick={() => onChange({ ...spec, slides: [[]] })}
+                onClick={() =>
+                  onChange({ ...spec, slides: [[]], bgs: undefined })
+                }
                 className="underline underline-offset-4"
               >
                 Clear slides
@@ -306,14 +336,37 @@ export function SlideBuilder({
                     </span>
                   </p>
                   {spec.slides.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => deleteSlide(si)}
-                      aria-label={`Delete slide ${si + 1}`}
-                      className="grid size-8 place-items-center rounded-full hover:bg-ink/10"
-                    >
-                      <Trash2 aria-hidden className="size-4" />
-                    </button>
+                    <div className="flex items-center">
+                      {([-1, 1] as const).map((by) => (
+                        <button
+                          key={by}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSlide(si, by);
+                          }}
+                          disabled={
+                            si + by < 0 || si + by >= spec.slides.length
+                          }
+                          aria-label={`Move slide ${si + 1} ${by < 0 ? "up" : "down"}`}
+                          className="grid size-8 place-items-center rounded-full hover:bg-ink/10 disabled:opacity-25 disabled:hover:bg-transparent"
+                        >
+                          {by < 0 ? (
+                            <ChevronUp aria-hidden className="size-4" />
+                          ) : (
+                            <ChevronDown aria-hidden className="size-4" />
+                          )}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => deleteSlide(si)}
+                        aria-label={`Delete slide ${si + 1}`}
+                        className="grid size-8 place-items-center rounded-full hover:bg-ink/10"
+                      >
+                        <Trash2 aria-hidden className="size-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
                 {full === si && (
@@ -456,18 +509,30 @@ export function SlideBuilder({
                 k++
               )
                 gids.push(items[k].id!);
+            const hide = !!it.group && isCollapsed(it.group);
             return (
               <Fragment key={it.id}>
                 {heading && (
                   <li
                     className={`flex list-none items-center justify-between gap-2 ${i > 0 ? "mt-3" : ""}`}
                   >
-                    <span
-                      className={`min-w-0 truncate rounded-full px-3 py-0.5 text-xs font-bold ring-1 ${gids.every((id) => placedAt.has(id)) ? "bg-ink/10 ring-ink/30" : gids.some((id) => placedAt.has(id)) ? "bg-surface ring-ink/25" : "bg-surface ring-ink/15"}`}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFold((f) => ({ ...f, [heading]: !hide }))
+                      }
+                      aria-expanded={!hide}
+                      className={`inline-flex min-w-0 items-center gap-1 rounded-full py-0.5 pl-2 pr-3 text-xs font-bold ring-1 ${gids.every((id) => placedAt.has(id)) ? "bg-ink/10 ring-ink/30" : gids.some((id) => placedAt.has(id)) ? "bg-surface ring-ink/25" : "bg-surface ring-ink/15"}`}
                     >
-                      {gids.every((id) => placedAt.has(id)) && "✓ "}
-                      {heading} · {gids.length}
-                    </span>
+                      <ChevronDown
+                        aria-hidden
+                        className={`size-3.5 shrink-0 transition-transform ${hide ? "-rotate-90" : ""}`}
+                        strokeWidth={3}
+                      />
+                      <span className="truncate">
+                        {heading} · {gids.length}
+                      </span>
+                    </button>
                     <button
                       type="button"
                       onClick={() =>
@@ -488,45 +553,56 @@ export function SlideBuilder({
                     </button>
                   </li>
                 )}
-                <li
-                  draggable
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData("text/plain", String(it.id));
-                    e.dataTransfer.effectAllowed = "move";
-                    setDragId(it.id!);
-                  }}
-                  onDragEnd={() => setDragId(null)}
-                  className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold ${at != null ? "bg-surface/50 text-ink/70 ring-1 ring-ink/10" : "bg-surface ring-1 ring-ink/10"} ${dragId === it.id ? "opacity-40" : ""}`}
-                >
-                  <GripVertical
-                    aria-hidden
-                    className="size-4 shrink-0 opacity-50"
-                  />
-                  <span
-                    className="line-clamp-2 min-w-0 flex-1"
-                    title={edited(it.id!)}
+                {!hide && (
+                  <li
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", String(it.id));
+                      e.dataTransfer.effectAllowed = "move";
+                      setDragId(it.id!);
+                    }}
+                    onDragEnd={() => setDragId(null)}
+                    className={`flex cursor-grab items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold ${at != null ? "bg-surface/50 text-ink/70 ring-1 ring-ink/10" : "bg-surface ring-1 ring-ink/10"} ${dragId === it.id ? "opacity-40" : ""}`}
                   >
-                    {edited(it.id!)}
-                  </span>
-                  {at != null ? (
+                    <GripVertical
+                      aria-hidden
+                      className="size-4 shrink-0 opacity-50"
+                    />
                     <span
-                      title={`On slide ${at + 1}`}
-                      aria-label={`On slide ${at + 1}`}
-                      className="grid size-6 shrink-0 place-items-center rounded-full bg-ink/15 text-xs font-bold text-ink"
+                      className="line-clamp-2 min-w-0 flex-1"
+                      title={edited(it.id!)}
                     >
-                      {at + 1}
+                      {edited(it.id!)}
                     </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => quickAdd(it.id!)}
-                      aria-label={`Add ${edited(it.id!)} to a slide`}
-                      className="grid size-6 shrink-0 place-items-center rounded-full bg-ink/10 hover:bg-ink/20"
-                    >
-                      <Plus aria-hidden className="size-4" />
-                    </button>
-                  )}
-                </li>
+                    {at != null ? (
+                      <button
+                        type="button"
+                        onClick={() => remove(it.id!)}
+                        title={`On slide ${at + 1} · click to remove`}
+                        aria-label={`Remove ${edited(it.id!)} from slide ${at + 1}`}
+                        className="group/badge grid size-6 shrink-0 place-items-center rounded-full bg-ink/15 text-xs font-bold text-ink hover:bg-ink hover:text-cream focus-visible:bg-ink focus-visible:text-cream"
+                      >
+                        <span className="group-hover/badge:hidden group-focus-visible/badge:hidden">
+                          {at + 1}
+                        </span>
+                        <X
+                          aria-hidden
+                          strokeWidth={3}
+                          className="hidden size-3.5 group-hover/badge:block group-focus-visible/badge:block"
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => quickAdd(it.id!)}
+                        aria-label={`Add ${edited(it.id!)} to a slide`}
+                        className="grid size-6 shrink-0 place-items-center rounded-full bg-ink/10 hover:bg-ink/20"
+                      >
+                        <Plus aria-hidden className="size-4" />
+                      </button>
+                    )}
+                  </li>
+                )}
               </Fragment>
             );
           })}
