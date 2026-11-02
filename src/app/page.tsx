@@ -142,10 +142,10 @@ export default function Home() {
                 <Squiggle>spread the word?</Squiggle>
               </h2>
               <p className="max-w-2xl text-lg leading-relaxed">
-                For the hours of work that go into a newsletter, the last thing
-                you want is for your words to be stuck there, only for half your
-                audience to see. But it takes even more time, design, and effort
-                to cross-post that content to other channels — time you
+                For the hours of work it took to write your newsletter, the last thing
+                you want is for your words to be stuck there, for only some subscribers to see. 
+                What about your socials follwers? It takes even more time, design, and effort
+                to cross-post newsletter content to other channels — time you
                 don&rsquo;t have — so{" "}
                 <b>your best work never reaches socials</b>.
               </p>
@@ -160,9 +160,9 @@ export default function Home() {
               </h2>
               <p className="mb-8 max-w-2xl text-lg leading-relaxed">
                 Before Pollen Picks, creating a socials post from a newsletter
-                meant: Open the issue, copy a link, look up the details, retype
-                the caption, forget if that was Saturday or Sunday. Repeat. Now,
-                Pollen Picks organizes your content for you — without AI.
+                meant: Open the issue, copy the pull quote, copy the link, look up the details, 
+                retype the caption. Over and over again. Now,
+                Pollen Picks fills in the blanks — without AI.
               </p>
             </Reveal>
             <Reveal delay={0.1}>

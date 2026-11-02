@@ -112,6 +112,22 @@ export function SendConfirm({
     if (allSent) clearProgress();
   }, [allSent]);
 
+  // When a send run finishes (with at least one draft made), show a results table once.
+  const resultsRef = useRef<HTMLDialogElement>(null);
+  const shownResults = useRef(false);
+  const finished =
+    !busy &&
+    results.length > 0 &&
+    results.every((v) => typeof v === "object") &&
+    results.some((v) => typeof v === "object" && v.ok);
+  useEffect(() => {
+    if (!finished) shownResults.current = false;
+    else if (!shownResults.current) {
+      shownResults.current = true;
+      resultsRef.current?.showModal();
+    }
+  }, [finished]);
+
   if (choice === null) return <p className="mt-10 font-semibold">Loading…</p>;
 
   const header = (
@@ -262,6 +278,10 @@ export function SendConfirm({
   }
 
   const started = entries.length > 0;
+  // With a single draft, the finish button can open that draft directly.
+  const only = entries.length === 1 ? entries[0][1] : null;
+  const onlyPost =
+    only && typeof only === "object" && only.ok ? only.postId : undefined;
   const status = busy
     ? `Creating drafts… ${done.length} of ${entries.length}`
     : started
@@ -361,8 +381,10 @@ export function SendConfirm({
             <div className="divide-y divide-ink/10 border-y border-ink/10">
               {networks.map((svc) => {
                 const list = byService.get(svc)!;
+                // Open once there is something to show: each finished channel has its own "Open draft in Buffer" link.
                 const open =
-                  toggled[svc] ?? list.some((c) => statusOf(c) === "failed");
+                  toggled[svc] ??
+                  list.some((c) => typeof progress[c.id] === "object");
                 return (
                   <details
                     key={svc}
@@ -497,9 +519,140 @@ export function SendConfirm({
         </div>
       </dialog>
 
+      <dialog
+        ref={resultsRef}
+        onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
+        aria-label="Your drafts"
+        className="m-auto max-h-[85vh] w-[min(36rem,94vw)] overflow-hidden rounded-2xl bg-page p-0 text-ink backdrop:bg-ink/60"
+      >
+        <div className="flex max-h-[85vh] flex-col">
+          <div className="flex items-center justify-between gap-4 px-7 pb-2 pt-6">
+            <h2 className="m-0 text-2xl">
+              {failed.length > 0
+                ? "Some drafts need another try"
+                : "Your drafts are ready"}
+            </h2>
+            <button
+              type="button"
+              onClick={() => resultsRef.current?.close()}
+              aria-label="Close"
+              className="grid size-9 place-items-center rounded-full hover:bg-ink/10"
+            >
+              <X aria-hidden className="size-5" strokeWidth={2.25} />
+            </button>
+          </div>
+          <p className="m-0 px-7 pb-4 text-sm">
+            Nothing is published. Open each draft in Buffer to review, edit and
+            schedule it.
+          </p>
+          <div className="min-h-0 overflow-y-auto px-7 pb-2">
+            <table className="w-full border-collapse text-left text-sm">
+              <caption className="sr-only">Drafts by channel</caption>
+              <thead>
+                <tr className="border-b border-ink/15">
+                  <th scope="col" className="py-2 pr-3 font-bold">
+                    Channel
+                  </th>
+                  <th scope="col" className="py-2 pr-3 font-bold">
+                    Status
+                  </th>
+                  <th scope="col" className="py-2 text-right font-bold">
+                    <span className="sr-only">Link</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {chosen.map((c) => {
+                  const v = progress[c.id];
+                  const r = typeof v === "object" ? v : null;
+                  return (
+                    <tr key={c.id} className="border-b border-ink/10 align-top">
+                      <td className="py-2.5 pr-3">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <ChannelIcon
+                            service={c.service}
+                            className="size-4 shrink-0 text-ink/60"
+                          />
+                          <span
+                            title={c.name}
+                            className="min-w-0 truncate font-semibold"
+                          >
+                            {c.name}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        {r ? (
+                          r.ok ? (
+                            "Draft created"
+                          ) : (
+                            <span className="font-semibold">
+                              {r.error ?? "Failed"}
+                            </span>
+                          )
+                        ) : (
+                          "Not sent"
+                        )}
+                        {r?.note && (
+                          <span className="block text-xs">{r.note}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-right">
+                        {r?.ok && (
+                          <a
+                            href={`https://publish.buffer.com/posts/${encodeURIComponent(r.postId ?? "")}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="whitespace-nowrap font-bold underline underline-offset-4"
+                          >
+                            Open in Buffer
+                          </a>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-3 border-t border-ink/10 px-7 py-4">
+            <button
+              type="button"
+              onClick={() => resultsRef.current?.close()}
+              className="rounded-xl px-4 py-2.5 font-bold ring-1 ring-ink/30 hover:bg-ink/10"
+            >
+              Close
+            </button>
+            <a
+              href="https://publish.buffer.com"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-honey px-5 py-2.5 font-bold text-ink-deep hover:brightness-95"
+            >
+              Open Buffer
+            </a>
+          </div>
+        </div>
+      </dialog>
+
       <FlowBar
         back={busy ? undefined : { href: backHref, label: "Prepare" }}
-        status={status}
+        status={
+          finished ? (
+            <>
+              {status} ·{" "}
+              <button
+                type="button"
+                onClick={() => resultsRef.current?.showModal()}
+                className="font-bold underline underline-offset-4"
+              >
+                View drafts
+              </button>
+            </>
+          ) : (
+            status
+          )
+        }
       >
         {busy ? (
           <span aria-disabled className={primaryDisabled}>
@@ -507,12 +660,16 @@ export function SendConfirm({
           </span>
         ) : allSent ? (
           <a
-            href="https://publish.buffer.com"
+            href={
+              onlyPost
+                ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}`
+                : "https://publish.buffer.com"
+            }
             target="_blank"
             rel="noreferrer"
             className={finishButton}
           >
-            Open Buffer
+            {onlyPost ? "Open draft in Buffer" : "Open Buffer"}
           </a>
         ) : failed.length > 0 ? (
           <button
