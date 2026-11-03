@@ -38,6 +38,7 @@ export async function loadAppIssueResult(mode: string | undefined): Promise<Issu
 
     const raw = await cachedIssue(`${uid}:${postId}`, () => fetchIssue(key, publicationId, postId));
     const issue = buildIssue(raw);
+    await dumpForDebugging(postId, raw, issue);
     if (issue.chunks.length === 0) return { error: "Couldn't find any content to pick from in this issue." };
     return { issue };
   } catch (e) {
@@ -51,6 +52,23 @@ export async function loadAppIssueResult(mode: string | undefined): Promise<Issu
 export async function loadAppIssue(mode: string | undefined): Promise<IssueData | null> {
   const r = await loadAppIssueResult(mode);
   return r && "issue" in r ? r.issue : null;
+}
+
+/**
+ * Development only: keep the raw beehiiv HTML and what the parser made of it under .next/pollen-debug/, so a layout the
+ * parser doesn't handle can be reproduced from the real response. Never runs in production.
+ */
+async function dumpForDebugging(postId: string, raw: BeehiivIssueContent, issue: IssueData): Promise<void> {
+  if (process.env.NODE_ENV !== "development") return;
+  try {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const dir = ".next/pollen-debug";
+    await mkdir(dir, { recursive: true });
+    await writeFile(`${dir}/${postId}.html`, raw.html);
+    await writeFile(`${dir}/${postId}.json`, JSON.stringify({ title: raw.title, publishedAt: raw.publishedAt, clicks: raw.clicks, chunks: issue.chunks.length, ranked: issue.chunks.filter((c) => c.rank).length }, null, 2));
+  } catch {
+    // debugging aid only
+  }
 }
 
 /** Same ranking as the demo, against today's date: upcoming activities ordered by unique verified clickers. */
