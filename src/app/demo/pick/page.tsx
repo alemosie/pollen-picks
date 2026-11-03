@@ -25,8 +25,10 @@ async function DemoPickContent({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { picking, picks } = await searchParams;
+  // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const initialPicks = String(Array.isArray(picks) ? picks[0] : (picks ?? ""))
     .split(",")
+    .filter(Boolean)
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 0);
 

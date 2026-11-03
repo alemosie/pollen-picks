@@ -11,7 +11,7 @@ import { parseTemplateFrom } from "@/lib/slides/options";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const issue = loadDemoIssue();
-  const items = slideItemsFor(issue.chunks, (q.get("picks") ?? "").split(",").map(Number).filter(Number.isFinite));
+  const items = slideItemsFor(issue.chunks, (q.get("picks") ?? "").split(",").filter(Boolean).map(Number).filter(Number.isFinite));
   if (items.length === 0) return NextResponse.json({ error: "No picks" }, { status: 400 });
   const slides = planSlides(items, { newsletter: "Just a Phase", ...parseTemplateFrom(q) });
   const n = Number(q.get("n") ?? 0);

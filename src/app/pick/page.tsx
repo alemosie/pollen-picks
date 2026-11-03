@@ -32,8 +32,10 @@ async function PickContent({
   const { mode, picking, picks } = sp;
   // The sample issue is the public demo now: old /pick?mode=demo links go there, and need no login.
   if (mode === "demo") redirect(demoUrlFrom("pick", sp));
+  // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const initialPicks = String(Array.isArray(picks) ? picks[0] : (picks ?? ""))
     .split(",")
+    .filter(Boolean)
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 0);
   await requireSession(`/pick?mode=${encodeURIComponent(String(mode ?? ""))}`);

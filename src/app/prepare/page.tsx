@@ -36,8 +36,10 @@ async function SendContent({
   if (mode === "demo") redirect(demoUrlFrom("prepare", sp));
   const tpl = parseTemplateFromPage(sp);
   const extra = templateParams(tpl).toString();
+  // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(sp.picks ?? "")
     .split(",")
+    .filter(Boolean)
     .map(Number)
     .filter(Number.isFinite);
   const self = `/prepare?mode=${encodeURIComponent(mode)}&picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;

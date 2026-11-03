@@ -38,8 +38,10 @@ async function DesignContent({
     if (typeof v === "string") back.set(k, v);
     else if (Array.isArray(v) && v[0]) back.set(k, v[0]);
   await requireSession(`/design?${back.toString()}`);
+  // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(picks ?? "")
     .split(",")
+    .filter(Boolean)
     .map(Number)
     .filter(Number.isFinite);
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
