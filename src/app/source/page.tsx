@@ -5,6 +5,8 @@ import { StepWord } from "@/components/StepWord";
 import { connection } from "next/server";
 import { PageHeader } from "@/components/StepTree";
 import { requireSession } from "@/lib/auth";
+import { getBeehiivConnection } from "@/lib/connections";
+import { loadIssueList } from "@/lib/issues";
 import { ModePicker } from "./ModePicker";
 
 export const metadata = { title: "Choose your setup · Pollen Picks" };
@@ -19,7 +21,10 @@ export default function Start() {
 
 async function StartContent() {
   await connection();
-  await requireSession("/source");
+  const session = await requireSession("/source");
+  const beehiiv = await getBeehiivConnection(session.userId);
+  // Sent issues, newest first, so the list is there on first render. A failure shows a message and a retry, not a blank page.
+  const issues = beehiiv ? await loadIssueList(session.userId) : null;
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
@@ -39,7 +44,7 @@ async function StartContent() {
         </p>
       </div>
 
-      <ModePicker />
+      <ModePicker beehiiv={beehiiv} initialIssues={issues && "list" in issues ? issues.list : null} initialIssuesError={issues && "error" in issues ? issues.error : null} />
     </main>
   );
 }
