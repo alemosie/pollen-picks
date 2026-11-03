@@ -2,6 +2,7 @@
 
 import { Check, Link2 } from "lucide-react";
 import { useState } from "react";
+import { stepUrl } from "@/lib/flow";
 import { loadPicked } from "@/lib/progress";
 
 /**
@@ -9,13 +10,19 @@ import { loadPicked } from "@/lib/progress";
  * so anyone who opens it and logs in with their own Buffer account sees the same thing and can post it themselves.
  * `kind="pick"`: the Pick page's URL doesn't hold the selection, so it's added from what's saved in this browser.
  * `getUrl`: pages that build their link from live state pass their own.
+ * `mode`: which content source the link is for (the public demo by default).
+ * `title`: tooltip, for pages where the default wording (post it from their own Buffer account) doesn't fit.
  */
 export function ShareLinkButton({
   kind = "current",
   getUrl,
+  mode = "demo",
+  title = "Anyone with this link can open this and post it from their own Buffer account",
 }: {
   kind?: "current" | "pick";
   getUrl?: () => string;
+  mode?: string;
+  title?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -23,7 +30,7 @@ export function ShareLinkButton({
     let url = getUrl?.() ?? window.location.href;
     if (!getUrl && kind === "pick") {
       const ids = loadPicked() ?? [];
-      url = `${window.location.origin}/pick?mode=demo${ids.length ? `&picks=${ids.join(",")}` : ""}`;
+      url = `${window.location.origin}${stepUrl(mode, "pick", ids.length ? `picks=${ids.join(",")}` : "")}`;
     }
     try {
       await navigator.clipboard.writeText(url);
@@ -38,7 +45,7 @@ export function ShareLinkButton({
     <button
       type="button"
       onClick={copy}
-      title="Anyone with this link can open this and post it from their own Buffer account"
+      title={title}
       className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
     >
       {copied ? (

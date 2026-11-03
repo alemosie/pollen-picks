@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
-import { loadDemoIssue } from "@/lib/demo";
+import { demoUrlFrom, stepUrl } from "@/lib/flow";
+import { loadAppIssue } from "@/lib/sources";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { TemplateEditor } from "./TemplateEditor";
@@ -27,7 +28,10 @@ async function DesignContent({
 }) {
   await connection();
   const sp = await searchParams;
-  const { mode, picks } = sp;
+  const { picks } = sp;
+  const mode = String(sp.mode ?? "");
+  // The sample issue is the public demo now: old /design?mode=demo links go there, and need no login.
+  if (mode === "demo") redirect(demoUrlFrom("design", sp));
   // Keep every param (the custom layout lives in `spec`), so a shared link survives the Buffer login round trip.
   const back = new URLSearchParams();
   for (const [k, v] of Object.entries(sp))
@@ -38,16 +42,18 @@ async function DesignContent({
     .split(",")
     .map(Number)
     .filter(Number.isFinite);
-  if (mode !== "demo" || ids.length === 0) redirect("/pick?mode=demo");
+  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
-  const issue = loadDemoIssue();
+  const issue = await loadAppIssue(mode);
+  if (!issue) redirect("/source");
   const items = slideItemsFor(issue.chunks, ids);
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
       <SaveStep step={3} />
-      <PageHeader current={3} hrefs={{ 1: "/source", 2: "/pick?mode=demo" }} />
+      <PageHeader current={3} hrefs={{ 1: "/source", 2: stepUrl(mode, "pick") }} />
       <TemplateEditor
+        mode={mode}
         items={items}
         picks={ids}
         initial={parseTemplateFromPage(sp)}

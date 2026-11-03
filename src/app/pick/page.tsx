@@ -7,7 +7,8 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
-import { loadDemoIssue } from "@/lib/demo";
+import { demoUrlFrom } from "@/lib/flow";
+import { loadAppIssue } from "@/lib/sources";
 import { Picker } from "./Picker";
 import { parsePicking } from "./picking";
 
@@ -27,15 +28,17 @@ async function PickContent({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await connection();
-  const { mode, picking, picks } = await searchParams;
+  const sp = await searchParams;
+  const { mode, picking, picks } = sp;
+  // The sample issue is the public demo now: old /pick?mode=demo links go there, and need no login.
+  if (mode === "demo") redirect(demoUrlFrom("pick", sp));
   const initialPicks = String(Array.isArray(picks) ? picks[0] : (picks ?? ""))
     .split(",")
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 0);
   await requireSession(`/pick?mode=${encodeURIComponent(String(mode ?? ""))}`);
-  if (mode !== "demo") redirect("/source"); // public / own-newsletter modes arrive later
-
-  const issue = loadDemoIssue();
+  const issue = await loadAppIssue(String(mode ?? ""));
+  if (!issue) redirect("/source"); // public / own-newsletter modes arrive later
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
@@ -46,7 +49,7 @@ async function PickContent({
             <StepWord>Pick</StepWord> what to post
           </h1>
           <div className="sm:mt-2">
-            <ShareLinkButton kind="pick" />
+            <ShareLinkButton kind="pick" mode={String(mode ?? "")} />
           </div>
         </div>
         <p className="mb-0 max-w-2xl text-lg">
@@ -75,7 +78,7 @@ async function PickContent({
         </p>
       </div>
       <Picker
-        mode="demo"
+        mode={String(mode ?? "")}
         chunks={issue.chunks}
         hasClicks={issue.hasClicks}
         initialView={parsePicking(picking)}

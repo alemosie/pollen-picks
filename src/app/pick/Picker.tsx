@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPicked, savePicked } from "@/lib/progress";
 import Link from "next/link";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
+import { stepUrl } from "@/lib/flow";
 import {
   LayoutList,
   ListChecks,
@@ -391,7 +392,7 @@ export function Picker({
           </span>
         ) : (
           <Link
-            href={`/design?mode=${mode}&picks=${picked.join(",")}`}
+            href={stepUrl(mode, "design", `picks=${picked.join(",")}`)}
             className={primaryButton}
           >
             Continue

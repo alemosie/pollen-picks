@@ -5,17 +5,16 @@ import { FlowBar, primaryButton } from "@/components/FlowBar";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import { useState } from "react";
 
-type Mode = { id: "demo" | "public" | "own"; title: string; tag: string; body: string; tone: string; href?: string; cta: string };
+type Mode = { id: "public" | "own"; title: string; tag: string; body: string; tone: string; href?: string; cta: string };
 
 const MODES: Mode[] = [
   {
-    id: "demo",
-    title: "Demo",
-    tag: "See how it works",
-    body: "A real newsletter issue with real click data — no beehiiv needed. Drafts still go to your Buffer, labeled as demo.",
+    id: "own",
+    title: "Your newsletter",
+    tag: "Pick your own content",
+    body: "Connect your Beehiiv API key to share your own content. Unlock top-click ranking and every issue in your archive.",
     tone: "bg-accent",
-    href: "/pick?mode=demo",
-    cta: "Start the demo",
+    cta: "Coming soon",
   },
   {
     id: "public",
@@ -25,24 +24,16 @@ const MODES: Mode[] = [
     tone: "bg-card",
     cta: "Coming soon",
   },
-  {
-    id: "own",
-    title: "Your newsletter",
-    tag: "Pick your own content",
-    body: "Connect your Beehiiv API key to share your own content. Unlock top-click ranking and every issue in your archive.",
-    tone: "bg-surface ring-1 ring-ink/15",
-    cta: "Coming soon",
-  },
 ];
 
 /** Pick where the content comes from. Source-specific fields will slot in between the cards and the button. */
 export function ModePicker() {
-  const [mode, setMode] = useState<Mode["id"]>("demo");
+  const [mode, setMode] = useState<Mode["id"]>("own");
   const selected = MODES.find((m) => m.id === mode)!;
 
   return (
     <div>
-      <div role="radiogroup" aria-label="Newsletter source" className="grid gap-5 md:grid-cols-3">
+      <div role="radiogroup" aria-label="Newsletter source" className="grid gap-5 md:grid-cols-2">
         {MODES.map((m) => (
           <label
             key={m.id}

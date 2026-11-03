@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
-import { loadDemoIssue } from "@/lib/demo";
+import { demoUrlFrom, stepUrl } from "@/lib/flow";
+import { loadAppIssue } from "@/lib/sources";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
@@ -31,6 +32,9 @@ async function SendContent({
 }) {
   await connection();
   const sp = await searchParams;
+  const mode = String(sp.mode ?? "");
+  // The sample issue is the public demo: old demo links go to /demo/send, and need no login.
+  if (mode === "demo") redirect(demoUrlFrom("send", sp));
   const tpl = parseTemplateFromPage(sp);
   const extra = templateParams(tpl).toString();
   const ids = String(sp.picks ?? "")
@@ -39,11 +43,12 @@ async function SendContent({
     .filter(Number.isFinite);
   const tail = `${ids.join(",")}${extra ? `&${extra}` : ""}`;
   const session = await requireSession(
-    `/send?mode=${encodeURIComponent(String(sp.mode ?? ""))}&picks=${tail}`,
+    `/send?mode=${encodeURIComponent(mode)}&picks=${tail}`,
   );
-  if (sp.mode !== "demo" || ids.length === 0) redirect("/pick?mode=demo");
+  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
-  const issue = loadDemoIssue();
+  const issue = await loadAppIssue(mode);
+  if (!issue) redirect("/source");
   const slides = planSlides(slideItemsFor(issue.chunks, ids), {
     newsletter: "Just a Phase",
     ...tpl,
@@ -58,9 +63,9 @@ async function SendContent({
         current={5}
         hrefs={{
           1: "/source",
-          2: "/pick?mode=demo",
-          3: `/design?mode=demo&picks=${tail}`,
-          4: `/prepare?mode=demo&picks=${tail}`,
+          2: stepUrl(mode, "pick"),
+          3: stepUrl(mode, "design", `picks=${tail}`),
+          4: stepUrl(mode, "prepare", `picks=${tail}`),
         }}
       />
       <SendConfirm
@@ -82,7 +87,7 @@ async function SendContent({
         )}
         newsletter="Just a Phase"
         heading={tpl.heading}
-        backHref={`/prepare?mode=demo&picks=${tail}`}
+        backHref={stepUrl(mode, "prepare", `picks=${tail}`)}
       />
     </main>
   );

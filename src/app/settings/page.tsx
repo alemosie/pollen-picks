@@ -50,10 +50,10 @@ async function SettingsContent() {
       <PaletteEditor />
       <p className="mt-10">
         <Link
-          href="/design?mode=demo"
+          href="/source"
           className="inline-flex items-center gap-2 font-bold underline underline-offset-4"
         >
-          <ArrowLeft aria-hidden className="size-4" /> Back to your carousel
+          <ArrowLeft aria-hidden className="size-4" /> Back to the app
         </Link>
       </p>
     </main>

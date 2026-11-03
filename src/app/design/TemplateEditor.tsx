@@ -6,6 +6,7 @@ import { StepWord } from "@/components/StepWord";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
+import { isDemo, stepUrl } from "@/lib/flow";
 import {
   saveTemplate,
   templateSnapshot,
@@ -24,10 +25,13 @@ import { SlideBuilder } from "./SlideBuilder";
 const SPEC_WARN = 6000;
 
 export function TemplateEditor({
+  mode,
   items,
   picks,
   initial,
 }: {
+  /** Content source: "demo" is the public sample, with its own /demo pages. */
+  mode: string;
   items: SlideItem[];
   picks: number[];
   initial: TemplateOptions;
@@ -70,10 +74,11 @@ export function TemplateEditor({
   const applied: TemplateOptions = custom ? { spec: clean } : {};
   const extra = templateParams(applied).toString();
   const q = picks.join(",");
-  const next = `/prepare?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
+  const query = `picks=${q}${extra ? `&${extra}` : ""}`;
+  const demo = isDemo(mode);
+  const next = stepUrl(mode, "prepare", query);
 
-  const shareUrl = () =>
-    `${window.location.origin}/design?mode=demo&picks=${q}${extra ? `&${extra}` : ""}`;
+  const shareUrl = () => `${window.location.origin}${stepUrl(mode, "design", query)}`;
 
   const standard = planSlides(items, { newsletter: "Just a Phase" });
 
@@ -86,7 +91,10 @@ export function TemplateEditor({
           </h1>
           <div className="flex shrink-0 items-center gap-3 sm:mt-2">
             <SavedFlash />
-            <ShareLinkButton getUrl={shareUrl} />
+            <ShareLinkButton
+              getUrl={shareUrl}
+              title={demo ? "Anyone with this link can open this demo, no account needed" : undefined}
+            />
           </div>
         </div>
         <p className="mb-0 max-w-2xl text-lg">
@@ -151,7 +159,7 @@ export function TemplateEditor({
       )}
 
       <FlowBar
-        back={{ href: "/pick?mode=demo", label: "Pick" }}
+        back={{ href: stepUrl(mode, "pick"), label: "Pick" }}
         status={
           custom
             ? extra.length > SPEC_WARN

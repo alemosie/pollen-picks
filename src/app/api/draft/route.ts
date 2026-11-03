@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gql, siteOrigin } from "@/lib/buffer";
 import { requireSession } from "@/lib/guard";
-import { loadDemoIssue } from "@/lib/demo";
+import { loadAppIssue } from "@/lib/sources";
 import { planSlides } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFrom, templateParams } from "@/lib/slides/options";
@@ -10,14 +10,22 @@ import { imageLimit, unsupportedReason } from "@/lib/channels";
 export type DraftResult = { channelId: string; ok: boolean; postId?: string; error?: string; slides?: number; note?: string };
 
 /**
- * Demo mode: create one Buffer draft (never published) per selected channel from picked demo chunks.
+ * Create one Buffer draft (never published) per selected channel from picked chunks of the user's own content.
+ * The sample issue can't be sent: it only exists in the public /demo flow, and a request without a real `source` is refused.
  * Buffer fetches the slide images itself, so the URLs must be publicly reachable (not localhost).
  */
 export async function POST(req: NextRequest) {
   const g = await requireSession(req);
   if ("response" in g) return g.response;
 
-  const body = (await req.json().catch(() => ({}))) as { channels?: { id: string; service: string }[]; picks?: number[]; caption?: string; captions?: Record<string, string>; template?: string };
+  const body = (await req.json().catch(() => ({}))) as { source?: string; channels?: { id: string; service: string }[]; picks?: number[]; caption?: string; captions?: Record<string, string>; template?: string };
+
+  // Fail closed, before anything touches Buffer. No source (or the sample issue) means no content to send.
+  const issue = await loadAppIssue(body.source);
+  if (!issue) {
+    return NextResponse.json({ error: "The sample issue can't be sent to Buffer. Connect your own newsletter to create posts." }, { status: 403 });
+  }
+
   const picks = (body.picks ?? []).filter(Number.isFinite);
   const channels = (body.channels ?? []).filter((c) => c?.id);
   if (channels.length === 0) return NextResponse.json({ error: "Choose at least one channel." }, { status: 400 });
@@ -28,7 +36,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` }, { status: 400 });
   }
 
-  const issue = loadDemoIssue();
+  // TODO(BYO): slide previews are still rendered from the sample issue (/api/slide/preview); they need to render from `issue`.
   const tpl = parseTemplateFrom(new URLSearchParams(body.template ?? ""));
   const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: "Just a Phase", ...tpl });
   const extra = templateParams(tpl).toString();
