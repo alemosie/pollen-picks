@@ -8,6 +8,7 @@ import { ResumeBanner } from "@/components/ResumeBanner";
 import type { BeehiivIssue } from "@/lib/beehiiv";
 import { ownMode, stepUrl } from "@/lib/flow";
 import { Check } from "lucide-react";
+import { Select } from "@/components/Select";
 import { useState } from "react";
 import { IssueList } from "./IssueList";
 
@@ -166,21 +167,21 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
               <label htmlFor="publication" className="mb-2 block font-bold">
                 Publication
               </label>
-              <select
+              <Select
                 id="publication"
                 value={publicationId ?? ""}
                 onChange={(e) => {
                   setPublicationId(e.target.value);
                   void loadIssues(e.target.value);
                 }}
-                className="w-full rounded-xl bg-surface px-4 py-3 ring-1 ring-ink/15 sm:w-auto"
+                className="py-3 pl-4"
               >
                 {beehiiv.publications.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
           <IssueList
