@@ -2,17 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { SavedFlash } from "@/components/SavedFlash";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import Link from "next/link";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { loadFormat, saveFormat } from "@/lib/progress";
-import { Search } from "lucide-react";
+import { Check, Copy, Search } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import {
   CAPTION_ORDERS,
   CAPTION_VARIANTS,
+  MAX_CAPTION_CHARS,
   buildCaption,
+  captionLeftOut,
   variantFor,
   type CaptionItem,
   type CaptionOrder,
@@ -82,7 +85,8 @@ export function PrepareView({
     if (demo) return;
     let last = Date.now();
     const refresh = () => {
-      if (document.visibilityState !== "visible" || Date.now() - last < 10_000) return;
+      if (document.visibilityState !== "visible" || Date.now() - last < 10_000)
+        return;
       last = Date.now();
       router.refresh();
     };
@@ -121,6 +125,7 @@ export function PrepareView({
     {},
   );
   const [tab, setTab] = useState<CaptionVariant>("instagram");
+  const [copied, setCopied] = useState(false);
   // Remember channel choice, order, tab and caption edits for this set of picks + template, so a detour doesn't lose them.
   const sig = `${picks.join(",")}|${template}`;
   const [restored, setRestored] = useState(false);
@@ -157,6 +162,26 @@ export function PrepareView({
     buildCaption(captionItems, { newsletter, heading, order, variant, link });
   const captionFor = (variant: CaptionVariant) =>
     edited[variant] ?? generated(variant);
+  async function copyCaption(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      window.prompt("Copy this caption", text);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2200);
+  }
+  // Picks the template caption can't fit. Not shown once the caption has been edited by hand: then it's the user's text.
+  const leftOut = (variant: CaptionVariant) =>
+    edited[variant] === undefined
+      ? captionLeftOut(captionItems, {
+          newsletter,
+          heading,
+          order,
+          variant,
+          link,
+        })
+      : [];
 
   const toggle = (id: string) =>
     setSelected((s) => {
@@ -209,7 +234,8 @@ export function PrepareView({
           <h1 className="mb-3 text-4xl sm:text-5xl">
             <StepWord>Prepare</StepWord> your posts
           </h1>
-          <div className="sm:mt-2">
+          <div className="flex shrink-0 items-center gap-3 sm:mt-2">
+            <SavedFlash />
             <ShareLinkButton />
           </div>
         </div>
@@ -490,31 +516,59 @@ export function PrepareView({
                   rows={12}
                   className="rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/15"
                 />
+                {leftOut(activeTab).length > 0 && (
+                  <p
+                    role="status"
+                    className="m-0 border-l-4 border-coral pl-3 text-sm font-semibold"
+                  >
+                    {plural(leftOut(activeTab).length, "pick")} won&rsquo;t fit
+                    in the {MAX_CAPTION_CHARS.toLocaleString("en")}-character
+                    caption and will be left out:{" "}
+                    {leftOut(activeTab).join(" · ")}. Pick fewer, or add{" "}
+                    {leftOut(activeTab).length === 1 ? "it" : "them"} by hand.
+                  </p>
+                )}
                 {visible.length > 1 && (
                   <p className="m-0 text-sm">
                     <span className="font-semibold">{variant.note}</span> Used
                     for {plural(used.length, "selected channel")}.
                   </p>
                 )}
-                {edited[activeTab] !== undefined && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <button
                     type="button"
-                    onClick={() =>
-                      setEdited((m) => {
-                        const rest = { ...m };
-                        delete rest[activeTab];
-                        return rest;
-                      })
-                    }
-                    className="w-fit text-sm font-semibold underline underline-offset-4"
+                    onClick={() => copyCaption(captionFor(activeTab))}
+                    className="inline-flex w-fit items-center gap-2 rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
                   >
-                    Reset to template (
-                    {CAPTION_ORDERS.find(
-                      (o) => o.id === order,
-                    )?.label.toLowerCase()}
-                    )
+                    {copied ? (
+                      <Check aria-hidden className="size-4" strokeWidth={3} />
+                    ) : (
+                      <Copy aria-hidden className="size-4" strokeWidth={2.25} />
+                    )}
+                    <span role="status">
+                      {copied ? "Caption copied" : "Copy caption"}
+                    </span>
                   </button>
-                )}
+                  {edited[activeTab] !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEdited((m) => {
+                          const rest = { ...m };
+                          delete rest[activeTab];
+                          return rest;
+                        })
+                      }
+                      className="w-fit text-sm font-semibold underline underline-offset-4"
+                    >
+                      Reset to template (
+                      {CAPTION_ORDERS.find(
+                        (o) => o.id === order,
+                      )?.label.toLowerCase()}
+                      )
+                    </button>
+                  )}
+                </div>
               </div>
             </>
           ) : (

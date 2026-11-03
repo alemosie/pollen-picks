@@ -55,7 +55,15 @@ export type FormatState = {
   tab: string;
 };
 export const loadFormat = () => read<FormatState>(FORMAT);
-export const saveFormat = (s: FormatState) => write(FORMAT, s);
+export const saveFormat = (s: FormatState) => {
+  let same = false;
+  try {
+    same = localStorage.getItem(FORMAT) === JSON.stringify(s);
+  } catch {}
+  write(FORMAT, s);
+  // Flash "Saved" only for a real change, not when the page rewrites what it just restored.
+  if (!same) notifySaved();
+};
 
 export type TemplateState = { custom: boolean; spec: CustomSpec };
 export const loadTemplate = () => read<TemplateState>(TEMPLATE);
@@ -68,12 +76,15 @@ export const templateSnapshot = (): string | null => {
   }
 };
 export const SAVED_EVENT = "pollen-picks:saved";
-export const saveTemplate = (s: TemplateState) => {
-  write(TEMPLATE, s);
-  // Lets the page header flash "Saved".
+/** Lets the page header flash "Saved". */
+function notifySaved() {
   try {
     window.dispatchEvent(new Event(SAVED_EVENT));
   } catch {}
+}
+export const saveTemplate = (s: TemplateState) => {
+  write(TEMPLATE, s);
+  notifySaved();
 };
 
 /** Forget everything: after a finished send, or "Start over". */
