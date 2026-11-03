@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { loadPicked, savePicked } from "@/lib/progress";
 import Link from "next/link";
+import { Select } from "@/components/Select";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { stepUrl } from "@/lib/flow";
 import {
+  AlignLeft,
   LayoutList,
+  Link2,
+  List,
   ListChecks,
   MousePointerClick,
   X,
@@ -18,6 +22,7 @@ type Chunk = {
   id: number;
   section: string;
   group?: string;
+  topic?: string;
   kind: "bullet" | "paragraph";
   title: string;
   body: string;
@@ -25,12 +30,22 @@ type Chunk = {
   when: string | null;
   place: string | null;
   blurb: string;
+  url: string | null;
   rank: number | null;
   score: number | null;
 };
 
+/** What kind of element a card is, shown as a small icon in its corner: a link, a list item or a paragraph. */
+function elementType(c: Pick<Chunk, "kind" | "url">): {
+  icon: LucideIcon;
+  label: string;
+} {
+  if (c.url) return { icon: Link2, label: "Link" };
+  if (c.kind === "bullet") return { icon: List, label: "List item" };
+  return { icon: AlignLeft, label: "Paragraph" };
+}
+
 const MAX = 20;
-const DEFAULT_TOP = 5;
 const topIdsOf = (chunks: { id: number; rank: number | null }[], n: number) =>
   chunks
     .filter((c) => c.rank && c.rank <= n)
@@ -76,8 +91,6 @@ export function Picker({
   // Keep ?picking= in the address bar so the pick type is linkable and survives reloads.
   const setView = (v: View) => {
     setViewState(v);
-    if (v === "top-clicks" && picked.length === 0)
-      setPicked(topIdsOf(chunks, DEFAULT_TOP));
     const url = new URL(window.location.href);
     url.searchParams.set("picking", v);
     window.history.replaceState(null, "", url);
@@ -95,9 +108,8 @@ export function Picker({
       [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? sections[0]
     );
   });
-  const [picked, setPicked] = useState<number[]>(() =>
-    view === "top-clicks" ? topIdsOf(chunks, DEFAULT_TOP) : [],
-  );
+  // Nothing is picked until the user picks it (the Top 3/5/10 chips are there for a quick start).
+  const [picked, setPicked] = useState<number[]>([]);
   // Remember the selection so leaving and coming back doesn't lose it. Restore after mount (keeps SSR markup identical).
   const [restored, setRestored] = useState(false);
   useEffect(() => {
@@ -107,15 +119,15 @@ export function Picker({
       const fromLink = (initialPicks ?? []).filter((id) => valid.has(id));
       const saved = fromLink.length
         ? fromLink
-        : (loadPicked() ?? []).filter((id) => valid.has(id));
+        : (loadPicked(mode) ?? []).filter((id) => valid.has(id));
       if (saved.length > 0) setPicked(saved);
       setRestored(true);
     }, 0);
     return () => clearTimeout(t);
-  }, [chunks, initialPicks]);
+  }, [chunks, initialPicks, mode]);
   useEffect(() => {
-    if (restored) savePicked(picked);
-  }, [picked, restored]);
+    if (restored) savePicked(picked, mode);
+  }, [picked, restored, mode]);
 
   const visible = useMemo(() => {
     if (view === "top-clicks")
@@ -181,8 +193,16 @@ export function Picker({
         return {
           heading:
             view === "all" && c.section !== prev?.section ? c.section : null,
+          topic:
+            view !== "top-clicks" && c.topic && c.topic !== prev?.topic
+              ? c.topic
+              : null,
+          // An underlined or plain label: a subheader. A bold one is already shown as the topic pill.
           group:
-            view !== "top-clicks" && c.group && c.group !== prev?.group
+            view !== "top-clicks" &&
+            c.group &&
+            c.group !== c.topic &&
+            (c.group !== prev?.group || c.topic !== prev?.topic)
               ? c.group
               : null,
         };
@@ -235,17 +255,19 @@ export function Picker({
         {view === "section" && (
           <label className="mb-4 flex flex-wrap items-center gap-3 text-sm font-semibold">
             Section
-            <select
-              value={section}
-              onChange={(e) => setSection(e.target.value)}
-              className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/20"
-            >
-              {sections.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
+            <span className="min-w-0 flex-1">
+              <Select
+                value={section}
+                onChange={(e) => setSection(e.target.value)}
+                className="font-semibold"
+              >
+                {sections.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </Select>
+            </span>
           </label>
         )}
 
@@ -284,21 +306,26 @@ export function Picker({
             const idx = picked.indexOf(c.id);
             const on = idx >= 0;
             const disabled = !on && full;
-            const { heading, group: grp } = labels[i];
+            const { heading, topic: top, group: grp } = labels[i];
             return (
               <li key={c.id} className="contents">
                 {heading && (
-                  <p className="mt-4 text-xs font-bold uppercase tracking-wide text-ink/70">
+                  <p className="mt-6 w-fit rounded-full bg-blush px-4 py-1.5 text-xl font-bold text-ink-deep">
                     {heading}
                   </p>
                 )}
-                {grp && (
-                  <p className="mt-2 w-fit rounded-full bg-chip px-2.5 py-0.5 text-xs font-bold text-ink-deep">
-                    {grp}
+                {top && (
+                  <p
+                    className={`mt-4 w-fit rounded-full px-3 py-1 text-base font-bold text-ink-deep ${view === "all" ? "bg-blush" : "bg-sage"}`}
+                  >
+                    {top}
                   </p>
                 )}
+                {grp && (
+                  <p className="mt-2 text-xs font-bold text-ink-deep">{grp}</p>
+                )}
                 <label
-                  className={`flex cursor-pointer items-start gap-3 rounded-2xl p-4 ring-1 transition ${
+                  className={`relative flex cursor-pointer items-start gap-3 rounded-2xl p-4 pr-12 ring-1 transition ${
                     on
                       ? `${ACCENT[view].solid} ring-2 ring-ink`
                       : "bg-surface ring-ink/10 hover:ring-ink/30"
@@ -311,6 +338,22 @@ export function Picker({
                     onChange={() => toggle(c.id)}
                     className="sr-only"
                   />
+                  {(() => {
+                    const { icon: Kind, label } = elementType(c);
+                    return (
+                      <span
+                        title={label}
+                        className="absolute right-4 top-4 text-ink/60"
+                      >
+                        <Kind
+                          aria-hidden
+                          className="size-4"
+                          strokeWidth={2.25}
+                        />
+                        <span className="sr-only">{label}</span>
+                      </span>
+                    );
+                  })()}
                   <span
                     aria-hidden
                     className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${on ? "bg-ink text-cream" : "border-2 border-ink/30"}`}

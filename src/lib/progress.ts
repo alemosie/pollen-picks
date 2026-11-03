@@ -35,8 +35,17 @@ export const loadProgress = () => read<Progress>(KEY);
 export const saveProgress = (href: string, step: number) =>
   write(KEY, { href, step, savedAt: Date.now() } satisfies Progress);
 
-export const loadPicked = () => read<number[]>(PICKED);
-export const savePicked = (ids: number[]) => write(PICKED, ids);
+// Picks are positions in one issue's list, so they only mean something for that issue. They are saved with the
+// flow `scope` (the mode, which carries the issue) and only restored for the same one. Called without a scope
+// (the share link) it returns whatever was saved last.
+type SavedPicks = { scope: string; ids: number[] };
+export function loadPicked(scope?: string): number[] | null {
+  const v = read<number[] | SavedPicks>(PICKED);
+  if (!v) return null;
+  if (Array.isArray(v)) return scope === undefined ? v : null; // saved before picks were scoped: can't tell which issue
+  return scope === undefined || v.scope === scope ? v.ids : null;
+}
+export const savePicked = (ids: number[], scope: string) => write(PICKED, { scope, ids } satisfies SavedPicks);
 
 export type FormatState = {
   sig: string;
