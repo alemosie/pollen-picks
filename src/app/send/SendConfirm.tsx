@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import { ChannelIcon } from "@/components/ChannelIcon";
+import { DemoGate } from "@/components/DemoGate";
 import { FlowBar, primaryDisabled } from "@/components/FlowBar";
 import {
   CAPTION_VARIANTS,
@@ -52,6 +53,7 @@ export function SendConfirm({
   template,
   link,
   backHref,
+  demo,
 }: {
   urls: string[];
   channels: Channel[];
@@ -62,6 +64,8 @@ export function SendConfirm({
   template: string;
   link: string;
   backHref: string;
+  /** Public demo: the final action opens an account prompt and never creates drafts. */
+  demo?: { signedIn: boolean };
 }) {
   // What was chosen on the Prepare step, read from this browser once mounted.
   const [choice, setChoice] = useState<Choice | "missing" | null>(null);
@@ -134,16 +138,37 @@ export function SendConfirm({
     <div className="mb-8">
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
         <h1 className="mb-3 text-4xl sm:text-5xl">
-          <StepWord>Send</StepWord> to Buffer
+          {demo ? (
+            <>
+              Here&rsquo;s your <StepWord>creation</StepWord>
+            </>
+          ) : (
+            <>
+              <StepWord>Send</StepWord> to Buffer
+            </>
+          )}
         </h1>
         <div className="sm:mt-2">
           <ShareLinkButton />
         </div>
       </div>
-      <p className="mb-0 max-w-2xl text-lg">
-        One last look. Everything here is saved to Buffer as a draft; nothing is
-        published.
-      </p>
+      {demo ? (
+        <p className="mb-0 max-w-2xl text-lg">
+          You&rsquo;ve made it to the end of the demo. In the live app, here&rsquo;s where we&rsquo;d send your posts to
+          Buffer: now, later, or as drafts.{" "}
+          <a
+            href={demo.signedIn ? "/source" : "/api/auth/buffer/login?next=%2Fsource"}
+            className="whitespace-nowrap font-bold underline underline-offset-4"
+          >
+            {demo.signedIn ? "Choose your source" : "Log in"} →
+          </a>
+        </p>
+      ) : (
+        <p className="mb-0 max-w-2xl text-lg">
+          One last look. Everything here is saved to Buffer as a draft; nothing is
+          published.
+        </p>
+      )}
     </div>
   );
 
@@ -203,6 +228,7 @@ export function SendConfirm({
     failed.length > 1 && reasons.size === 1 ? [...reasons][0] : undefined;
 
   async function send(targets: Channel[]) {
+    if (demo) return; // the demo never creates drafts; its button opens the account prompt instead
     setBusy(true);
     setError("");
     setProgress((p) => ({
@@ -286,7 +312,9 @@ export function SendConfirm({
     ? `Creating drafts… ${done.length} of ${entries.length}`
     : started
       ? `${okCount} of ${entries.length} ${entries.length === 1 ? "draft" : "drafts"} created`
-      : `${plural(n, "channel")} · saved as drafts`;
+      : demo
+        ? `${plural(n, "sample channel")} · nothing is sent`
+        : `${plural(n, "channel")} · saved as drafts`;
 
   const statusOf = (c: Channel) => {
     const v = progress[c.id];
@@ -679,6 +707,13 @@ export function SendConfirm({
           >
             Retry {failed.length} failed
           </button>
+        ) : demo ? (
+          <DemoGate
+            signedIn={demo.signedIn}
+            label="Finish demo"
+            className={finishButton}
+            onOpen={pollenBurst}
+          />
         ) : (
           <button
             type="button"

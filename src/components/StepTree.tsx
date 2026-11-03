@@ -68,17 +68,21 @@ const SPOTS = AT.map(onCurve);
 export function StepTree({
   current,
   hrefs = {},
+  finalLabel,
 }: {
   current: 1 | 2 | 3 | 4 | 5;
   hrefs?: Partial<Record<number, string>>;
+  /** Name for the last step, where it isn't "Send" (the demo ends with "Finish"). */
+  finalLabel?: string;
 }) {
   const progress = AT[current - 1];
+  const steps = finalLabel ? [...STEPS.slice(0, 4), finalLabel] : STEPS;
   return (
     <nav aria-label="Progress" className="w-[26rem] max-w-full">
       <svg
         viewBox="0 30 1000 160"
         role="img"
-        aria-label={`Step ${current} of 5: ${STEPS[current - 1]}`}
+        aria-label={`Step ${current} of 5: ${steps[current - 1]}`}
         className="h-auto w-full overflow-visible"
       >
         <path
@@ -97,7 +101,7 @@ export function StepTree({
           strokeDasharray={`${progress} 1`}
           className="stroke-ink"
         />
-        {STEPS.map((label, i) => {
+        {steps.map((label, i) => {
           const n = i + 1;
           const state =
             n < current ? "done" : n === current ? "current" : "todo";
@@ -170,17 +174,19 @@ export function PageHeader({
   hrefs,
   logoHref = "/",
   right,
+  finalLabel,
 }: {
   current: 1 | 2 | 3 | 4 | 5;
   hrefs?: Partial<Record<number, string>>;
   logoHref?: string;
   right?: ReactNode;
+  finalLabel?: string;
 }) {
   return (
     <header className="mb-6 flex flex-wrap items-center pt-5 sm:mb-14 justify-between gap-x-6 gap-y-2">
       <Logo height={48} href={logoHref} />
       <div className="order-last mt-8 flex w-full justify-center sm:order-none sm:mt-0 sm:w-auto">
-        <StepTree current={current} hrefs={hrefs} />
+        <StepTree current={current} hrefs={hrefs} finalLabel={finalLabel} />
       </div>
       {right ?? (
         <span className="flex items-center gap-5 text-sm font-semibold">
