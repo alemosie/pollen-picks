@@ -11,11 +11,13 @@ import {
   LayoutList,
   Link2,
   List,
-  ListChecks,
+  Highlighter,
   MousePointerClick,
   X,
   type LucideIcon,
 } from "lucide-react";
+import { isCustomId } from "@/lib/pollen/custom";
+import { ManualPane } from "./ManualPane";
 import type { View } from "./picking";
 
 type Chunk = {
@@ -36,10 +38,11 @@ type Chunk = {
 };
 
 /** What kind of element a card is, shown as a small icon in its corner: a link, a list item or a paragraph. */
-function elementType(c: Pick<Chunk, "kind" | "url">): {
+function elementType(c: Pick<Chunk, "id" | "kind" | "url">): {
   icon: LucideIcon;
   label: string;
 } {
+  if (isCustomId(c.id)) return { icon: Highlighter, label: "Highlight" };
   if (c.url) return { icon: Link2, label: "Link" };
   if (c.kind === "bullet") return { icon: List, label: "List item" };
   return { icon: AlignLeft, label: "Paragraph" };
@@ -63,7 +66,7 @@ const ACCENT: Record<View, { solid: string; light: string; border: string }> = {
     light: "bg-sage/20 hover:bg-sage/40",
     border: "border-sage",
   },
-  all: {
+  manual: {
     solid: "bg-blush",
     light: "bg-blush/30 hover:bg-blush/60",
     border: "border-blush",
@@ -72,21 +75,41 @@ const ACCENT: Record<View, { solid: string; light: string; border: string }> = {
 
 export function Picker({
   mode,
-  chunks,
+  chunks: serverChunks,
   hasClicks,
   initialView,
   initialPicks,
+  manual = false,
 }: {
   mode: string;
   chunks: Chunk[];
   hasClicks: boolean;
   initialView?: View;
   initialPicks?: number[];
+  /** Show the Manual tab (highlight text in the issue as published). Only for the user's own issues. */
+  manual?: boolean;
 }) {
+  // Highlights saved or removed in the Manual tab this visit; the server's list covers earlier visits.
+  const [extra, setExtra] = useState<Chunk[]>([]);
+  const [removed, setRemoved] = useState<number[]>([]);
+  const chunks = useMemo(() => {
+    const have = new Set(serverChunks.map((c) => c.id));
+    return [...serverChunks, ...extra.filter((c) => !have.has(c.id))].filter(
+      (c) => !removed.includes(c.id),
+    );
+  }, [serverChunks, extra, removed]);
+  const parsed = serverChunks.some((c) => !isCustomId(c.id));
   const [view, setViewState] = useState<View>(
-    initialView === "top-clicks" && !hasClicks
+    initialView === "manual" && !manual
       ? "section"
-      : (initialView ?? (hasClicks ? "top-clicks" : "section")),
+      : initialView === "top-clicks" && !hasClicks
+        ? "section"
+        : (initialView ??
+          (hasClicks
+            ? "top-clicks"
+            : manual && !parsed
+              ? "manual"
+              : "section")),
   );
   // Keep ?picking= in the address bar so the pick type is linkable and survives reloads.
   const setView = (v: View) => {
@@ -112,8 +135,11 @@ export function Picker({
   const [picked, setPicked] = useState<number[]>([]);
   // Remember the selection so leaving and coming back doesn't lose it. Restore after mount (keeps SSR markup identical).
   const [restored, setRestored] = useState(false);
+  const restoredOnce = useRef(false);
   useEffect(() => {
     const t = setTimeout(() => {
+      if (restoredOnce.current) return;
+      restoredOnce.current = true;
       const valid = new Set(chunks.map((c) => c.id));
       // A shared link's picks win over what this browser had saved.
       const fromLink = (initialPicks ?? []).filter((id) => valid.has(id));
@@ -137,6 +163,17 @@ export function Picker({
   }, [view, section, chunks]);
 
   const full = picked.length >= MAX;
+  const addHighlight = (chunk: Chunk) => {
+    setExtra((e) => [...e, chunk]);
+    setPicked((p) =>
+      p.length >= MAX || p.includes(chunk.id) ? p : [...p, chunk.id],
+    );
+  };
+  const removeHighlight = (id: number) => {
+    setRemoved((r) => [...r, id]);
+    setExtra((e) => e.filter((c) => c.id !== id));
+    setPicked((p) => p.filter((x) => x !== id));
+  };
   const toggle = (id: number) =>
     setPicked((p) =>
       p.includes(id)
@@ -176,13 +213,16 @@ export function Picker({
       hint: "One part of the issue",
       icon: LayoutList,
     },
-    {
-      id: "all",
-      label: "All content",
-      hint: "Every paragraph and bullet",
-      icon: ListChecks,
-      short: "All",
-    },
+    ...(manual
+      ? [
+          {
+            id: "manual" as const,
+            label: "Manual",
+            hint: "Highlight text in the issue as published",
+            icon: Highlighter,
+          },
+        ]
+      : []),
   ];
 
   // Section / group labels are shown where they change from the previous visible item.
@@ -191,8 +231,6 @@ export function Picker({
       visible.map((c, i) => {
         const prev = visible[i - 1];
         return {
-          heading:
-            view === "all" && c.section !== prev?.section ? c.section : null,
           topic:
             view !== "top-clicks" && c.topic && c.topic !== prev?.topic
               ? c.topic
@@ -301,113 +339,131 @@ export function Picker({
           </div>
         )}
 
-        <ul className="flex flex-col gap-2">
-          {visible.map((c, i) => {
-            const idx = picked.indexOf(c.id);
-            const on = idx >= 0;
-            const disabled = !on && full;
-            const { heading, topic: top, group: grp } = labels[i];
-            return (
-              <li key={c.id} className="contents">
-                {heading && (
-                  <p className="mt-6 w-fit rounded-full bg-blush px-4 py-1.5 text-xl font-bold text-ink-deep">
-                    {heading}
-                  </p>
-                )}
-                {top && (
-                  <p
-                    className={`mt-4 w-fit rounded-full px-3 py-1 text-base font-bold text-ink-deep ${view === "all" ? "bg-blush" : "bg-sage"}`}
+        {view === "manual" && (
+          <ManualPane
+            mode={mode}
+            full={full}
+            highlights={chunks
+              .filter((c) => isCustomId(c.id))
+              .map((c) => ({
+                id: c.id,
+                text: c.text,
+                pick: picked.indexOf(c.id) + 1,
+              }))}
+            onAdd={(c) => addHighlight(c as Chunk)}
+            onRemove={removeHighlight}
+            onToggle={toggle}
+          />
+        )}
+
+        {view !== "manual" && (
+          <ul className="flex flex-col gap-2">
+            {visible.map((c, i) => {
+              const idx = picked.indexOf(c.id);
+              const on = idx >= 0;
+              const disabled = !on && full;
+              const { topic: top, group: grp } = labels[i];
+              return (
+                <li key={c.id} className="contents">
+                  {top && (
+                    <p
+                      className={`mt-4 w-fit rounded-full px-3 py-1 text-base font-bold text-ink-deep bg-sage`}
+                    >
+                      {top}
+                    </p>
+                  )}
+                  {grp && (
+                    <p className="mt-2 text-xs font-bold text-ink-deep">
+                      {grp}
+                    </p>
+                  )}
+                  <label
+                    className={`relative flex cursor-pointer items-start gap-3 rounded-2xl p-4 pr-12 ring-1 transition ${
+                      on
+                        ? `${ACCENT[view].solid} ring-2 ring-ink`
+                        : "bg-surface ring-ink/10 hover:ring-ink/30"
+                    } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                   >
-                    {top}
-                  </p>
-                )}
-                {grp && (
-                  <p className="mt-2 text-xs font-bold text-ink-deep">{grp}</p>
-                )}
-                <label
-                  className={`relative flex cursor-pointer items-start gap-3 rounded-2xl p-4 pr-12 ring-1 transition ${
-                    on
-                      ? `${ACCENT[view].solid} ring-2 ring-ink`
-                      : "bg-surface ring-ink/10 hover:ring-ink/30"
-                  } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    disabled={disabled}
-                    onChange={() => toggle(c.id)}
-                    className="sr-only"
-                  />
-                  {(() => {
-                    const { icon: Kind, label } = elementType(c);
-                    return (
-                      <span
-                        title={label}
-                        className="absolute right-4 top-4 text-ink/60"
-                      >
-                        <Kind
-                          aria-hidden
-                          className="size-4"
-                          strokeWidth={2.25}
-                        />
-                        <span className="sr-only">{label}</span>
-                      </span>
-                    );
-                  })()}
-                  <span
-                    aria-hidden
-                    className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${on ? "bg-ink text-cream" : "border-2 border-ink/30"}`}
-                  >
-                    {on ? idx + 1 : ""}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-baseline gap-x-2">
-                      {view === "top-clicks" && c.rank && (
-                        <span className="shrink-0 font-display text-ink/60">
-                          #{c.rank}
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      disabled={disabled}
+                      onChange={() => toggle(c.id)}
+                      className="sr-only"
+                    />
+                    {(() => {
+                      const { icon: Kind, label } = elementType(c);
+                      return (
+                        <span
+                          title={label}
+                          className="absolute right-4 top-4 text-ink/60"
+                        >
+                          <Kind
+                            aria-hidden
+                            className="size-4"
+                            strokeWidth={2.25}
+                          />
+                          <span className="sr-only">{label}</span>
                         </span>
-                      )}
-                      <span className="font-bold">
-                        {c.kind === "paragraph" && !c.body
-                          ? clamp(c.text, 160)
-                          : c.title}
-                      </span>
+                      );
+                    })()}
+                    <span
+                      aria-hidden
+                      className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${on ? "bg-ink text-cream" : "border-2 border-ink/30"}`}
+                    >
+                      {on ? idx + 1 : ""}
                     </span>
-                    {c.kind === "bullet" ? (
-                      <>
-                        {(c.when || c.place) && (
-                          <span className="mt-0.5 block text-sm font-semibold text-ink/80">
-                            {[c.when, c.place].filter(Boolean).join(" · ")}
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-x-2">
+                        {view === "top-clicks" && c.rank && (
+                          <span className="shrink-0 font-display text-ink/60">
+                            #{c.rank}
                           </span>
                         )}
-                        {c.blurb && (
-                          <Description text={c.blurb} className="mt-1" />
-                        )}
-                      </>
-                    ) : (
-                      c.body && <Description text={c.body} className="mt-0.5" />
-                    )}
-                    {c.score != null && (
-                      <span className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink/70">
-                        <MousePointerClick
-                          aria-hidden
-                          className="size-3.5"
-                          strokeWidth={2.25}
-                        />
-                        {c.score} unique clicks
+                        <span className="font-bold">
+                          {c.kind === "paragraph" && !c.body
+                            ? clamp(c.text, 160)
+                            : c.title}
+                        </span>
                       </span>
-                    )}
-                  </span>
-                </label>
+                      {c.kind === "bullet" ? (
+                        <>
+                          {(c.when || c.place) && (
+                            <span className="mt-0.5 block text-sm font-semibold text-ink/80">
+                              {[c.when, c.place].filter(Boolean).join(" · ")}
+                            </span>
+                          )}
+                          {c.blurb && (
+                            <Description text={c.blurb} className="mt-1" />
+                          )}
+                        </>
+                      ) : (
+                        c.body && (
+                          <Description text={c.body} className="mt-0.5" />
+                        )
+                      )}
+                      {c.score != null && (
+                        <span className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-ink/70">
+                          <MousePointerClick
+                            aria-hidden
+                            className="size-3.5"
+                            strokeWidth={2.25}
+                          />
+                          {c.score} unique clicks
+                        </span>
+                      )}
+                    </span>
+                  </label>
+                </li>
+              );
+            })}
+            {visible.length === 0 && (
+              <li className="rounded-2xl bg-surface p-6 text-center">
+                Nothing to show here.
               </li>
-            );
-          })}
-          {visible.length === 0 && (
-            <li className="rounded-2xl bg-surface p-6 text-center">
-              Nothing to show here.
-            </li>
-          )}
-        </ul>
+            )}
+          </ul>
+        )}
       </div>
 
       <FlowBar

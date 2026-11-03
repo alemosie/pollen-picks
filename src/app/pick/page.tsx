@@ -88,6 +88,7 @@ async function PickContent({
         hasClicks={issue.hasClicks}
         initialView={parsePicking(picking)}
         initialPicks={initialPicks}
+        manual
       />
     </main>
   );
