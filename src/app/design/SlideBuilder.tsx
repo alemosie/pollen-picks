@@ -26,11 +26,13 @@ import { useSettled } from "./useSettled";
 export function SlideBuilder({
   items,
   picks,
+  mode,
   spec,
   onChange,
 }: {
   items: SlideItem[];
   picks: string;
+  mode?: string;
   spec: CustomSpec;
   onChange: (s: CustomSpec) => void;
 }) {
@@ -216,7 +218,7 @@ export function SlideBuilder({
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={previewSrc(picks, settled, t)}
+            src={previewSrc(picks, settled, t, mode)}
             alt=""
             loading="lazy"
             className="size-full object-cover"
@@ -637,6 +639,7 @@ export function SlideBuilder({
           spec={spec}
           items={items}
           picks={picks}
+          mode={mode}
           placed={placed}
           onSave={onChange}
           onClose={() => setEditing(null)}

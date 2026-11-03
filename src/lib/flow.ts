@@ -16,6 +16,9 @@ export function stepUrl(mode: string | undefined, step: Step, query = ""): strin
   return `/${step}?mode=${encodeURIComponent(mode ?? "")}${query ? `&${query}` : ""}`;
 }
 
+/** The part of a slide preview URL that says which issue the picks come from (the demo needs none). */
+export const previewMode = (mode: string | undefined) => (!mode || isDemo(mode) ? "" : `&mode=${encodeURIComponent(mode)}`);
+
 /** Old links like /design?mode=demo&picks=1,2 belong to the public demo now: same params, new address. */
 export function demoUrlFrom(step: Step, sp: Record<string, string | string[] | undefined>): string {
   const p = new URLSearchParams();

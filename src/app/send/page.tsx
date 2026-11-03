@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
-import { demoUrlFrom, stepUrl } from "@/lib/flow";
+import { demoUrlFrom, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
@@ -73,7 +73,7 @@ async function SendContent({
       <SendConfirm
         urls={slides.map(
           (_, i) =>
-            `/api/slide/preview?picks=${q}&n=${i}${extra ? `&${extra}` : ""}`,
+            `/api/slide/preview?picks=${q}&n=${i}${extra ? `&${extra}` : ""}${previewMode(mode)}`,
         )}
         channels={channels}
         picks={ids}

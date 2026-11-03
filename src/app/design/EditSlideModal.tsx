@@ -13,6 +13,7 @@ import { oneLineLimit } from "@/lib/slides/plan";
 import { usePalette } from "@/components/usePalette";
 import { DEFAULT_COLORS, sameColor } from "@/lib/brand";
 import { textOn } from "@/app/settings/PaletteEditor";
+import { previewMode } from "@/lib/flow";
 import { useSettled } from "./useSettled";
 
 export type Target =
@@ -37,9 +38,10 @@ export function previewSrc(
   picks: string,
   spec: CustomSpec,
   target: Target,
+  mode?: string,
 ): string {
   const p = templateParams({ spec });
-  return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}`;
+  return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}${previewMode(mode)}`;
 }
 
 const input =
@@ -51,6 +53,7 @@ export function EditSlideModal({
   spec,
   items,
   picks,
+  mode,
   placed,
   onSave,
   onClose,
@@ -59,6 +62,7 @@ export function EditSlideModal({
   spec: CustomSpec;
   items: SlideItem[];
   picks: string;
+  mode?: string;
   placed: number;
   onSave: (s: CustomSpec) => void;
   onClose: () => void;
@@ -229,7 +233,7 @@ export function EditSlideModal({
         <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-7 py-4 md:grid-cols-[17rem_minmax(0,1fr)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={previewSrc(picks, normalize(settled), target)}
+            src={previewSrc(picks, normalize(settled), target, mode)}
             alt="Slide preview"
             width={540}
             height={675}

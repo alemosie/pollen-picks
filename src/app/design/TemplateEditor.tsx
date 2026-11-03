@@ -6,7 +6,7 @@ import { StepWord } from "@/components/StepWord";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
-import { isDemo, stepUrl } from "@/lib/flow";
+import { isDemo, previewMode, stepUrl } from "@/lib/flow";
 import {
   saveTemplate,
   templateSnapshot,
@@ -131,14 +131,20 @@ export function TemplateEditor({
       </div>
 
       {custom ? (
-        <SlideBuilder items={items} picks={q} spec={clean} onChange={setSpec} />
+        <SlideBuilder
+          items={items}
+          picks={q}
+          mode={mode}
+          spec={clean}
+          onChange={setSpec}
+        />
       ) : (
         <ol className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {standard.map((s, i) => (
             <li key={i} className="flex flex-col gap-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/api/slide/preview?picks=${q}&n=${i}`}
+                src={`/api/slide/preview?picks=${q}&n=${i}${previewMode(mode)}`}
                 alt={`Slide ${i + 1} of ${standard.length}`}
                 width={540}
                 height={675}
