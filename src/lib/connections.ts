@@ -1,5 +1,6 @@
 import { db } from "./db";
 import { TokenError, refresh } from "./buffer";
+import type { BeehiivPublication } from "./beehiiv";
 import { isExpired, type BufferSession } from "./session";
 
 // Users and their Buffer connection. Tokens are stored as one JSON secret in Supabase Vault (via the
@@ -81,4 +82,58 @@ export async function getValidSession(userId: string, opts: { force?: boolean } 
     if (waited) return waited;
   }
   throw new Error("Timed out waiting for another request to refresh the Buffer token");
+}
+
+// ---- beehiiv: the creator's own API key ----
+// The key goes into Supabase Vault like the Buffer tokens. `connections` keeps only a pointer, the last four characters
+// (so the UI can say which key is saved) and a snapshot of the publications the key could see when it was saved.
+// The key itself is never returned to the browser.
+
+const BEEHIIV = "beehiiv";
+
+export type BeehiivConnection = { last4: string; publications: BeehiivPublication[] };
+
+export async function saveBeehiivKey(userId: string, key: string, publications: BeehiivPublication[]): Promise<BeehiivConnection> {
+  const last4 = key.slice(-4);
+  const { error } = await db().rpc("set_connection_secret", {
+    p_user_id: userId,
+    p_provider: BEEHIIV,
+    p_secret: key,
+    p_last4: last4,
+    p_meta: { publications },
+  });
+  if (error) throw new Error(`Could not store the beehiiv key: ${error.message}`);
+  return { last4, publications };
+}
+
+/** The saved beehiiv connection (no key), or null when there is none or it stopped working. */
+export async function getBeehiivConnection(userId: string): Promise<BeehiivConnection | null> {
+  const { data, error } = await db().from("connections").select("last4, status, meta").eq("user_id", userId).eq("provider", BEEHIIV).maybeSingle();
+  if (error) throw new Error(`Could not read the beehiiv connection: ${error.message}`);
+  if (!data || data.status !== "active") return null;
+  const publications = Array.isArray(data.meta?.publications) ? (data.meta.publications as BeehiivPublication[]) : [];
+  return { last4: typeof data.last4 === "string" ? data.last4 : "", publications };
+}
+
+/** The saved key itself, for server-side calls to beehiiv only. Never send this to the browser. */
+export async function loadBeehiivKey(userId: string): Promise<string | null> {
+  const { data, error } = await db().rpc("get_connection_secret", { p_user_id: userId, p_provider: BEEHIIV });
+  if (error) throw new Error(`Could not read the beehiiv key: ${error.message}`);
+  return typeof data === "string" && data ? data : null;
+}
+
+/** Removes the connection and deletes the key from Vault. */
+export async function deleteBeehiivConnection(userId: string): Promise<void> {
+  const { error } = await db().rpc("delete_connection", { p_user_id: userId, p_provider: BEEHIIV });
+  if (error) throw new Error(`Could not remove the beehiiv key: ${error.message}`);
+}
+
+/** Sets (or clears, with null) the logo shown for one saved publication. Returns the updated publications, or null if there is no connection. */
+export async function setPublicationLogo(userId: string, publicationId: string, logo: string | null): Promise<BeehiivPublication[] | null> {
+  const current = await getBeehiivConnection(userId);
+  if (!current || !current.publications.some((p) => p.id === publicationId)) return null;
+  const publications = current.publications.map((p) => (p.id === publicationId ? { ...p, logo: logo ?? undefined } : p));
+  const { error } = await db().from("connections").update({ meta: { publications } }).eq("user_id", userId).eq("provider", BEEHIIV);
+  if (error) throw new Error(`Could not save the logo: ${error.message}`);
+  return publications;
 }
