@@ -8,6 +8,7 @@ import { ResumeBanner } from "@/components/ResumeBanner";
 import { PopularList } from "@/components/path/PopularList";
 import { BuilderDemo } from "@/components/path/BuilderDemo";
 import { PickMe } from "@/components/path/PickMe";
+import { TagDemo } from "@/components/path/TagDemo";
 import { PollenBurst } from "@/components/path/PollenBurst";
 import {
   PathRail,
@@ -55,6 +56,8 @@ export default function Home() {
   };
   const cta =
     "inline-block rounded-2xl bg-accent px-7 py-3.5 text-lg font-bold text-ink-deep shadow-sm transition hover:-translate-y-0.5 hover:brightness-95 focus-visible:outline-offset-4";
+  const ctaAlt =
+    "inline-block rounded-2xl px-7 py-3.5 text-lg font-bold text-ink-deep ring-2 ring-ink transition hover:-translate-y-0.5 hover:bg-ink/5 focus-visible:outline-offset-4";
 
   return (
     <main className="relative min-h-dvh overflow-x-clip">
@@ -75,11 +78,19 @@ export default function Home() {
       </div>
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <Logo height={56} />
-        <AuthLink
-          className="rounded-xl px-4 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral"
-          loggedOut="Log in"
-          loggedIn="Open app"
-        />
+        <nav aria-label="Get started" className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/demo/pick"
+            className="rounded-xl px-3 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral sm:px-4"
+          >
+            Try demo
+          </Link>
+          <AuthLink
+            className="rounded-xl bg-ink px-3.5 py-2 text-sm font-bold text-cream transition hover:bg-ink-deep sm:px-4"
+            loggedOut="Log in to create"
+            loggedIn="Open app"
+          />
+        </nav>
       </header>
 
       {/* Hero */}
@@ -113,26 +124,22 @@ export default function Home() {
           into socials posts, tagging creators along the way. No AI, just your
           words in more places.
         </p>
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <Link href="/demo/pick" className={cta}>
+            Try demo
+          </Link>
           <AuthLink
-            className={cta}
-            loggedOut="Log in with Buffer"
+            className={ctaAlt}
+            loggedOut="Log in to create"
             loggedIn="Continue to the app"
           />
-          <span className="text-sm italic">
-            Free, plus a demo for you to try it out.
-          </span>
         </div>
+        <p className="text-sm italic">
+          The demo needs no account. Log in with Buffer to use your own content.
+        </p>
       </section>
 
-      <p
-        aria-hidden
-        className="mx-auto mb-6 flex max-w-3xl items-center gap-2 px-6 pl-16 text-sm font-semibold text-ink/70 md:pl-12"
-      >
-        <span className="pp-bob inline-block">↓</span> follow the branch
-      </p>
-
-      <div className="mx-auto max-w-3xl px-6">
+      <div className="mx-auto max-w-3xl px-6 mt-12">
         <PathRail className="md:-mx-6">
           {/* 1 */}
           <Stop>
@@ -142,11 +149,10 @@ export default function Home() {
                 <Squiggle>spread the word?</Squiggle>
               </h2>
               <p className="max-w-2xl text-lg leading-relaxed">
-                For the hours of work it took to write your newsletter, the last thing
+                It took hours to write your newsletter. The last thing
                 you want is for your words to be stuck there, for only some subscribers to see. 
-                What about your socials follwers? It takes even more time, design, and effort
-                to cross-post newsletter content to other channels — time you
-                don&rsquo;t have — so{" "}
+                What about your socials followers? You don&rsquo;t have the time or energy
+                to cross-post newsletter content to other channels, so{" "}
                 <b>your best work never reaches socials</b>.
               </p>
             </Reveal>
@@ -160,9 +166,9 @@ export default function Home() {
               </h2>
               <p className="mb-8 max-w-2xl text-lg leading-relaxed">
                 Before Pollen Picks, creating a socials post from a newsletter
-                meant: Open the issue, copy the pull quote, copy the link, look up the details, 
-                retype the caption. Over and over again. Now,
-                Pollen Picks fills in the blanks — without AI.
+                meant: Create the post design, open the issue, copy the pull quote, copy the link, 
+                look up the details, adjust the template, retype the caption. Over and over again. 
+                Now, Pollen Picks fills in the blanks — without AI.
               </p>
             </Reveal>
             <Reveal delay={0.1}>
@@ -178,8 +184,7 @@ export default function Home() {
               </h2>
               <p className="mb-8 max-w-2xl text-lg leading-relaxed">
                 Connect to Beehiiv to rank your newsletter content by what your
-                readers clicked the most. What they clicked is what they want to
-                see again — across all of your channels.
+                readers clicked the most. What they clicked is what they found most valuable — and worth sharing across all of your channels.
               </p>
             </Reveal>
             <Reveal delay={0.1}>
@@ -204,7 +209,24 @@ export default function Home() {
             </Reveal>
           </Stop>
 
-          {/* 4 */}
+          {/* 4: tagging */}
+          <Stop>
+            <Reveal>
+              <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
+                Tag them <Squiggle>in</Squiggle>
+              </h2>
+              <p className="mb-8 max-w-2xl text-lg leading-relaxed">
+                Pollen Picks extracts social handles from link content to add to your captions, to extend your reach even further and bring the community along. Sharing across channels helps your whole network grow &mdash; a win-win-win for{" "}
+                <b>your audience</b>, <b>organizers</b>, and your own{" "}
+                <b>newsletter</b>.
+              </p>
+            </Reveal>
+            <Reveal delay={0.1}>
+              <TagDemo event={demoEvent} />
+            </Reveal>
+          </Stop>
+
+          {/* 5 */}
           <Stop>
             <Reveal>
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
@@ -249,7 +271,7 @@ export default function Home() {
             </div>
           </Stop>
 
-          {/* 5 */}
+          {/* 6 */}
           <Stop>
             <Reveal>
               <div className="relative max-w-2xl rotate-1 rounded-[2rem] bg-blush p-7 sm:p-9">
@@ -261,8 +283,8 @@ export default function Home() {
                   Now, later, or draft — you choose
                 </h2>
                 <p className="mb-4 text-lg leading-relaxed">
-                  Humans are at the core of Pollen Picks. From{" "}
-                  <b>pre-made templates</b> to a fully customizable{" "}
+                  Humans are at the core of Pollen Picks. From <b>auto mode</b>, to {" "}
+                  pre-made <b>templates</b> to a fully customizable{" "}
                   <b>slide builder</b>, you decide how much review you want to
                   do, in Pollen Picks or Buffer.
                 </p>
@@ -278,7 +300,7 @@ export default function Home() {
             </Reveal>
           </Stop>
 
-          {/* 6 */}
+          {/* 7 */}
           <Stop>
             <Reveal>
               <h2 className="mb-8 max-w-2xl text-3xl leading-tight sm:text-4xl">
@@ -331,7 +353,7 @@ export default function Home() {
             </Reveal>
           </Stop>
 
-          {/* 7: the bloom */}
+          {/* 8: the bloom */}
           <Stop className="pb-12">
             <Reveal>
               <div className="relative max-w-2xl">
@@ -342,11 +364,16 @@ export default function Home() {
                 <p className="mb-6 text-lg leading-relaxed">
                   Try the demo, or log in and bring your own issue.
                 </p>
-                <AuthLink
-                  className={cta}
-                  loggedOut="Log in with Buffer"
-                  loggedIn="Continue to the app"
-                />
+                <div className="flex flex-col items-start gap-3 sm:flex-row">
+                  <Link href="/demo/pick" className={cta}>
+                    Try demo
+                  </Link>
+                  <AuthLink
+                    className={ctaAlt}
+                    loggedOut="Log in to create"
+                    loggedIn="Continue to the app"
+                  />
+                </div>
                 <p className="mt-8 mb-2 text-sm font-semibold">
                   People use it for
                 </p>
