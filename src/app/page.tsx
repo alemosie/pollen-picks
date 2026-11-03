@@ -19,6 +19,18 @@ import {
 import { BRAND_NAME } from "@/lib/brand";
 import { loadDemoIssue } from "@/lib/demo";
 
+/** The first sentences of a description, up to about `max` characters, so a hero card stays small without cutting mid-sentence. */
+function brief(text: string, max = 150): string {
+  let out = "";
+  for (const s of text.split(/(?<=[.!?])\s+/)) {
+    if (out && (out + " " + s).length > max) break;
+    out = out ? `${out} ${s}` : s;
+  }
+  return out;
+}
+/** "ADE babywearing dance workshop (8 weeks-18 months)" -> without the age range, which is too fine print for a hero card. */
+const plainTitle = (t: string) => t.replace(/\s*\([^)]*\)\s*$/, "");
+
 export default function Home() {
   // Real click data from the demo issue (read at build time).
   const issue = loadDemoIssue();
@@ -29,7 +41,7 @@ export default function Home() {
   const max = Math.max(...top.map((c) => c.score!));
   const pickCards = [
     ["Halloween brunch", /halloween brunch/i],
-    ["Wait, is this the right date??", /dutch for parents/i],
+    ["Wait, is this the right date??", /ade babywearing/i],
     ["Where\u2019s that link?", /sleep survey/i],
     ["Copy link, paste, write caption, repeat", /monti/i],
     ["Which Mama+ Club was it again?", /mama\+ club/i],
@@ -39,20 +51,20 @@ export default function Home() {
       ? [
           {
             note: note as string,
-            title: c.title,
+            title: plainTitle(c.title),
             when: c.when?.replace(" @ ", ", ") ?? null,
             place: c.place,
-            blurb: c.blurb,
+            blurb: brief(c.blurb),
           },
         ]
       : [];
   });
-  const dutch = issue.chunks.find((x) => /dutch for parents/i.test(x.title));
+  const ade = issue.chunks.find((x) => /ade babywearing/i.test(x.title));
   const demoEvent = {
-    title: dutch?.title ?? "Dutch for Parents",
-    when: dutch?.when?.replace(" @ ", ", ") ?? null,
-    place: dutch?.place ?? null,
-    blurb: dutch?.blurb ?? "",
+    title: ade ? plainTitle(ade.title) : "ADE babywearing dance workshop",
+    when: ade?.when?.replace(" @ ", ", ") ?? null,
+    place: ade?.place ?? null,
+    blurb: brief(ade?.blurb ?? ""),
   };
   const cta =
     "inline-block rounded-2xl bg-accent px-7 py-3.5 text-lg font-bold text-ink-deep shadow-sm transition hover:-translate-y-0.5 hover:brightness-95 focus-visible:outline-offset-4";
@@ -250,23 +262,24 @@ export default function Home() {
             </Reveal>
             <div
               aria-hidden
-              className="flex max-w-2xl items-center gap-3 sm:gap-4"
+              className="flex max-w-2xl items-center gap-1.5 sm:gap-4"
             >
-              <span className="flex h-12 items-center rounded-2xl bg-surface px-3.5 ring-1 ring-ink/10">
-                <BeehiivLogo className="h-5 w-auto" />
+              <span className="flex h-10 shrink-0 items-center rounded-2xl bg-surface px-2 ring-1 ring-ink/10 sm:h-12 sm:px-3.5">
+                <BeehiivLogo className="h-3.5 w-auto sm:h-5" />
               </span>
               <span className="font-display text-ink/50">→</span>
-              <span className="flex h-12 items-center rounded-2xl bg-accent px-3.5">
+              <span className="flex h-10 shrink-0 items-center rounded-2xl bg-accent px-2 sm:h-12 sm:px-3.5">
+                {/* max-w-none: the global img max-width of 100% lets a shrinking flex item squeeze the logo to nothing. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/brand/pollen-picks-lockup-light.svg"
                   alt=""
-                  className="h-9 w-auto"
+                  className="h-7 w-auto max-w-none sm:h-9"
                 />
               </span>
               <span className="font-display text-ink/50">→</span>
-              <span className="flex h-12 items-center rounded-2xl bg-surface px-3.5 ring-1 ring-ink/10">
-                <BufferLogo className="h-6 w-auto" />
+              <span className="flex h-10 shrink-0 items-center rounded-2xl bg-surface px-2 ring-1 ring-ink/10 sm:h-12 sm:px-3.5">
+                <BufferLogo className="h-4 w-auto sm:h-6" />
               </span>
             </div>
           </Stop>

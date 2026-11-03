@@ -1,7 +1,8 @@
 import { HTMLElement, parse } from "node-html-parser";
 import { normalizeUrl } from "./url";
 
-const clean = (s: string) => s.replace(/ /g, " ").replace(/\s+/g, " ").trim();
+// Text from separate inline elements is joined with a space, so no space is left before closing punctuation ("25% off .").
+const clean = (s: string) => s.replace(/ /g, " ").replace(/\s+/g, " ").replace(/ ([.,;:!?])/g, "$1").trim();
 
 export type Chunk = {
   id: number;

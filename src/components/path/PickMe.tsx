@@ -32,11 +32,11 @@ export function PickMe({ cards }: { cards: PickCard[] }) {
         return (
           <li
             key={card.title}
-            className={`w-[calc(50%-0.375rem)] shadow-md transition-[transform,box-shadow] duration-300 sm:w-[13rem] ${s.x} ${on ? "rotate-0 shadow-lg" : `${s.r} hover:rotate-0`}`}
+            className={`w-[calc(50%-0.375rem)] transition-transform duration-300 sm:w-[13rem] ${s.x} ${on ? "rotate-0" : `${s.r} hover:rotate-0`}`}
           >
             {on ? (
               <div
-                className={`pp-pop flex aspect-[4/5] flex-col rounded-3xl p-3 sm:p-5 ${s.c}`}
+                className={`pp-pop flex aspect-[4/5] flex-col rounded-3xl p-3 shadow-lg sm:p-5 ${s.c}`}
               >
                 {card.place && (
                   <p className="mb-2 w-fit rounded-full bg-ink/10 px-2 py-0.5 text-[10px] font-bold sm:text-xs">
@@ -52,7 +52,7 @@ export function PickMe({ cards }: { cards: PickCard[] }) {
                   </p>
                 )}
                 {card.blurb && (
-                  <p className="mt-2 mb-3 line-clamp-3 text-[11px] leading-snug sm:line-clamp-4 sm:text-sm">
+                  <p className="mt-2 mb-3 text-[11px] leading-snug sm:text-sm">
                     {card.blurb}
                   </p>
                 )}
@@ -66,7 +66,7 @@ export function PickMe({ cards }: { cards: PickCard[] }) {
                 </button>
               </div>
             ) : (
-              <div className={`flex flex-col gap-3 rounded-2xl p-3.5 ${s.c}`}>
+              <div className={`flex flex-col gap-3 rounded-2xl p-3.5 shadow-md ${s.c}`}>
                 <span className="font-display text-base leading-snug sm:text-lg">
                   {card.note}
                 </span>

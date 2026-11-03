@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 const PICKS = [
   "Papote Halloween brunch",
   "Mom meetup at Monti's World",
-  "Dutch for Parents",
+  "ADE babywearing dance workshop",
   "Sleep survey",
 ];
 // Which slide each pick lands on, and at which step it lands.
