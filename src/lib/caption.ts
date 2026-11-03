@@ -19,7 +19,8 @@ export function dayLabel(iso: string): string {
   return `${DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTHS[m - 1]}`;
 }
 
-const MAX_LINES = 10;
+/** Instagram's caption limit, the tightest of the networks. Counted in UTF-16 units, so emoji count double: on the safe side. */
+export const MAX_CAPTION_CHARS = 2200;
 /** Emoji stay in captions (every network renders them); only whitespace is tidied. */
 const cleanText = (s: string) => s.replace(/\s+/g, " ").trim();
 /** "Thu 22 Oct @ 09:30-10:30 (Weekly)" -> without the recurrence note, which the caption doesn't need. */
@@ -57,11 +58,27 @@ export const CAPTION_VARIANTS: { id: CaptionVariant; label: string; note: string
 ];
 export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : "link");
 
-/** Plain-template caption (no LLM). */
-export function buildCaption(items: CaptionItem[], opts: { newsletter: string; heading?: string; order: CaptionOrder; variant: CaptionVariant; link: string }): string {
+type CaptionOpts = { newsletter: string; heading?: string; order: CaptionOrder; variant: CaptionVariant; link: string };
+
+/** The caption, and the titles of the picks that didn't fit in it (in caption order). */
+function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; leftOut: string[] } {
   const sorted = sortCaptionItems(items, opts.order);
-  const lines = sorted.slice(0, MAX_LINES).map((i) => line(i, opts.order));
-  const more = sorted.length > MAX_LINES ? `\n…and ${sorted.length - MAX_LINES} more` : "";
+  const all = sorted.map((i) => line(i, opts.order));
   const outro = opts.variant === "link" ? `Read it here: ${opts.link}` : "Link in bio.";
-  return [`${opts.heading ?? "This week's picks"} from ${opts.newsletter} 🌼`, "", lines.join("\n") + more, "", `Details on every pick are in the newsletter. ${outro}`].join("\n");
+  const head = `${opts.heading ?? "This week's picks"} from ${opts.newsletter} 🌼`;
+  const foot = `Details on every pick are in the newsletter. ${outro}`;
+  const build = (n: number) => {
+    const more = all.length - n;
+    return [head, "", all.slice(0, n).join("\n") + (more > 0 ? `\n…and ${more} more` : ""), "", foot].join("\n");
+  };
+  // Every pick goes in while the caption fits; otherwise as many as fit, then "…and N more". At least one always stays.
+  let n = all.length;
+  while (n > 1 && build(n).length > MAX_CAPTION_CHARS) n--;
+  return { text: build(n), leftOut: sorted.slice(n).map((i) => cleanText(i.title)) };
 }
+
+/** Plain-template caption (no LLM). */
+export const buildCaption = (items: CaptionItem[], opts: CaptionOpts): string => fitCaption(items, opts).text;
+
+/** Titles of the picks the template caption has to leave out to stay within MAX_CAPTION_CHARS. */
+export const captionLeftOut = (items: CaptionItem[], opts: CaptionOpts): string[] => fitCaption(items, opts).leftOut;

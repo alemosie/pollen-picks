@@ -9,7 +9,7 @@ import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
-import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import { SendConfirm } from "@/app/send/SendConfirm";
 
@@ -70,7 +70,7 @@ async function DemoSendContent({
           tpl.spec?.edits,
         )}
         newsletter="Just a Phase"
-        heading={tpl.heading}
+        heading={coverTitle(tpl)}
         backHref={stepUrl("demo", "prepare", tail)}
         demo={{ signedIn }}
       />

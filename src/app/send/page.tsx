@@ -9,7 +9,7 @@ import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
-import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import { SendConfirm } from "./SendConfirm";
 
@@ -88,7 +88,7 @@ async function SendContent({
           tpl.spec?.edits,
         )}
         newsletter="Just a Phase"
-        heading={tpl.heading}
+        heading={coverTitle(tpl)}
         backHref={stepUrl(mode, "prepare", `picks=${tail}`)}
       />
     </main>

@@ -102,6 +102,10 @@ export function encodeSpec(spec: CustomSpec): string {
   return b64(JSON.stringify(wire));
 }
 
+/** The cover slide's title (the hand-built cover's, else the template heading). The caption opens with the same words. */
+export const coverTitle = (o: TemplateOptions): string | undefined =>
+  o.spec?.cover?.title?.trim() || o.heading;
+
 /** Reads and sanitizes a spec from a URL param; anything malformed is dropped, never thrown. */
 export function decodeSpec(
   raw: string | null | undefined,

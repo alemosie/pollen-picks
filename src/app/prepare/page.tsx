@@ -9,7 +9,7 @@ import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { captionItemsFor } from "@/lib/slides/items";
-import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { PrepareView } from "./PrepareView";
 
 export const metadata = { title: "Send · Pollen Picks" };
@@ -76,7 +76,7 @@ async function SendContent({
           tpl.spec?.edits,
         )}
         newsletter="Just a Phase"
-        heading={tpl.heading}
+        heading={coverTitle(tpl)}
         nextHref={stepUrl(mode, "send", `picks=${q}${extra ? `&${extra}` : ""}`)}
         backHref={stepUrl(mode, "design", `picks=${q}${extra ? `&${extra}` : ""}`)}
       />

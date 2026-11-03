@@ -8,7 +8,7 @@ import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { captionItemsFor } from "@/lib/slides/items";
-import { parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { PrepareView } from "@/app/prepare/PrepareView";
 
 export const metadata = { title: "Demo: prepare · Pollen Picks" };
@@ -63,7 +63,7 @@ async function DemoPrepareContent({
           tpl.spec?.edits,
         )}
         newsletter="Just a Phase"
-        heading={tpl.heading}
+        heading={coverTitle(tpl)}
         nextHref={stepUrl("demo", "send", q)}
         backHref={stepUrl("demo", "design", q)}
         demo
