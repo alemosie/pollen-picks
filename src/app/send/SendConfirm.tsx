@@ -87,7 +87,8 @@ export function SendConfirm({
     if (!listOpen && d.open) d.close();
   }, [listOpen]);
 
-  const sig = `${picks.join(",")}|${template}`;
+  // Must match the key Prepare saves under.
+  const sig = `${link}|${picks.join(",")}|${template}`;
   useEffect(() => {
     const t = setTimeout(() => {
       const f = loadFormat();
