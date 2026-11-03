@@ -6,11 +6,14 @@ import { isDemo } from "@/lib/flow";
 import {
   CUSTOM_BASE,
   MAX_HIGHLIGHT,
+  MAX_HIGHLIGHTS_PER_ISSUE,
   cleanHighlight,
   customChunk,
 } from "@/lib/pollen/custom";
 import {
-  MAX_DEMO_HIGHLIGHTS,
+  MAX_DEMO_WORDS,
+  demoWords,
+  wordCount,
   readDemoRows,
   writeDemoRows,
 } from "@/lib/pollen/demoHighlights";
@@ -36,7 +39,7 @@ export function ManualPane({
 }: {
   mode: string;
   /** `pick` is the 1-based pick number, or 0 when the highlight is saved but not picked. */
-  highlights: { id: number; text: string; pick: number }[];
+  highlights: { id: number; text: string; url: string | null; pick: number }[];
   /** The pick limit is reached. */
   full: boolean;
   onAdd: (chunk: unknown) => void;
@@ -150,9 +153,12 @@ export function ManualPane({
     try {
       if (demo) {
         const rows = readDemoRows();
-        if (rows.length >= MAX_DEMO_HIGHLIGHTS)
+        const left = MAX_DEMO_WORDS - demoWords(rows);
+        if (wordCount(sel.text) > left)
           return setNote(
-            `The demo keeps up to ${MAX_DEMO_HIGHLIGHTS} highlights. Remove one first.`,
+            left > 0
+              ? `The demo allows ${MAX_DEMO_WORDS} highlighted words in total, and you have ${left} left. Select less, or remove a highlight first.`
+              : `You've used the demo's ${MAX_DEMO_WORDS} highlighted words. Remove a highlight first.`,
           );
         const row = {
           id: Math.max(0, ...rows.map((r) => r.id)) + 1,
@@ -227,67 +233,81 @@ export function ManualPane({
       </p>
 
       {highlights.length > 0 && (
-        <ul
-          className="mb-4 flex list-none flex-col gap-2 p-0"
-          aria-label="Your highlights"
-        >
-          {highlights.map((h) => {
-            const on = h.pick > 0;
-            return (
-              <li key={h.id} className="contents">
-                <div
-                  className={`relative flex items-start gap-3 rounded-2xl p-4 pr-12 ring-1 ${
-                    on ? "bg-blush ring-2 ring-ink" : "bg-surface ring-ink/10"
-                  }`}
-                >
-                  <span
-                    title="Highlight"
-                    className="absolute right-4 top-4 text-ink/60"
+        <>
+          <p className="mb-2 mt-0 text-xs font-bold">
+            Your highlights ·{" "}
+            {demo
+              ? `${demoWords(
+                  highlights.map((h) => ({
+                    id: h.id - CUSTOM_BASE,
+                    text: h.text,
+                    url: h.url,
+                  })),
+                )} of ${MAX_DEMO_WORDS} words`
+              : `${highlights.length} of ${MAX_HIGHLIGHTS_PER_ISSUE}`}
+          </p>
+          <ul
+            className="mb-4 flex list-none flex-col gap-2 p-0"
+            aria-label="Your highlights"
+          >
+            {highlights.map((h) => {
+              const on = h.pick > 0;
+              return (
+                <li key={h.id} className="contents">
+                  <div
+                    className={`relative flex items-start gap-3 rounded-2xl p-4 pr-12 ring-1 ${
+                      on ? "bg-blush ring-2 ring-ink" : "bg-surface ring-ink/10"
+                    }`}
                   >
-                    <Highlighter
-                      aria-hidden
-                      className="size-4"
-                      strokeWidth={2.25}
-                    />
-                    <span className="sr-only">Highlight</span>
-                  </span>
-                  {on ? (
-                    <button
-                      type="button"
-                      onClick={() => remove(h.id)}
-                      aria-label={`Remove pick ${h.pick}`}
-                      title="Remove this pick"
-                      className="group mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-cream"
+                    <span
+                      title="Highlight"
+                      className="absolute right-4 top-4 text-ink/60"
                     >
-                      <span className="group-hover:hidden group-focus-visible:hidden">
-                        {h.pick}
-                      </span>
-                      <X
+                      <Highlighter
                         aria-hidden
-                        className="hidden size-3.5 group-hover:block group-focus-visible:block"
-                        strokeWidth={3}
+                        className="size-4"
+                        strokeWidth={2.25}
                       />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onToggle(h.id)}
-                      disabled={full}
-                      aria-label="Pick this highlight"
-                      title="Pick this highlight"
-                      className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-ink/30 hover:border-ink/60 disabled:cursor-not-allowed disabled:opacity-50"
-                    />
-                  )}
-                  <span className="min-w-0 flex-1 font-bold">
-                    {h.text.length > 200
-                      ? `${h.text.slice(0, 199).trimEnd()}…`
-                      : h.text}
-                  </span>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                      <span className="sr-only">Highlight</span>
+                    </span>
+                    {on ? (
+                      <button
+                        type="button"
+                        onClick={() => remove(h.id)}
+                        aria-label={`Remove pick ${h.pick}`}
+                        title="Remove this pick"
+                        className="group mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-cream"
+                      >
+                        <span className="group-hover:hidden group-focus-visible:hidden">
+                          {h.pick}
+                        </span>
+                        <X
+                          aria-hidden
+                          className="hidden size-3.5 group-hover:block group-focus-visible:block"
+                          strokeWidth={3}
+                        />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onToggle(h.id)}
+                        disabled={full}
+                        aria-label="Pick this highlight"
+                        title="Pick this highlight"
+                        className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-ink/30 hover:border-ink/60 disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    )}
+                    <span className="min-w-0 flex-1 font-bold">
+                      {h.text.length > 200
+                        ? `${h.text.slice(0, 199).trimEnd()}…`
+                        : h.text}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {note && (

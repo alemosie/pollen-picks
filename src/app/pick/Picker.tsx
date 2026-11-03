@@ -348,6 +348,7 @@ export function Picker({
               .map((c) => ({
                 id: c.id,
                 text: c.text,
+                url: c.url,
                 pick: picked.indexOf(c.id) + 1,
               }))}
             onAdd={(c) => addHighlight(c as Chunk)}

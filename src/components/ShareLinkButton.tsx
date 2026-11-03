@@ -4,6 +4,7 @@ import { Check, Link2 } from "lucide-react";
 import { useState } from "react";
 import { stepUrl } from "@/lib/flow";
 import { loadPicked } from "@/lib/progress";
+import { DEMO_HL_PARAM, readDemoValue } from "@/lib/pollen/demoHighlights";
 
 /**
  * Copies a link to the current step. Everything that shapes the result (picks, layout, text, colors) lives in the URL,
@@ -31,6 +32,15 @@ export function ShareLinkButton({
     if (!getUrl && kind === "pick") {
       const ids = loadPicked() ?? [];
       url = `${window.location.origin}${stepUrl(mode, "pick", ids.length ? `picks=${ids.join(",")}` : "")}`;
+    }
+    // A demo link also carries the highlights (the sharer's own, kept in a cookie), which the recipient's browser doesn't have.
+    const hl = readDemoValue();
+    if (hl) {
+      const u = new URL(url, window.location.origin);
+      if (u.pathname.startsWith("/demo/")) {
+        u.searchParams.set(DEMO_HL_PARAM, hl);
+        url = u.toString();
+      }
     }
     try {
       await navigator.clipboard.writeText(url);
