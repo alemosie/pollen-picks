@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { refresh, siteUrl } from "@/lib/buffer";
-import { BufferSession, SESSION_COOKIE, cookieOpts, seal, unseal } from "@/lib/session";
+import { siteUrl } from "@/lib/buffer";
+import { getValidSession } from "@/lib/connections";
+import { SESSION_COOKIE, readUid } from "@/lib/session";
 
-// Refresh tokens are single-use, so this runs in a route handler where the new
-// token set can be written back to the cookie in the same response.
+// Pages refresh tokens on their own now (tokens live in the database). This route is for when Buffer's API
+// answered 401 although the clock says the token is fine: it forces one refresh (serialized, see getValidSession).
 export async function GET(req: NextRequest) {
-  const session = unseal<BufferSession>(req.cookies.get(SESSION_COOKIE)?.value);
   const want = req.nextUrl.searchParams.get("next") ?? "/source";
   // Only same-site relative paths (no open redirect).
   const back = siteUrl(want.startsWith("/") && !want.startsWith("//") ? want : "/source");
-  const login = siteUrl(`/api/auth/buffer/login?next=${encodeURIComponent(want)}`);
-  if (!session?.refreshToken) return NextResponse.redirect(login);
+  const login = siteUrl(`/login?next=${encodeURIComponent(want)}`);
+  const uid = readUid(req.cookies.get(SESSION_COOKIE)?.value);
+  if (!uid) return NextResponse.redirect(login);
   try {
-    const next = await refresh(session.refreshToken);
-    const res = NextResponse.redirect(back);
-    res.cookies.set(SESSION_COOKIE, seal(next), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
-    return res;
+    const session = await getValidSession(uid, { force: true });
+    return NextResponse.redirect(session ? back : login);
   } catch {
-    const res = NextResponse.redirect(login);
-    res.cookies.delete(SESSION_COOKIE);
-    return res;
+    return NextResponse.redirect(login);
   }
 }

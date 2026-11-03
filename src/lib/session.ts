@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-// Spike-only session: tokens live in an encrypted, httpOnly cookie.
-// Later this moves to Supabase (connections table, encrypted at rest).
+// The session cookie is an encrypted (AES-256-GCM), httpOnly cookie holding only the user id.
+// Buffer tokens live in the database (see connections.ts); the same sealing is used for the short-lived PKCE cookie.
 function key(): Buffer {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) throw new Error("SESSION_SECRET must be set (32+ chars)");
@@ -36,7 +36,16 @@ export const cookieOpts = {
 };
 
 export type BufferSession = { accessToken: string; refreshToken?: string; expiresAt: number };
-export const SESSION_COOKIE = "b2b_session";
+export type AppSession = { uid: string };
+export const SESSION_COOKIE = "pp_session";
+/** The old spike cookie that held the Buffer tokens themselves. Cleared on login and logout. */
+export const LEGACY_SESSION_COOKIE = "b2b_session";
 export const PKCE_COOKIE = "b2b_pkce";
 
 export const isExpired = (s: BufferSession) => s.expiresAt < Date.now();
+
+/** The user id from a session cookie value, or null if it is missing or not valid. */
+export const readUid = (value: string | undefined): string | null => {
+  const uid = unseal<AppSession>(value)?.uid;
+  return typeof uid === "string" && uid ? uid : null;
+};

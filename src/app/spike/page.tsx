@@ -1,9 +1,8 @@
 import { Suspense } from "react";
-import { cookies } from "next/headers";
 import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { gql } from "@/lib/buffer";
-import { BufferSession, SESSION_COOKIE, isExpired, unseal } from "@/lib/session";
+import { requireSession } from "@/lib/auth";
 import Tools from "./Tools";
 
 type Org = { id: string; name: string };
@@ -19,10 +18,8 @@ export default function Spike() {
 }
 
 async function SpikeContent() {
-  await connection(); // request-time render: the expiry check below reads the clock
-  const session = unseal<BufferSession>((await cookies()).get(SESSION_COOKIE)?.value);
-  if (!session) redirect("/api/auth/buffer/login");
-  if (isExpired(session)) redirect("/api/auth/buffer/refresh");
+  await connection(); // request-time render: the session check reads the cookie and the clock
+  const session = await requireSession("/spike");
 
   const acct = await gql<{ account: { id: string; email: string; organizations: Org[] } }>(
     session.accessToken,

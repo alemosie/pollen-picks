@@ -35,6 +35,13 @@ export function authorizeUrl(state: string, codeChallenge: string): string {
 
 type TokenResponse = { access_token: string; refresh_token?: string; expires_in: number };
 
+/** A failed token request. 4xx means the code/refresh token is no longer usable (revoked, expired or already used). */
+export class TokenError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message);
+  }
+}
+
 async function tokenRequest(params: Record<string, string>): Promise<BufferSession> {
   const { clientId, clientSecret } = env();
   const body = new URLSearchParams({ client_id: clientId, ...params });
@@ -44,7 +51,7 @@ async function tokenRequest(params: Record<string, string>): Promise<BufferSessi
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!res.ok) throw new Error(`Buffer token endpoint ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new TokenError(res.status, `Buffer token endpoint ${res.status}: ${await res.text()}`);
   const t = (await res.json()) as TokenResponse;
   return {
     accessToken: t.access_token,

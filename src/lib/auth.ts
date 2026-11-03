@@ -1,24 +1,26 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SESSION_COOKIE, type BufferSession, isExpired, unseal } from "./session";
+import { getValidSession } from "./connections";
+import { SESSION_COOKIE, readUid, type BufferSession } from "./session";
 
-const read = async () => unseal<BufferSession>((await cookies()).get(SESSION_COOKIE)?.value);
+export type AuthedSession = BufferSession & { userId: string };
+
+const uidFromCookie = async () => readUid((await cookies()).get(SESSION_COOKIE)?.value);
 
 /**
  * Call after `await connection()` inside a Suspense boundary.
- * Returns the session; if the access token has expired but a refresh token exists, silently refreshes via the
- * route handler (the only place the cookie can be rewritten) and comes back to `next`. Otherwise sends the user home.
+ * The cookie only carries the user id; tokens live in the database and are refreshed here when they have expired
+ * (no cookie rewrite is needed anymore, so this works in any server component).
  */
-export async function requireSession(next: string): Promise<BufferSession> {
-  const s = await read();
-  if (s && !isExpired(s)) return s;
-  if (s?.refreshToken) redirect(`/api/auth/buffer/refresh?next=${encodeURIComponent(next)}`);
-  // Not logged in: go straight to the Buffer login and come back to this page afterwards (a shared link keeps working).
-  redirect(`/api/auth/buffer/login?next=${encodeURIComponent(next)}`);
+export async function requireSession(next: string): Promise<AuthedSession> {
+  const uid = await uidFromCookie();
+  const s = uid ? await getValidSession(uid) : null;
+  if (uid && s) return { ...s, userId: uid };
+  // Not logged in, or Buffer access was revoked: show the login intro, which continues to Buffer and comes back to `next` (a shared link keeps working).
+  redirect(`/login?next=${encodeURIComponent(next)}`);
 }
 
-/** True when the visitor can get back in without logging in again (valid token, or a refresh token). */
+/** True when the visitor has a session cookie. Cheap on purpose (no database call): it only picks the landing-page button. */
 export async function hasSession(): Promise<boolean> {
-  const s = await read();
-  return !!s && (!isExpired(s) || !!s.refreshToken);
+  return (await uidFromCookie()) !== null;
 }
