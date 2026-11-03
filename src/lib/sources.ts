@@ -3,9 +3,11 @@ import { BeehiivKeyError, fetchIssue, listIssues, type BeehiivIssueContent } fro
 import { getBeehiivConnection, loadBeehiivKey } from "./connections";
 import type { IssueData } from "./demo";
 import { parseOwnMode } from "./flow";
+import { issueKey, listCustomChunks } from "./customPicks";
 import { parseChunks } from "./pollen/chunks";
 import { contentRoot } from "./pollen/content";
 import { parseActivities } from "./pollen/parse";
+import { renderableDocument } from "./pollen/render";
 import { mergeClicks, rankActivities } from "./pollen/rank";
 import { SESSION_COOKIE, readUid } from "./session";
 
@@ -20,7 +22,10 @@ import { SESSION_COOKIE, readUid } from "./session";
  */
 export type IssueResult = { issue: IssueData } | { error: string };
 
-export async function loadAppIssueResult(mode: string | undefined): Promise<IssueResult | null> {
+/** The user's raw issue (from beehiiv, cached a few minutes) and who/what it belongs to, or an error to show. */
+type Loaded = { uid: string; issue: string; raw: BeehiivIssueContent; postId: string };
+
+async function loadRaw(mode: string | undefined): Promise<Loaded | { error: string } | null> {
   const own = parseOwnMode(mode);
   if (!own) return null; // public newsletters arrive later
   try {
@@ -35,17 +40,43 @@ export async function loadAppIssueResult(mode: string | undefined): Promise<Issu
     if (!key) return { error: "Connect your beehiiv key first." };
     const postId = own.postId ?? (await listIssues(key, publicationId, { limit: 1 })).issues[0]?.id;
     if (!postId) return { error: "This publication has no sent issues yet." };
-
     const raw = await cachedIssue(`${uid}:${postId}`, () => fetchIssue(key, publicationId, postId));
-    const issue = buildIssue(raw);
-    await dumpForDebugging(postId, raw, issue);
-    if (issue.chunks.length === 0) return { error: "Couldn't find any content to pick from in this issue." };
-    return { issue };
+    return { uid, issue: issueKey(publicationId, postId), raw, postId };
   } catch (e) {
     if (e instanceof BeehiivKeyError) return { error: e.message };
     console.error("loading the issue failed:", (e as Error).message);
     return { error: "Couldn't load this issue. Try again in a moment." };
   }
+}
+
+export async function loadAppIssueResult(mode: string | undefined): Promise<IssueResult | null> {
+  const loaded = await loadRaw(mode);
+  if (!loaded) return null;
+  if ("error" in loaded) return loaded;
+  try {
+    const issue = buildIssue(loaded.raw);
+    await dumpForDebugging(loaded.postId, loaded.raw, issue);
+    // The user's highlights from the Manual tab are extra chunks of this issue, so every later step finds them by id.
+    issue.chunks.push(...(await listCustomChunks(loaded.uid, loaded.issue)));
+    return { issue };
+  } catch (e) {
+    console.error("preparing the issue failed:", (e as Error).message);
+    return { error: "Couldn't load this issue. Try again in a moment." };
+  }
+}
+
+/** Who and which issue a Manual-tab request is about, for saving or removing highlights. */
+export async function resolveIssueOwner(mode: string | undefined): Promise<{ uid: string; issue: string } | { error: string } | null> {
+  const loaded = await loadRaw(mode);
+  return !loaded || "error" in loaded ? loaded : { uid: loaded.uid, issue: loaded.issue };
+}
+
+/** The issue as published, ready for a sandboxed iframe (the Manual tab). */
+export async function loadAppIssueDocument(mode: string | undefined): Promise<{ html: string } | { error: string } | null> {
+  const loaded = await loadRaw(mode);
+  if (!loaded || "error" in loaded) return loaded;
+  const html = renderableDocument(loaded.raw.html);
+  return html ? { html } : { error: "Couldn't show this issue as published." };
 }
 
 /** The issue, or null when it can't be loaded (the later steps just send the user back to the source step). */
