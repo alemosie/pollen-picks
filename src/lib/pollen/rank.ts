@@ -14,8 +14,8 @@ export function mergeClicks(rows: ClickRow[]): Map<string, LinkStats> {
     const key = normalizeUrl(r.url);
     if (!key) continue;
     const s = m.get(key) ?? { key, score: 0, totalVerified: 0, rows: 0 };
-    s.score += (r.email.total_unique_clicked_verified ?? 0) + (r.web.total_unique_clicked ?? 0);
-    s.totalVerified += (r.email.total_clicked_verified ?? 0) + (r.web.total_clicked ?? 0);
+    s.score += (r.email.total_unique_clicked_verified ?? r.email.unique_verified_clicks ?? 0) + (r.web.total_unique_clicked ?? r.web.unique_clicks ?? 0);
+    s.totalVerified += (r.email.total_clicked_verified ?? r.email.verified_clicks ?? 0) + (r.web.total_clicked ?? r.web.clicks ?? 0);
     s.rows += 1;
     m.set(key, s);
   }

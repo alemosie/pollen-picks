@@ -31,10 +31,23 @@ export type Activity = {
   blurb: string;
 };
 
+/**
+ * One link's click counts, in either of beehiiv's spellings: the export/dashboard names (`total_unique_clicked_verified`)
+ * used by the saved fixture, and the REST API's names (`unique_verified_clicks`) used for connected newsletters.
+ */
 export type ClickRow = {
   url: string;
-  email: { total_clicked?: number; total_unique_clicked?: number; total_clicked_verified?: number; total_unique_clicked_verified?: number };
-  web: { total_clicked?: number; total_unique_clicked?: number };
+  email: {
+    total_clicked?: number;
+    total_unique_clicked?: number;
+    total_clicked_verified?: number;
+    total_unique_clicked_verified?: number;
+    clicks?: number;
+    unique_clicks?: number;
+    verified_clicks?: number;
+    unique_verified_clicks?: number;
+  };
+  web: { total_clicked?: number; total_unique_clicked?: number; clicks?: number; unique_clicks?: number };
 };
 
 export type LinkStats = {
