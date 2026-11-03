@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { hasSession } from "@/lib/auth";
 
-const LOGIN = "/api/auth/buffer/login";
+const LOGIN = "/login";
 
 /** "Log in with Buffer" for visitors, "Continue" for people who are already in (the splash page stays static around it). */
 export function AuthLink({ className, loggedOut, loggedIn }: { className: string; loggedOut: string; loggedIn: string }) {
