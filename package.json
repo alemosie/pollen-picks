@@ -10,6 +10,7 @@
     "pipeline:fixture": "tsx scripts/rank-fixture.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.61.0",
     "next": "16.4.3",
     "node-html-parser": "^9.0.5",
