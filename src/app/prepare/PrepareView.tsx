@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import Link from "next/link";
@@ -56,6 +57,7 @@ export function PrepareView({
   link,
   backHref,
   nextHref,
+  demo = false,
 }: {
   channels: Channel[];
   picks: number[];
@@ -66,11 +68,51 @@ export function PrepareView({
   link: string;
   backHref: string;
   nextHref: string;
+  /** Public demo: the channels are examples, and the section says so. */
+  demo?: boolean;
 }) {
   const usable = channels.filter((c) => !unsupportedReason(c.service));
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(usable.map((c) => c.id)),
   );
+  // Channels are fetched on the server. Coming back from Buffer's settings tab re-runs that fetch (not in the demo,
+  // whose channels are examples), then the effect below ticks any new channel and drops any that were removed.
+  const router = useRouter();
+  useEffect(() => {
+    if (demo) return;
+    let last = Date.now();
+    const refresh = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 10_000) return;
+      last = Date.now();
+      router.refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [demo, router]);
+  const known = useRef(new Set(usable.map((c) => c.id)));
+  const usableKey = usable.map((c) => c.id).join(",");
+  useEffect(() => {
+    const ids = new Set(usableKey ? usableKey.split(",") : []);
+    const added = [...ids].filter((id) => !known.current.has(id));
+    const removed = [...known.current].filter((id) => !ids.has(id));
+    if (added.length === 0 && removed.length === 0) return;
+    known.current = ids;
+    // Like the first load, every usable channel starts ticked: a channel the user just connected is there to be used.
+    const t = setTimeout(
+      () =>
+        setSelected((s) => {
+          const n = new Set([...s].filter((id) => ids.has(id)));
+          for (const id of added) n.add(id);
+          return n;
+        }),
+      0,
+    );
+    return () => clearTimeout(t);
+  }, [usableKey]);
   // Networks whose channel box stays open after its last channel is unticked, until focus leaves the box (in case it was a slip).
   const [held, setHeld] = useState<Set<string>>(new Set());
   const [queries, setQueries] = useState<Record<string, string>>({});
@@ -184,6 +226,23 @@ export function PrepareView({
           <h2 className="mb-1 text-2xl">Where to?</h2>
           <p className="mb-4 mt-0 text-sm">
             Every selected channel gets its own draft.
+            {demo ? (
+              " In demo mode, we've created example channels for you to explore."
+            ) : (
+              <>
+                {" "}
+                Want more channels? Configure your connections on{" "}
+                <a
+                  href="https://publish.buffer.com/settings/channels"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold underline underline-offset-4"
+                >
+                  your Buffer account
+                </a>{" "}
+                — we&rsquo;ll pick up the changes here.
+              </>
+            )}
           </p>
           <div className="grid gap-4 rounded-2xl bg-card p-5">
             <div
