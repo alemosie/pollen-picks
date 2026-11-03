@@ -27,6 +27,14 @@ const sections: Section[] = [
           </li>
           <li>Your brand settings (name, colors and fonts), which start with defaults and are yours to change.</li>
         </ul>
+        <p>If you connect your newsletter, Pollen Picks also stores:</p>
+        <ul>
+          <li>
+            Your beehiiv API key, encrypted and never shown again (only its last four characters). It is used to read your
+            publication and posts, nothing else.
+          </li>
+          <li>The name, organization and basic stats of the publications that key can see, so the app can show what is connected.</li>
+        </ul>
         <p>
           Pollen Picks never sees your Buffer password: you type it on Buffer&rsquo;s own page. The demo needs no account
           and stores nothing about you on our servers.
@@ -82,7 +90,11 @@ const sections: Section[] = [
           <b>Buffer</b>, where you log in and where your drafts live. Its own privacy policy applies there.
         </li>
         <li>
-          <b>Supabase</b>, our database, hosted in the EU (Ireland). It holds the account, brand and encrypted token data
+          <b>beehiiv</b>, only if you connect your newsletter. Pollen Picks sends your key to beehiiv to read your posts.
+          It never edits, sends or deletes anything there. Its own privacy policy applies to your account.
+        </li>
+        <li>
+          <b>Supabase</b>, our database, hosted in the EU (Ireland). It holds the account, brand and encrypted token and key data
           above.
         </li>
         <li>
@@ -106,6 +118,10 @@ const sections: Section[] = [
           </li>
           <li>
             <b>Revoke access</b> at any time in your Buffer account settings. After that, the stored tokens stop working.
+          </li>
+          <li>
+            <b>Remove your beehiiv key</b> in <Link href="/settings">Settings</Link>, which deletes it from our database.
+            To cut off access completely, also delete the key on beehiiv&rsquo;s API page.
           </li>
           <li>
             <b>Delete your data.</b> Ask through the <Link href="/feedback">feedback form</Link> and your account, brand
