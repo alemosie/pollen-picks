@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loadDemoIssue } from "@/lib/demo";
+import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEFAULT_COLORS } from "@/lib/brand";
 import { planSlides } from "@/lib/slides/plan";
 import { renderSlide } from "@/lib/slides/render";
@@ -10,7 +10,7 @@ import { parseTemplateFrom } from "@/lib/slides/options";
 // The real route renders from a stored pick set; this one exists to design and test templates.
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
-  const issue = loadDemoIssue();
+  const issue = await loadDemoIssueWithHighlights();
   const items = slideItemsFor(issue.chunks, (q.get("picks") ?? "").split(",").filter(Boolean).map(Number).filter(Number.isFinite));
   if (items.length === 0) return NextResponse.json({ error: "No picks" }, { status: 400 });
   const slides = planSlides(items, { newsletter: "Just a Phase", ...parseTemplateFrom(q) });

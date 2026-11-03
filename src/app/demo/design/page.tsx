@@ -4,7 +4,7 @@ import { FlowLoader } from "@/components/FlowLoader";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
-import { loadDemoIssue } from "@/lib/demo";
+import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { stepUrl } from "@/lib/flow";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage } from "@/lib/slides/options";
@@ -34,7 +34,7 @@ async function DemoDesignContent({
     .filter(Number.isInteger);
   if (ids.length === 0) redirect(stepUrl("demo", "pick"));
 
-  const issue = loadDemoIssue();
+  const issue = await loadDemoIssueWithHighlights();
   const items = slideItemsFor(issue.chunks, ids);
 
   return (

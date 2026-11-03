@@ -4,7 +4,7 @@ import { FlowLoader } from "@/components/FlowLoader";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
-import { loadDemoIssue } from "@/lib/demo";
+import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { captionItemsFor } from "@/lib/slides/items";
@@ -38,7 +38,7 @@ async function DemoPrepareContent({
   const tpl = parseTemplateFromPage(sp);
   const extra = templateParams(tpl).toString();
   const q = `picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;
-  const issue = loadDemoIssue();
+  const issue = await loadDemoIssueWithHighlights();
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">

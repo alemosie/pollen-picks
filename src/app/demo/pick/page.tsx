@@ -5,7 +5,7 @@ import { StepWord } from "@/components/StepWord";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
-import { loadDemoIssue } from "@/lib/demo";
+import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { Picker } from "@/app/pick/Picker";
 import { parsePicking } from "@/app/pick/picking";
 
@@ -32,7 +32,7 @@ async function DemoPickContent({
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 0);
 
-  const issue = loadDemoIssue();
+  const issue = await loadDemoIssueWithHighlights();
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
@@ -77,6 +77,7 @@ async function DemoPickContent({
         hasClicks={issue.hasClicks}
         initialView={parsePicking(picking)}
         initialPicks={initialPicks}
+        manual
       />
     </main>
   );

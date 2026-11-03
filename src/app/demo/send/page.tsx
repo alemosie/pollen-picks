@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { hasSession } from "@/lib/auth";
-import { loadDemoIssue } from "@/lib/demo";
+import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
@@ -41,7 +41,7 @@ async function DemoSendContent({
   const extra = templateParams(tpl).toString();
   const q = ids.join(",");
   const tail = `picks=${q}${extra ? `&${extra}` : ""}`;
-  const issue = loadDemoIssue();
+  const issue = await loadDemoIssueWithHighlights();
   const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: "Just a Phase", ...tpl });
   const signedIn = await hasSession();
 
