@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { requireSession } from "@/lib/auth";
 import { demoUrlFrom } from "@/lib/flow";
-import { loadAppIssue } from "@/lib/sources";
+import { loadAppIssueResult } from "@/lib/sources";
 import { Picker } from "./Picker";
 import { parsePicking } from "./picking";
 
@@ -37,8 +37,11 @@ async function PickContent({
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 0);
   await requireSession(`/pick?mode=${encodeURIComponent(String(mode ?? ""))}`);
-  const issue = await loadAppIssue(String(mode ?? ""));
-  if (!issue) redirect("/source"); // public / own-newsletter modes arrive later
+  const result = await loadAppIssueResult(String(mode ?? ""));
+  if (!result) redirect("/source"); // public newsletters arrive later
+  // Say what went wrong instead of bouncing back to the source step, which just looks like a refresh.
+  if ("error" in result) return <LoadError message={result.error} />;
+  const issue = result.issue;
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
@@ -84,6 +87,28 @@ async function PickContent({
         initialView={parsePicking(picking)}
         initialPicks={initialPicks}
       />
+    </main>
+  );
+}
+
+function LoadError({ message }: { message: string }) {
+  return (
+    <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
+      <PageHeader current={2} hrefs={{ 1: "/source" }} />
+      <h1 className="mb-3 text-4xl sm:text-5xl">
+        We couldn&rsquo;t <StepWord>load</StepWord> that issue
+      </h1>
+      <p role="alert" className="mb-6 max-w-2xl border-l-4 border-coral pl-4 text-lg">
+        {message}
+      </p>
+      <p className="flex flex-wrap gap-x-6 gap-y-2">
+        <a href="/source" className="font-bold underline underline-offset-4">
+          Back to the source step
+        </a>
+        <a href="/settings" className="font-bold underline underline-offset-4">
+          Settings
+        </a>
+      </p>
     </main>
   );
 }
