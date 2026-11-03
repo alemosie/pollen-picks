@@ -373,11 +373,16 @@ export default function Home() {
 
       <footer className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 pb-28 pt-10 text-sm">
         <span>{BRAND_NAME}, built for Buffer Commit 2026.</span>
-        <AuthLink
-          className="font-semibold underline decoration-[3px] underline-offset-[7px] hover:decoration-coral"
-          loggedOut="Log in with Buffer"
-          loggedIn="Continue to the app"
-        />
+        <span className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <Link href="/privacy" className="font-semibold underline underline-offset-4">
+            Privacy
+          </Link>
+          <AuthLink
+            className="font-semibold underline decoration-[3px] underline-offset-[7px] hover:decoration-coral"
+            loggedOut="Log in with Buffer"
+            loggedIn="Continue to the app"
+          />
+        </span>
       </footer>
       <ResumeBanner bar />
     </main>
