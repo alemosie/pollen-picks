@@ -25,11 +25,12 @@ export type IssueResult = { issue: IssueData } | { error: string };
 /** The user's raw issue (from beehiiv, cached a few minutes) and who/what it belongs to, or an error to show. */
 type Loaded = { uid: string; issue: string; raw: BeehiivIssueContent; postId: string };
 
-async function loadRaw(mode: string | undefined): Promise<Loaded | { error: string } | null> {
+/** `asUid`: the user is already known (a signed slide-preview URL), so the session cookie is not read. */
+async function loadRaw(mode: string | undefined, asUid?: string): Promise<Loaded | { error: string } | null> {
   const own = parseOwnMode(mode);
   if (!own) return null; // public newsletters arrive later
   try {
-    const uid = readUid((await cookies()).get(SESSION_COOKIE)?.value);
+    const uid = asUid ?? readUid((await cookies()).get(SESSION_COOKIE)?.value);
     if (!uid) return { error: "Log in again to continue." };
     const conn = await getBeehiivConnection(uid);
     if (!conn || conn.publications.length === 0) return { error: "Connect your beehiiv key first." };
@@ -49,8 +50,8 @@ async function loadRaw(mode: string | undefined): Promise<Loaded | { error: stri
   }
 }
 
-export async function loadAppIssueResult(mode: string | undefined): Promise<IssueResult | null> {
-  const loaded = await loadRaw(mode);
+export async function loadAppIssueResult(mode: string | undefined, asUid?: string): Promise<IssueResult | null> {
+  const loaded = await loadRaw(mode, asUid);
   if (!loaded) return null;
   if ("error" in loaded) return loaded;
   try {
@@ -80,8 +81,8 @@ export async function loadAppIssueDocument(mode: string | undefined): Promise<{ 
 }
 
 /** The issue, or null when it can't be loaded (the later steps just send the user back to the source step). */
-export async function loadAppIssue(mode: string | undefined): Promise<IssueData | null> {
-  const r = await loadAppIssueResult(mode);
+export async function loadAppIssue(mode: string | undefined, asUid?: string): Promise<IssueData | null> {
+  const r = await loadAppIssueResult(mode, asUid);
   return r && "issue" in r ? r.issue : null;
 }
 

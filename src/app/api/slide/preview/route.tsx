@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { isDemo } from "@/lib/flow";
+import { verifyPreview } from "@/lib/previewSig";
 import { loadAppIssue } from "@/lib/sources";
 import { DEFAULT_COLORS } from "@/lib/brand";
 import { planSlides } from "@/lib/slides/plan";
@@ -14,7 +15,10 @@ import { parseTemplateFrom } from "@/lib/slides/options";
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const mode = q.get("mode");
-  const issue = mode && !isDemo(mode) ? await loadAppIssue(mode) : await loadDemoIssueWithHighlights();
+  // Buffer fetches these images without a login, so its URLs carry a signature instead (see previewSig). A bad or expired one is refused.
+  const signedUid = q.has("sig") ? verifyPreview(q) : null;
+  if (q.has("sig") && !signedUid) return NextResponse.json({ error: "This slide link is invalid or has expired." }, { status: 403 });
+  const issue = mode && !isDemo(mode) ? await loadAppIssue(mode, signedUid ?? undefined) : await loadDemoIssueWithHighlights();
   if (!issue) return NextResponse.json({ error: "Couldn't load this issue. Log in again from the Source step." }, { status: 401 });
   const items = slideItemsFor(issue.chunks, (q.get("picks") ?? "").split(",").filter(Boolean).map(Number).filter(Number.isFinite));
   if (items.length === 0) return NextResponse.json({ error: "No picks" }, { status: 400 });

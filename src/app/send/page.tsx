@@ -77,6 +77,7 @@ async function SendContent({
         )}
         channels={channels}
         picks={ids}
+        source={mode}
         template={extra}
         link={issue.url}
         captionItems={captionItemsFor(

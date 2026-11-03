@@ -47,6 +47,7 @@ export function SendConfirm({
   urls,
   channels,
   picks,
+  source,
   captionItems,
   newsletter,
   heading,
@@ -58,6 +59,8 @@ export function SendConfirm({
   urls: string[];
   channels: Channel[];
   picks: number[];
+  /** The content source the picks come from (the page's `mode`). The server loads the issue from it. */
+  source?: string;
   captionItems: CaptionItem[];
   newsletter: string;
   heading?: string;
@@ -249,6 +252,7 @@ export function SendConfirm({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              source,
               channels: [{ id: c.id, service: c.service }],
               picks,
               captions: { [c.id]: captionFor(variantFor(c.service)) },

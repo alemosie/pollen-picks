@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gql, siteOrigin } from "@/lib/buffer";
 import { requireSession } from "@/lib/guard";
+import { signPreview } from "@/lib/previewSig";
 import { loadAppIssue } from "@/lib/sources";
 import { planSlides } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
@@ -36,11 +37,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` }, { status: 400 });
   }
 
-  // TODO(BYO): slide previews are still rendered from the sample issue (/api/slide/preview); they need to render from `issue`.
   const tpl = parseTemplateFrom(new URLSearchParams(body.template ?? ""));
   const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: "Just a Phase", ...tpl });
-  const extra = templateParams(tpl).toString();
-  const all = slides.map((_, i) => `${base}/api/slide/preview?picks=${picks.join(",")}&n=${i}${extra ? `&${extra}` : ""}`);
+  // Buffer fetches the images with no login, so the URLs are signed for this user, issue, picks and template (see previewSig).
+  const signed = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", body.source as string]]), g.session.userId).toString();
+  const all = slides.map((_, i) => `${base}/api/slide/preview?${signed}&n=${i}`);
 
   // Sequential: a handful of channels, and it keeps us well inside Buffer's rate limits.
   const results: DraftResult[] = [];
