@@ -127,7 +127,7 @@ export function PrepareView({
   const [tab, setTab] = useState<CaptionVariant>("instagram");
   const [copied, setCopied] = useState(false);
   // Remember channel choice, order, tab and caption edits for this set of picks + template, so a detour doesn't lose them.
-  const sig = `${picks.join(",")}|${template}`;
+  const sig = `${link}|${picks.join(",")}|${template}`;
   const [restored, setRestored] = useState(false);
   useEffect(() => {
     const t = setTimeout(() => {

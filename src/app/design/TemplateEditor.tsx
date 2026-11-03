@@ -45,11 +45,12 @@ export function TemplateEditor({
   const saved = useMemo<TemplateState | null>(() => {
     try {
       const t = stored ? (JSON.parse(stored) as TemplateState) : null;
-      return t?.spec?.slides?.length ? t : null;
+      // Slide ids belong to one issue: a layout saved for another issue (or before layouts were scoped) is not restored.
+      return t?.spec?.slides?.length && t.scope === mode ? t : null;
     } catch {
       return null;
     }
-  }, [stored]);
+  }, [stored, mode]);
   const base: TemplateState = initial.spec
     ? { custom: true, spec: initial.spec }
     : (saved ?? { custom: false, spec: { slides: [[]] } });
@@ -57,7 +58,7 @@ export function TemplateEditor({
   const { custom, spec } = mine ?? base;
   const update = (t: TemplateState) => {
     setMine(t);
-    saveTemplate(t);
+    saveTemplate({ ...t, scope: mode });
   };
   const setCustom = (c: boolean) => update({ custom: c, spec });
   const setSpec = (sp: CustomSpec) => update({ custom, spec: sp });

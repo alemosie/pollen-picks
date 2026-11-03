@@ -65,7 +65,8 @@ export const saveFormat = (s: FormatState) => {
   if (!same) notifySaved();
 };
 
-export type TemplateState = { custom: boolean; spec: CustomSpec };
+/** `scope` is the flow mode (which carries the issue) the layout was made for: slide ids only mean something for that issue. */
+export type TemplateState = { custom: boolean; spec: CustomSpec; scope?: string };
 export const loadTemplate = () => read<TemplateState>(TEMPLATE);
 /** Raw stored string, for useSyncExternalStore (must be a stable value between reads). */
 export const templateSnapshot = (): string | null => {
