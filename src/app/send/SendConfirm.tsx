@@ -51,6 +51,7 @@ export function SendConfirm({
   source,
   captionItems,
   newsletter,
+  author,
   heading,
   template,
   link,
@@ -64,6 +65,7 @@ export function SendConfirm({
   source?: string;
   captionItems: CaptionItem[];
   newsletter: string;
+  author?: string | null;
   heading?: string;
   template: string;
   link: string;
@@ -209,6 +211,7 @@ export function SendConfirm({
     edited[v] ??
     buildCaption(captionItems, {
       newsletter,
+      author,
       heading,
       order,
       variant: v,

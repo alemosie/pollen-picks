@@ -55,6 +55,7 @@ export function PrepareView({
   picks,
   captionItems,
   newsletter,
+  author,
   heading,
   template,
   link,
@@ -66,6 +67,7 @@ export function PrepareView({
   picks: number[];
   captionItems: CaptionItem[];
   newsletter: string;
+  author?: string | null;
   heading?: string;
   template: string;
   link: string;
@@ -166,7 +168,7 @@ export function PrepareView({
   }, [restored, sig, selected, order, edited, tab]);
 
   const generated = (variant: CaptionVariant) =>
-    buildCaption(captionItems, { newsletter, heading, order, variant, link });
+    buildCaption(captionItems, { newsletter, author, heading, order, variant, link });
   const captionFor = (variant: CaptionVariant) =>
     edited[variant] ?? generated(variant);
   async function copyCaption(text: string) {
@@ -183,6 +185,7 @@ export function PrepareView({
     edited[variant] === undefined
       ? captionLeftOut(captionItems, {
           newsletter,
+          author,
           heading,
           order,
           variant,

@@ -17,6 +17,7 @@ export async function loadDemoIssueWithHighlights() {
     return {
       title: src.title,
       newsletter: src.newsletter,
+      author: src.author,
       // Only a reference date for dates inside picks. Highlights carry none, and new Date() would block prerendering.
       publishedAt: `${DEMO_TODAY}T00:00:00.000Z`,
       url: src.url,
