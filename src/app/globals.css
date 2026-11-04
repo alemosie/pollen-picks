@@ -154,14 +154,11 @@
 [data-state="hidden"] .pp-squig { background-size: 0% 0.3em; }
 @media (prefers-reduced-motion: reduce) { .pp-squig { transition: none; } }
 
-/* Step loader (FlowLoader): ribbons slide one full wave per loop; the whole stage fades in after a short beat. */
-@keyframes pp-flow { from { transform: translateX(0); } to { transform: translateX(var(--pp-shift)); } }
+/* Step loader (FlowLoader): the stage fades in after a short beat, so quick loads never flash it. The pollen itself is SVG animation, which CSS can't pause, so reduced motion hides it. */
 @keyframes pp-flow-in { from { opacity: 0; } to { opacity: 1; } }
-@keyframes pp-grain { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
-.pp-grain { animation: pp-grain 1.8s ease-in-out infinite; }
 .pp-flow-stage { animation: pp-flow-in 0.5s ease-out 0.8s both; }
 @media (prefers-reduced-motion: reduce) {
-  .pp-flow-stage svg g, .pp-grain { animation: none !important; }
+  .pp-gust { display: none; }
 }
 
 @keyframes pp-pop { from { opacity: 0; transform: translateY(10px) rotate(1deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(1deg) scale(1); } }
