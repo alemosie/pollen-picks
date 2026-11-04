@@ -163,8 +163,8 @@ export default function Home() {
                 <Squiggle>spread the word?</Squiggle>
               </h2>
               <p className="max-w-2xl text-lg leading-relaxed">
-                It took hours to write, and the last thing
-                you want is for your words to be stuck there, seen only by some of your readers. 
+                It took hours to write your newsletter or blog, and the last thing
+                you want is for your words to be stuck there, seen only by some of your subscribers. 
                 What about your socials followers? You don&rsquo;t have the time or energy
                 to cross-post the content to other channels, so{" "}
                 <b>your best work never reaches socials</b>.
