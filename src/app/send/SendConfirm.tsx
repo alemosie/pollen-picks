@@ -426,14 +426,12 @@ export function SendConfirm({
                   <details
                     key={svc}
                     open={open}
-                    onToggle={(e) =>
-                      e.currentTarget.open !== open
-                        ? setToggled((t) => ({
-                            ...t,
-                            [svc]: e.currentTarget.open,
-                          }))
-                        : undefined
-                    }
+                    onToggle={(e) => {
+                      // Read it now: React runs the updater later, when the event's currentTarget is already null.
+                      const isOpen = e.currentTarget.open;
+                      if (isOpen !== open)
+                        setToggled((t) => ({ ...t, [svc]: isOpen }));
+                    }}
                   >
                     <summary className="flex cursor-pointer list-none items-center gap-2 py-2.5 [&::-webkit-details-marker]:hidden">
                       <ChannelIcon service={svc} className="size-4 shrink-0" />
