@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useRef } from "react";
+import { useId, useRef } from "react";
 import { primaryButton } from "@/components/FlowBar";
 import { track } from "@/lib/events";
 
@@ -21,6 +21,7 @@ export function DemoGate({
   onOpen?: (button: HTMLButtonElement) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   return (
     <>
       <button
@@ -36,7 +37,7 @@ export function DemoGate({
       </button>
       <dialog
         ref={dialog}
-        aria-labelledby="demo-gate-title"
+        aria-labelledby={titleId}
         onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
         className="m-auto w-[min(32rem,94vw)] rounded-2xl bg-page p-0 text-ink backdrop:bg-ink/60"
       >
@@ -49,7 +50,7 @@ export function DemoGate({
           >
             <X aria-hidden className="size-5" strokeWidth={2.5} />
           </button>
-          <h2 id="demo-gate-title" className="mb-3 pr-10 text-2xl sm:text-3xl">
+          <h2 id={titleId} className="mb-3 pr-10 text-2xl sm:text-3xl">
             Now, create your own
           </h2>
           <p className="mb-6 text-lg leading-relaxed">
