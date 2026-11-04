@@ -2,6 +2,7 @@
 
 import { Check, Highlighter, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { track } from "@/lib/events";
 
 export type TrayItem = { id: number; text: string; url: string | null; pick: number };
 
@@ -83,6 +84,15 @@ export function PickTray({
             {meter && (
               <p className={`mb-3 mt-0 text-sm font-semibold ${near ? "text-ink-deep" : ""}`}>
                 {meter.words} of {meter.maxWords} words. The demo holds up to {meter.maxCount} highlights.
+              </p>
+            )}
+            {meter && (
+              <p className="mb-3 mt-0 text-xs">
+                Want to try more picks?{" "}
+                <a href="/login?next=%2Fsource" onClick={() => track("login_clicked")} className="font-bold underline underline-offset-4">
+                  Log in
+                </a>{" "}
+                to pick up to 20.
               </p>
             )}
             <div>
