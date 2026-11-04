@@ -1,4 +1,5 @@
 import type { BufferSession } from "./session";
+import { fakeChannels } from "./fake";
 
 const AUTH = "https://auth.buffer.com";
 export const API = "https://api.buffer.com";
@@ -74,11 +75,16 @@ export function refresh(refreshToken: string) {
   return tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
 }
 
-export async function gql<T = unknown>(accessToken: string, query: string): Promise<{ data?: T; errors?: { message: string }[]; status: number }> {
+export async function gql<T = unknown>(
+  accessToken: string,
+  query: string,
+  opts?: { timeoutMs?: number },
+): Promise<{ data?: T; errors?: { message: string }[]; status: number }> {
   const res = await fetch(API, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
+    ...(opts?.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}),
   });
   const json = await res.json().catch(() => ({}));
   return { ...json, status: res.status };
@@ -94,5 +100,6 @@ export async function listChannels(accessToken: string): Promise<BufferChannel[]
     const r = await gql<{ channels: BufferChannel[] }>(accessToken, `{ channels(input: { organizationId: ${JSON.stringify(o.id)} }) { id name service } }`);
     out.push(...(r.data?.channels ?? []));
   }
-  return out;
+  // Fake mode can add many fake channels, to try the channel picker and a big send without a Buffer account that has them.
+  return [...out, ...fakeChannels()];
 }
