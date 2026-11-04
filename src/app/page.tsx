@@ -180,8 +180,7 @@ export default function Home() {
               </h2>
               <p className="mb-8 max-w-2xl text-lg leading-relaxed">
                 <b>Before:</b> Open the issue, copy the quote, copy the link,
-                retype the caption, repeat. <b>Now:</b> You pick what you want
-                to highlight, and Pollen Picks builds the slides from your own
+                retype the caption, repeat. <b>Now:</b> You choose the highlights, and Pollen Picks builds the slides from your own
                 words.
               </p>
             </Reveal>
@@ -264,11 +263,11 @@ export default function Home() {
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
                 One click to <Squiggle>all your socials</Squiggle>
               </h2>
-              <p className="mb-4 max-w-2xl text-lg leading-relaxed">
+              <p className="mb-8 max-w-2xl text-lg leading-relaxed">
                 No repeating posts for multiple channels &mdash; Pollen Picks
                 sends your slides and caption to Buffer for every channel
-                you&rsquo;ve connected: as a draft today, and soon straight to
-                publish. Nothing goes out until you say so. See the full list
+                you&rsquo;ve connected: as a draft to review and schedule, or
+                straight to publish. Nothing goes out until you say so. See the full list
                 of supported platforms{" "}
                 <a
                   href="https://support.buffer.com/article/567-supported-channels"
@@ -280,9 +279,6 @@ export default function Home() {
                 </a>
                 .
               </p>
-              <span className="mb-8 inline-block rounded-full bg-honey/80 px-3.5 py-1 text-sm font-bold text-ink-deep">
-                Send now: Coming soon
-              </span>
             </Reveal>
             <div
               aria-hidden
