@@ -19,7 +19,9 @@ import {
 } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import type { SlideItem } from "@/lib/slides/types";
+import { FlowLoader } from "@/components/FlowLoader";
 import { SlideBuilder } from "./SlideBuilder";
+import { useSlidesReady } from "./useSlidesReady";
 
 /** URLs longer than this risk being refused by servers or proxies. */
 const SPEC_WARN = 6000;
@@ -85,9 +87,12 @@ export function TemplateEditor({
   const shareUrl = () => `${window.location.origin}${stepUrl(mode, "design", query)}`;
 
   const standard = planSlides(items, { newsletter });
+  // Keep the loading animation up until the first previews have arrived, so the page never shows empty slide frames.
+  const slidesReady = useSlidesReady();
 
   return (
     <>
+      {!slidesReady && <FlowLoader instant label="Setting up your carousel…" />}
       <div className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
           <h1 className="mb-3 text-4xl sm:text-5xl">

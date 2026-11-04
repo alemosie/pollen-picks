@@ -57,7 +57,7 @@ export function DemoGate({
             <a
               href="/feedback"
               onClick={() => track("feedback_clicked")}
-              className="rounded-xl px-6 py-3 font-bold ring-1 ring-ink/40 hover:bg-ink/10"
+              className="rounded-xl bg-honey px-6 py-3 font-bold text-ink-deep hover:brightness-95"
             >
               Leave us feedback
             </a>

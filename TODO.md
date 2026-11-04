@@ -15,6 +15,10 @@ Goal order: people actually using it (login + Buffer) first, feedback second (pr
 - [x] Native feedback form on `/feedback` (replaces the Google form): host, easy, likelihood, loved, would change, OK to quote you; stored in `feedback` with the tab session id, steps reached, flow (demo/app) and the account when logged in. Needs migration 0005 applied.
 - [ ] Test on the deployed site and on a phone: landing > source screen > pick > design > prepare > send; newsletter name on slides and captions; final-screen login and feedback links; iOS Safari text selection in the Manual iframe.
 
+- [x] Design step: keep the loading animation up until the first slide previews have loaded (they render slowly on the server), so /design never shows empty frames. Next if still slow: cache rendered slides, or pre-warm the previews on the Pick step.
+
+- [x] Separate databases: prod = Supabase project "Pollen Picks" (`hmzprlzhvhdwpjgrymrk`, creds in `.env.production` and Netlify); dev = "Dev: Pollen Picks" (`nzufhmvyewifebojjaue`, creds in `.env.local`). Dev got migrations 0001-0005 as one migration. Prod test rows in `demo_events`, `feedback` and `draft_log` were cleared on 4 Nov (users, connections, brand and custom picks kept). Apply every new migration to BOTH projects.
+
 ### Later / stretch (not today)
 
 - [ ] Now + Draft send modes (drop "later"): `mode: shareNow` vs `saveToDraft: true`; confirm dialog; treat network/5xx failures as "may have sent" (no auto-retry); check Instagram `schedulingType` for notification-only channels; update the "nothing is published" copy.

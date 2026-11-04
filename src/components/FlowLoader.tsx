@@ -67,12 +67,13 @@ function grains(y: number, amp: number) {
   return out;
 }
 
-export function FlowLoader({ label = "One moment…" }: { label?: string }) {
+export function FlowLoader({ label = "One moment…", instant = false }: { label?: string; /** Show at once. By default it waits a moment, so quick loads never flash it. */ instant?: boolean }) {
   return (
     <div
       role="status"
       aria-live="polite"
       className="pp-flow-stage fixed inset-0 z-50 grid place-items-center bg-page"
+      style={instant ? { animationDelay: "0s" } : undefined}
     >
       <div className="grid justify-items-center gap-6">
         <svg

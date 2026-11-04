@@ -89,10 +89,31 @@ export function FeedbackForm() {
 
   if (state === "done")
     return (
-      <div role="status" className="rounded-2xl bg-accent p-6">
-        <h2 className="mb-2 text-2xl">Thank you!</h2>
-        <p className="mb-5">It goes straight to me, Alex. It really helps.</p>
-        <Link href="/demo/source" className={`inline-block ${primaryButton}`}>
+      <div role="status" className="rounded-2xl bg-accent p-6 sm:p-8">
+        <h2 className="mb-3 text-3xl">Thanks for your feedback!</h2>
+        <p className="mb-4 text-lg leading-relaxed">
+          Every visitor and bit of feedback is super important to us. It&rsquo;s how we can iterate and put our best foot
+          forward when we submit this project for Buffer Commit (a chance at up to $25,000 to be used for nonprofit
+          funding!) on 13 Nov ❤️
+        </p>
+        <p className="mb-6 leading-relaxed">
+          Pollen Picks has been built from a real use case: to extend the reach of Amsterdam Parent Project&rsquo;s popular
+          local new-parent activities newsletter. Learn more about{" "}
+          <a href="https://amsterdamparentproject.nl" target="_blank" rel="noopener noreferrer" className="font-bold underline underline-offset-4">
+            Amsterdam Parent Project
+          </a>{" "}
+          or connect with Alex on{" "}
+          <a
+            href="https://www.linkedin.com/in/alexandrasiega/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold underline underline-offset-4"
+          >
+            LinkedIn
+          </a>
+          .
+        </p>
+        <Link href="/demo/source" className="inline-block rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep">
           Back to Pollen Picks
         </Link>
       </div>

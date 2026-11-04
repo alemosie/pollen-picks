@@ -159,7 +159,7 @@ export function SendConfirm({
             <a
               href="/feedback"
               onClick={() => track("feedback_clicked")}
-              className="inline-flex shrink-0 items-center rounded-xl bg-coral px-4 py-2.5 font-bold text-ink-deep hover:brightness-95"
+              className="inline-flex shrink-0 items-center rounded-xl bg-honey px-4 py-2.5 font-bold text-ink-deep hover:brightness-95"
             >
               Leave feedback
             </a>
