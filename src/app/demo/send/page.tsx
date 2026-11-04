@@ -53,6 +53,7 @@ async function DemoSendContent({
       <PageHeader
         current={5}
         hrefs={{
+          1: "/demo/source",
           2: stepUrl("demo", "pick"),
           3: stepUrl("demo", "design", tail),
           4: stepUrl("demo", "prepare", tail),
@@ -72,6 +73,7 @@ async function DemoSendContent({
           tpl.spec?.edits,
         )}
         newsletter={issue.newsletter}
+        author={issue.author}
         heading={coverTitle(tpl)}
         backHref={stepUrl("demo", "prepare", tail)}
         demo={{ signedIn }}

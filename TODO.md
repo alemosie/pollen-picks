@@ -61,3 +61,4 @@ Priority for 3 Nov: BYO Beehiiv, so we can start tagging Beehiiv creators.
 - [ ] Long lists: one post can hold dozens of items, so the Pick step needs search or section filters when there is no click data.
 - [ ] Treat giveaways ("WIN" ticket offers) and sponsored items as flagged picks, like sponsor blocks.
 - [ ] Market sizing is unverified: Beehiiv's State of Newsletters 2026 gives no count of local/events newsletters. Do not claim a number on the landing page or in the submission. Safe claims: local newsletters often have open rates above 50%, parenting is in the top open-rate categories (above 51%).
+- [ ] Public links: when a publication link (not a post) is pasted, fetch its latest issue. Substack: `<site>/feed` (RSS, full HTML for free posts, home pages are built in the browser); beehiiv: its feed or archive. Today the demo answers "This looks like a link to a publication, not a specific post. Paste a direct link to a public newsletter post instead."

@@ -42,7 +42,7 @@ async function DemoDesignContent({
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
       <SaveStep step={3} />
       <Track event="design_reached" />
-      <PageHeader current={3} hrefs={{ 2: stepUrl("demo", "pick") }} right={<DemoHeaderRight />} finalLabel="Finish" />
+      <PageHeader current={3} hrefs={{ 1: "/demo/source", 2: stepUrl("demo", "pick") }} right={<DemoHeaderRight />} finalLabel="Finish" />
       <TemplateEditor mode="demo" newsletter={issue.newsletter} items={items} picks={ids} initial={parseTemplateFromPage(sp)} />
     </main>
   );

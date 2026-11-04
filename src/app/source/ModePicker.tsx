@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BeehiivConnect, type BeehiivState } from "@/components/BeehiivConnect";
 import { FlowBar, primaryButton } from "@/components/FlowBar";
+import { PublicSourceBody } from "@/components/PublicSource";
 import { PublicationSummary } from "@/components/PublicationSummary";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import type { BeehiivIssue } from "@/lib/beehiiv";
@@ -27,8 +28,8 @@ const MODES: Mode[] = [
   {
     id: "public",
     title: "Public newsletter",
-    tag: "Pick any content",
-    body: "Paste any beehiiv newsletter URL and pick content and links from its latest issue.",
+    tag: "Paste a public link",
+    body: "",
     tone: "bg-card",
     cta: "Coming soon",
   },
@@ -147,7 +148,7 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
           {radioDot}
           <span className="w-fit rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">{MODES[1].tag}</span>
           <span className="font-display text-2xl">{MODES[1].title}</span>
-          <span className="leading-relaxed">{MODES[1].body}</span>
+          <PublicSourceBody />
         </label>
       </div>
 
