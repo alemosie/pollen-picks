@@ -3,7 +3,7 @@
 
 import { db } from "./db";
 
-export type DraftLogRow = { service: string; ok: boolean; error?: string };
+export type DraftLogRow = { service: string; ok: boolean; error?: string; mode?: "draft" | "now" };
 
 export async function logDrafts(userId: string, rows: DraftLogRow[]): Promise<void> {
   if (rows.length === 0) return;
@@ -16,6 +16,8 @@ export async function logDrafts(userId: string, rows: DraftLogRow[]): Promise<vo
           service: r.service.toLowerCase().slice(0, 40) || "unknown",
           ok: r.ok,
           error: r.ok ? null : (r.error ?? "").slice(0, 200) || null,
+          // Only sent when it is "now": until migration 0007 is applied the column doesn't exist, and drafts must keep logging.
+          ...(r.mode === "now" ? { mode: "now" } : {}),
         })),
       );
     if (error) console.error("draft log failed:", error.message);

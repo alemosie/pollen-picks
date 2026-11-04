@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { gql, siteOrigin } from "@/lib/buffer";
+import { siteOrigin } from "@/lib/buffer";
+import { createChannelPost, fakeMode, type PostIntent } from "@/lib/bufferPost";
 import { requireSession } from "@/lib/guard";
 import { signPreview } from "@/lib/previewSig";
 import { loadAppIssue } from "@/lib/sources";
@@ -9,10 +10,23 @@ import { parseTemplateFrom, templateParams } from "@/lib/slides/options";
 import { imageLimit, unsupportedReason } from "@/lib/channels";
 import { logDrafts } from "@/lib/draftLog";
 
-export type DraftResult = { channelId: string; ok: boolean; postId?: string; error?: string; slides?: number; note?: string };
+export type DraftResult = {
+  channelId: string;
+  ok: boolean;
+  postId?: string;
+  error?: string;
+  slides?: number;
+  note?: string;
+  /** Only for a publish that died mid-request: it may or may not have gone out, so it is never retried automatically. */
+  unknown?: boolean;
+  /** True when this ran in fake mode (nothing reached Buffer). */
+  fake?: boolean;
+};
 
 /**
- * Create one Buffer draft (never published) per selected channel from picked chunks of the user's own content.
+ * Create one Buffer post per selected channel from picked chunks of the user's own content.
+ * `intent: "draft"` (the default) saves a draft that is never published. `intent: "now"` publishes immediately and must
+ * carry `confirmed: true`, which the confirmation dialog sets, so a stray request can't publish anything.
  * The sample issue can't be sent: it only exists in the public /demo flow, and a request without a real `source` is refused.
  * Buffer fetches the slide images itself, so the URLs must be publicly reachable (not localhost).
  */
@@ -20,7 +34,11 @@ export async function POST(req: NextRequest) {
   const g = await requireSession(req);
   if ("response" in g) return g.response;
 
-  const body = (await req.json().catch(() => ({}))) as { source?: string; channels?: { id: string; service: string }[]; picks?: number[]; caption?: string; captions?: Record<string, string>; template?: string };
+  const body = (await req.json().catch(() => ({}))) as { source?: string; channels?: { id: string; service: string }[]; picks?: number[]; caption?: string; captions?: Record<string, string>; template?: string; intent?: string; confirmed?: boolean };
+  const intent: PostIntent = body.intent === "now" ? "now" : "draft";
+  if (intent === "now" && body.confirmed !== true) {
+    return NextResponse.json({ error: "Sending now needs confirmation." }, { status: 400 });
+  }
 
   // Fail closed, before anything touches Buffer. No source (or the sample issue) means no content to send.
   const issue = await loadAppIssue(body.source);
@@ -34,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (picks.length === 0) return NextResponse.json({ error: "No picks." }, { status: 400 });
 
   const base = (process.env.PUBLIC_BASE_URL ?? siteOrigin()).replace(/\/$/, "");
-  if (/localhost|127\.0\.0\.1/.test(base)) {
+  if (!fakeMode() && /localhost|127\.0\.0\.1/.test(base)) {
     return NextResponse.json({ error: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` }, { status: 400 });
   }
 
@@ -55,38 +73,18 @@ export async function POST(req: NextRequest) {
     const limit = imageLimit(c.service);
     const images = all.slice(0, limit);
     const note = images.length < all.length ? `Only the first ${images.length} of ${all.length} slides fit on ${c.service}.` : undefined;
-    const text = JSON.stringify(body.captions?.[c.id] ?? body.caption ?? "");
-    const assets = images.map((u) => `{ image: { url: ${JSON.stringify(u)} } }`).join(", ");
-    const metadata = c.service.toLowerCase() === "instagram" ? "metadata: { instagram: { type: post, shouldShareToFeed: true } }" : "";
-    const query = `mutation {
-      createPost(input: {
-        text: ${text}
-        channelId: ${JSON.stringify(c.id)}
-        schedulingType: automatic
-        mode: addToQueue
-        saveToDraft: true
-        ${metadata}
-        assets: [${assets}]
-      }) {
-        ... on PostActionSuccess { post { id } }
-        ... on MutationError { message }
-      }
-    }`;
-    try {
-      const r = await gql<{ createPost: { post?: { id: string }; message?: string } }>(g.session.accessToken, query);
-      const cp = r.data?.createPost;
-      if (r.errors?.length || !cp?.post) {
-        results.push({ channelId: c.id, ok: false, error: cp?.message ?? r.errors?.[0]?.message ?? `Buffer returned ${r.status}` });
-      } else {
-        results.push({ channelId: c.id, ok: true, postId: cp.post.id, slides: images.length, note });
-      }
-    } catch (e) {
-      results.push({ channelId: c.id, ok: false, error: e instanceof Error ? e.message : String(e) });
-    }
+    const text = body.captions?.[c.id] ?? body.caption ?? "";
+    const out = await createChannelPost(g.session.accessToken, { channelId: c.id, service: c.service, text, images, intent });
+    results.push(
+      out.ok
+        ? { channelId: c.id, ok: true, postId: out.postId, slides: images.length, note, fake: fakeMode() || undefined }
+        : { channelId: c.id, ok: false, error: out.error, unknown: out.unknown },
+    );
   }
-  await logDrafts(
+  // Fake runs never reach Buffer, so they stay out of the usage log.
+  if (!fakeMode()) await logDrafts(
     g.session.userId,
-    results.map((r) => ({ service: channels.find((c) => c.id === r.channelId)?.service ?? "unknown", ok: r.ok, error: r.error })),
+    results.map((r) => ({ service: channels.find((c) => c.id === r.channelId)?.service ?? "unknown", ok: r.ok, error: r.error, mode: intent })),
   );
   const okCount = results.filter((r) => r.ok).length;
   return NextResponse.json({ ok: okCount > 0, results }, { status: okCount > 0 ? 200 : 502 });

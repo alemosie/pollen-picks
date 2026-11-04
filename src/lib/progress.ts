@@ -11,7 +11,7 @@ export const STEP_NAMES = [
   "Source",
   "Pick",
   "Design",
-  "Prepare",
+  "Write",
   "Send",
 ] as const;
 
@@ -47,9 +47,10 @@ export function loadPicked(scope?: string): number[] | null {
 }
 export const savePicked = (ids: number[], scope: string) => write(PICKED, { scope, ids } satisfies SavedPicks);
 
+// What Write saved: caption order, hand edits and the open tab, for one set of picks + template. (Older saves also hold a
+// `selected` list from when channels were chosen on this step; it is ignored. Channels are chosen on Send now.)
 export type FormatState = {
   sig: string;
-  selected: string[];
   order: string;
   edited: Record<string, string>;
   tab: string;
@@ -64,6 +65,14 @@ export const saveFormat = (s: FormatState) => {
   // Flash "Saved" only for a real change, not when the page rewrites what it just restored.
   if (!same) notifySaved();
 };
+
+// Which channels are ticked on Send. Not tied to one issue or set of picks: it is a habit of the account, so it survives a
+// detour back to Pick and is still there next week. `known` is every usable channel seen last time, so a channel connected
+// since then starts ticked (like on the first visit) instead of being treated as unticked on purpose.
+const CHANNELS = "pollen-picks:channels";
+export type ChannelChoice = { selected: string[]; known: string[] };
+export const loadChannelChoice = () => read<ChannelChoice>(CHANNELS);
+export const saveChannelChoice = (c: ChannelChoice) => write(CHANNELS, c);
 
 /** `scope` is the flow mode (which carries the issue) the layout was made for: slide ids only mean something for that issue. */
 export type TemplateState = { custom: boolean; spec: CustomSpec; scope?: string };
