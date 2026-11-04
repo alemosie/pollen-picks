@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { BeehiivConnect, type BeehiivState } from "@/components/BeehiivConnect";
 import { FlowBar, primaryButton } from "@/components/FlowBar";
-import { PublicSourceBody } from "@/components/PublicSource";
+import { IssueRow } from "@/components/IssueRow";
+import { PublicLinkForm, PublicSourceBody, SourceLogos } from "@/components/PublicSource";
 import { PublicationSummary } from "@/components/PublicationSummary";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import type { BeehiivIssue } from "@/lib/beehiiv";
@@ -11,7 +12,7 @@ import { ownMode, stepUrl } from "@/lib/flow";
 import { clearProgress } from "@/lib/progress";
 import { Check } from "lucide-react";
 import { Select } from "@/components/Select";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { IssueList } from "./IssueList";
 
 type Mode = { id: "public" | "own"; title: string; tag: string; body: string; tone: string; href?: string; cta: string };
@@ -27,13 +28,23 @@ const MODES: Mode[] = [
   },
   {
     id: "public",
-    title: "Public newsletter",
+    title: "Public post",
     tag: "Paste a public link",
     body: "",
     tone: "bg-card",
     cta: "Coming soon",
   },
 ];
+
+type LinkedPost = { mode: string; url: string; title: string; site: string | null; author: string | null; publishedAt: string | null; image: string | null };
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+};
 
 export type InitialIssues = { publicationId: string; issues: BeehiivIssue[]; page: number; totalPages: number } | null;
 
@@ -63,6 +74,31 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
   const [loading, setLoading] = useState(false);
   // The newest issue is chosen until the user picks another. It stays chosen while they page through older ones.
   const [chosen, setChosen] = useState<BeehiivIssue | null>(initialIssues?.issues[0] ?? null);
+
+  // Public newsletter: the pasted link, and the post it resolved to (saved on the server as the user's source).
+  const [url, setUrl] = useState("");
+  const [fetching, setFetching] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [post, setPost] = useState<LinkedPost | null>(null);
+
+  async function getContent(e: FormEvent) {
+    e.preventDefault();
+    if (fetching) return;
+    if (!url.trim()) return setLinkError("Paste a link to a public post first.");
+    setFetching(true);
+    setLinkError(null);
+    setPost(null);
+    try {
+      const res = await fetch("/api/source/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url.trim() }) });
+      const data = (await res.json().catch(() => ({}))) as Partial<LinkedPost> & { error?: string };
+      if (!res.ok || !data.mode) return setLinkError(res.status === 401 ? "Your login has expired. Log in again to continue." : (data.error ?? "Couldn't read that page."));
+      setPost(data as LinkedPost);
+    } catch {
+      setLinkError("Couldn't reach Pollen Picks. Check your connection and try again.");
+    } finally {
+      setFetching(false);
+    }
+  }
 
   /** `resetChoice`: choose the newest issue of what loads (first load, new publication). Paging keeps the choice. */
   async function loadIssues(pub: string, nextPage = 1, resetChoice = true) {
@@ -111,6 +147,8 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
     if (!beehiiv) selected = { ...base, cta: "Connect beehiiv to continue" };
     else if (publicationId && chosen) selected = { ...base, href: stepUrl(ownMode(publicationId, chosen.id), "pick"), cta: "Pick" };
     else selected = { ...base, cta: loading ? "Loading your issues…" : "Choose an issue to continue" };
+  } else {
+    selected = post ? { ...base, href: stepUrl(post.mode, "pick", "picking=manual"), cta: "Pick" } : { ...base, cta: "Get content to continue" };
   }
 
   return (
@@ -141,6 +179,7 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
             <span className="w-fit rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">{MODES[0].tag}</span>
             <span className="font-display text-2xl">{MODES[0].title}</span>
             <span className="leading-relaxed">{MODES[0].body}</span>
+            <SourceLogos />
           </label>
         )}
         <label className={`${cardBase} ${MODES[1].tone}`}>
@@ -149,6 +188,7 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
           <span className="w-fit rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">{MODES[1].tag}</span>
           <span className="font-display text-2xl">{MODES[1].title}</span>
           <PublicSourceBody />
+          <SourceLogos substack more="and any public post" />
         </label>
       </div>
 
@@ -197,6 +237,32 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
             onRetry={() => publicationId && void loadIssues(publicationId, page, chosen === null)}
           />
         </section>
+      )}
+
+      {mode === "public" && (
+        <>
+          <PublicLinkForm
+            value={url}
+            onChange={(v) => {
+              setUrl(v);
+              setPost(null);
+            }}
+            onSubmit={getContent}
+            busy={fetching}
+            error={linkError}
+            note="Only public posts work. We keep the link and what the page says about itself (title, publication, author, date) so your next steps work. Your captions credit the post and link to it."
+          />
+          {post && (
+            <fieldset className="m-0 mt-8 min-w-0 border-0 p-0">
+              <legend className="mb-3 p-0 text-lg font-bold">Your post</legend>
+              <IssueRow
+                title={post.title}
+                image={post.image}
+                detail={[post.site || hostOf(post.url), post.author, post.publishedAt ? fmtDate(post.publishedAt) : null].filter(Boolean).join(" · ")}
+              />
+            </fieldset>
+          )}
+        </>
       )}
 
       <FlowBar next={selected.href ? { href: selected.href, onNavigate: clearProgress } : null} status={<ResumeBanner inline />}>

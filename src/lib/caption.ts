@@ -58,15 +58,15 @@ export const CAPTION_VARIANTS: { id: CaptionVariant; label: string; note: string
 ];
 export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : "link");
 
-type CaptionOpts = { newsletter: string; /** Credited after the newsletter name when the page names one. */ author?: string | null; heading?: string; order: CaptionOrder; variant: CaptionVariant; link: string };
+type CaptionOpts = { newsletter: string; /** Content from someone else's public post: every caption links to the original (Instagram too, as text). */ creditLink?: boolean; /** Credited after the newsletter name when the page names one. */ author?: string | null; heading?: string; order: CaptionOrder; variant: CaptionVariant; link: string };
 
 /** The caption, and the titles of the picks that didn't fit in it (in caption order). */
 function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; leftOut: string[] } {
   const sorted = sortCaptionItems(items, opts.order);
   const all = sorted.map((i) => line(i, opts.order));
-  const outro = opts.variant === "link" ? `Read it here: ${opts.link}` : "Link in bio.";
+  const outro = opts.creditLink ? `Read the original post: ${opts.link}` : opts.variant === "link" ? `Read it here: ${opts.link}` : "Link in bio.";
   const head = `${opts.heading ?? "This week's picks"} from ${opts.newsletter}${opts.author ? ` by ${opts.author}` : ""} 🌼`;
-  const foot = `Details on every pick are in the newsletter. ${outro}`;
+  const foot = opts.creditLink ? outro : `Details on every pick are in the newsletter. ${outro}`;
   // By date with a mix of dated and undated picks: the dated ones first, then the rest under "Other picks:" (dated sort first).
   const datedCount = opts.order === "date" ? sorted.filter((i) => i.date).length : 0;
   const mixed = datedCount > 0 && datedCount < sorted.length;

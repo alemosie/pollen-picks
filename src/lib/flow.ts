@@ -45,3 +45,15 @@ export function parseOwnMode(mode: string | undefined): { publicationId?: string
 }
 
 export const isPublicationId = (v: unknown): v is string => typeof v === "string" && /^pub_[0-9a-f-]{36}$/i.test(v);
+
+// ---- A public newsletter post ----
+// "link:<id>": a post the user pasted a link to, saved in public_sources. Manual picking only (no parsed chunks or clicks).
+const LINK = /^link:([0-9a-f-]{36})$/i;
+
+export const linkMode = (id: string) => `link:${id}`;
+
+/** null when `mode` is not a public-link mode. The id is validated, so it is safe to use in a query. */
+export const parseLinkMode = (mode: string | undefined): { id: string } | null => {
+  const m = LINK.exec(mode ?? "");
+  return m ? { id: m[1] } : null;
+};

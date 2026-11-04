@@ -4,12 +4,12 @@ import { StepWord } from "@/components/StepWord";
 import { loadDemoIssue } from "@/lib/demo";
 import type { ReactNode } from "react";
 import { stepUrl } from "@/lib/flow";
-import { PublicSourceBody } from "@/components/PublicSource";
+import { PublicSourceBody, SourceLogos } from "@/components/PublicSource";
 import { DemoSourcePicker } from "./DemoSourcePicker";
 
 export const metadata = { title: "Demo: choose a source · Pollen Picks" };
 
-type Source = { id: string; title: string; tag: string; badge?: string; body: ReactNode; tone: string; href?: string; link?: boolean };
+type Source = { id: string; title: string; tag: string; logos: ReactNode; body: ReactNode; tone: string; href?: string; link?: boolean };
 
 export default function DemoSource() {
   const issue = loadDemoIssue();
@@ -18,7 +18,7 @@ export default function DemoSource() {
       id: "demo",
       title: "Demo issue",
       tag: "Try it right now",
-      badge: "beehiiv newsletter",
+      logos: <SourceLogos />,
       body: (
         <span className="leading-relaxed">
           Pick from a real issue of{" "}
@@ -39,8 +39,9 @@ export default function DemoSource() {
     },
     {
       id: "public",
-      title: "Public newsletter",
+      title: "Public post",
       tag: "Paste a public link",
+      logos: <SourceLogos substack more="and any public post" />,
       body: <PublicSourceBody />,
       tone: "bg-card",
       link: true,

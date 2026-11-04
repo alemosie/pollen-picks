@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
-import { demoUrlFrom } from "@/lib/flow";
+import { demoUrlFrom, parseLinkMode } from "@/lib/flow";
 import { loadAppIssueResult } from "@/lib/sources";
 import { Picker } from "./Picker";
 import { parsePicking } from "./picking";
@@ -91,6 +91,7 @@ async function PickContent({
         initialView={parsePicking(picking)}
         initialPicks={initialPicks}
         manual
+        manualOnly={Boolean(parseLinkMode(String(mode ?? "")))}
       />
     </main>
   );

@@ -1,23 +1,29 @@
 import type { FormEvent } from "react";
 import { BeehiivLogo } from "./BeehiivLogo";
 
-/** The "Public newsletter" source card's body, shared by the demo and the app so they look the same. */
+/** The "Public newsletter" source card's text, shared by the demo and the app so they look the same. */
 export function PublicSourceBody() {
+  return <span className="leading-relaxed">Paste a link to a public post, then highlight the parts you want to share.</span>;
+}
+
+const logoChip = "flex h-9 items-center rounded-xl bg-surface px-3 ring-1 ring-ink/10";
+
+/** The row of platform logos along the bottom of a source card. */
+export function SourceLogos({ substack = false, more }: { substack?: boolean; more?: string }) {
   return (
-    <>
-      <span className="flex flex-wrap items-center gap-2" aria-label="Works with beehiiv and Substack">
-        <span className="flex h-9 items-center rounded-xl bg-surface px-3 ring-1 ring-ink/10">
-          <BeehiivLogo className="h-4 w-auto" />
-        </span>
-        <span className="flex h-9 items-center rounded-xl bg-surface px-3 ring-1 ring-ink/10">
+    <span className="mt-auto flex flex-wrap items-center gap-2 pt-1" aria-label={substack ? "Works with beehiiv and Substack" : "beehiiv"}>
+      <span className={logoChip}>
+        <BeehiivLogo className="h-4 w-auto" />
+      </span>
+      {substack && (
+        <span className={logoChip}>
           {/* max-w-none: the global img max-width of 100% lets a shrinking flex item squeeze the logo to nothing. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/brand/substack-logo.png" alt="Substack" width={600} height={103} className="h-4 w-auto max-w-none" />
         </span>
-        <span className="text-sm font-semibold">and any public post</span>
-      </span>
-      <span className="leading-relaxed">Paste a link to a public newsletter post, then highlight the parts you want to share.</span>
-    </>
+      )}
+      {more && <span className="text-sm font-semibold">{more}</span>}
+    </span>
   );
 }
 
@@ -28,12 +34,14 @@ export function PublicLinkForm({
   onSubmit,
   busy,
   error,
+  note = "Only public posts work. Nothing is stored: the page is read once and shown here for you to highlight.",
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (e: FormEvent) => void;
   busy: boolean;
   error: string | null;
+  note?: string;
 }) {
   return (
     <form onSubmit={onSubmit} noValidate className="mt-8 max-w-2xl">
@@ -64,7 +72,7 @@ export function PublicLinkForm({
           {error}
         </p>
       )}
-      <p className="mb-0 mt-3 text-sm">Only public posts work. Nothing is stored: the page is read once and shown here for you to highlight.</p>
+      <p className="mb-0 mt-3 text-sm">{note}</p>
     </form>
   );
 }

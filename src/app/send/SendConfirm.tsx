@@ -52,6 +52,7 @@ export function SendConfirm({
   captionItems,
   newsletter,
   author,
+  creditLink,
   heading,
   template,
   link,
@@ -66,6 +67,7 @@ export function SendConfirm({
   captionItems: CaptionItem[];
   newsletter: string;
   author?: string | null;
+  creditLink?: boolean;
   heading?: string;
   template: string;
   link: string;
@@ -212,6 +214,7 @@ export function SendConfirm({
     buildCaption(captionItems, {
       newsletter,
       author,
+      creditLink,
       heading,
       order,
       variant: v,

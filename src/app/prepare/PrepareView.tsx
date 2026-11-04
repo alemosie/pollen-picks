@@ -56,6 +56,7 @@ export function PrepareView({
   captionItems,
   newsletter,
   author,
+  creditLink,
   heading,
   template,
   link,
@@ -68,6 +69,7 @@ export function PrepareView({
   captionItems: CaptionItem[];
   newsletter: string;
   author?: string | null;
+  creditLink?: boolean;
   heading?: string;
   template: string;
   link: string;
@@ -168,7 +170,7 @@ export function PrepareView({
   }, [restored, sig, selected, order, edited, tab]);
 
   const generated = (variant: CaptionVariant) =>
-    buildCaption(captionItems, { newsletter, author, heading, order, variant, link });
+    buildCaption(captionItems, { newsletter, author, creditLink, heading, order, variant, link });
   const captionFor = (variant: CaptionVariant) =>
     edited[variant] ?? generated(variant);
   async function copyCaption(text: string) {
@@ -186,6 +188,7 @@ export function PrepareView({
       ? captionLeftOut(captionItems, {
           newsletter,
           author,
+          creditLink,
           heading,
           order,
           variant,

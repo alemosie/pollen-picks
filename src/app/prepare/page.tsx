@@ -7,7 +7,7 @@ import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
-import { demoUrlFrom, stepUrl } from "@/lib/flow";
+import { demoUrlFrom, parseLinkMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { captionItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
@@ -78,6 +78,8 @@ async function SendContent({
           tpl.spec?.edits,
         )}
         newsletter={issue.newsletter}
+        author={issue.author}
+        creditLink={Boolean(parseLinkMode(mode))}
         heading={coverTitle(tpl)}
         nextHref={stepUrl(mode, "send", `picks=${q}${extra ? `&${extra}` : ""}`)}
         backHref={stepUrl(mode, "design", `picks=${q}${extra ? `&${extra}` : ""}`)}

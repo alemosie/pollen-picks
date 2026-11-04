@@ -38,6 +38,15 @@ const sections: Section[] = [
             publication and posts, nothing else.
           </li>
           <li>The name, organization and basic stats of the publications that key can see, so the app can show what is connected.</li>
+          <li>The text you highlight from your issues, so your later steps can use it.</li>
+        </ul>
+        <p>If you paste a link to a public post, Pollen Picks also stores:</p>
+        <ul>
+          <li>
+            The link and what the page says about itself (its title, publication, author, date and preview image), so your
+            next steps work. The page&rsquo;s text is read each time you open it and is not kept.
+          </li>
+          <li>The text you highlight from it.</li>
         </ul>
         <p>
           Pollen Picks never sees your Buffer password: you type it on Buffer&rsquo;s own page. The demo needs no account.

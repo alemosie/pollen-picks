@@ -25,7 +25,7 @@ export function decodeDemoSource(raw: string | null | undefined): DemoSource | n
     const d = JSON.parse(fromValue(raw));
     const url = clip(d?.u, 2000);
     if (!/^https:\/\//i.test(url)) return null;
-    const title = clip(d?.t, 200) || "A newsletter post";
+    const title = clip(d?.t, 200) || "A public post";
     return { url, title, newsletter: clip(d?.n, 100) || title, author: clip(d?.a, 100) || null };
   } catch {
     return null;

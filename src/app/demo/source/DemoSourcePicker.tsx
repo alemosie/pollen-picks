@@ -11,7 +11,7 @@ import { clearDemoRows } from "@/lib/pollen/demoHighlights";
 import { clearDemoSource, encodeDemoSource, writeDemoSource } from "@/lib/pollen/demoSource";
 import { stepUrl } from "@/lib/flow";
 
-type Source = { id: string; title: string; tag: string; badge?: string; body: ReactNode; tone: string; href?: string; link?: boolean };
+type Source = { id: string; title: string; tag: string; logos: ReactNode; body: ReactNode; tone: string; href?: string; link?: boolean };
 type Post = { url: string; title: string; site: string | null; author: string | null; image: string | null; publishedAt: string | null };
 
 const sourceOf = (p: Post) => ({ url: p.url, title: p.title, newsletter: p.site || hostOf(p.url) || p.title, author: p.author });
@@ -78,7 +78,7 @@ export function DemoSourcePicker({ sources, demoIssue }: { sources: Source[]; de
       if (!res.ok) return setError(data.error ?? "Couldn't read that page.");
       const found: Post = {
         url: data.url ?? address,
-        title: data.title || "A newsletter post",
+        title: data.title || "A public post",
         site: data.site ?? null,
         author: data.author ?? null,
         image: data.image ?? null,
@@ -101,12 +101,10 @@ export function DemoSourcePicker({ sources, demoIssue }: { sources: Source[]; de
           <label key={s.id} className={`${cardBase} ${s.tone}`}>
             <input type="radio" name="source" value={s.id} checked={chosen === s.id} onChange={() => setChosen(s.id)} className="peer sr-only" />
             {radioDot}
-            <span className="flex flex-wrap items-center gap-2 pr-8">
-              <span className="rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">{s.tag}</span>
-              {s.badge && <span className="rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-cream">{s.badge}</span>}
-            </span>
+            <span className="w-fit rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">{s.tag}</span>
             <span className="font-display text-2xl">{s.title}</span>
             {s.body}
+            {s.logos}
           </label>
         ))}
       </div>

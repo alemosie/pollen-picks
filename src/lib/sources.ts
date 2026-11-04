@@ -2,7 +2,9 @@ import { cookies } from "next/headers";
 import { BeehiivKeyError, fetchIssue, listIssues, type BeehiivIssueContent } from "./beehiiv";
 import { getBeehiivConnection, loadBeehiivKey } from "./connections";
 import type { IssueData } from "./demo";
-import { parseOwnMode } from "./flow";
+import { linkMode, parseLinkMode, parseOwnMode } from "./flow";
+import { loadPublicSource } from "./publicSources";
+import { readPublicPost } from "./publicPost";
 import { issueKey, listCustomChunks } from "./customPicks";
 import { parseChunks } from "./pollen/chunks";
 import { contentRoot } from "./pollen/content";
@@ -14,7 +16,7 @@ import { SESSION_COOKIE, readUid } from "./session";
 /**
  * The issue a signed-in user creates and sends posts from, for the content source `mode`.
  *   "own:<publication id>:<post id>"  one of the user's own beehiiv issues ("own" alone: their newest)
- *   "public"                          not built yet
+ *   "link:<source id>"                a public newsletter post the user pasted a link to (Manual picking only)
  *
  * The sample issue (loadDemoIssue in ./demo) is deliberately NOT returned here. It powers the public /demo flow only and
  * must never reach Buffer: the signed-in pages and /api/draft all load their content through this function, so a sample
@@ -51,7 +53,43 @@ async function loadRaw(mode: string | undefined, asUid?: string): Promise<Loaded
   }
 }
 
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "this newsletter";
+  }
+};
+
+/** A public post: no parsed chunks or clicks, only the user's highlights from it. */
+async function loadLinkIssue(id: string, asUid?: string): Promise<IssueResult> {
+  try {
+    const uid = asUid ?? readUid((await cookies()).get(SESSION_COOKIE)?.value);
+    if (!uid) return { error: "Log in again to continue." };
+    const source = await loadPublicSource(id);
+    if (!source) return { error: "That link isn't available any more. Choose a source again." };
+    const chunks = (await listCustomChunks(uid, linkMode(id))).map((c) => ({ ...c, rank: null, score: null }));
+    return {
+      issue: {
+        title: source.title,
+        newsletter: source.site || hostOf(source.url),
+        author: source.author,
+        publishedAt: source.publishedAt ?? new Date().toISOString(),
+        url: source.url,
+        thumbnail: source.image ?? undefined,
+        chunks,
+        hasClicks: false,
+      },
+    };
+  } catch (e) {
+    console.error("loading the public post failed:", (e as Error).message);
+    return { error: "Couldn't load this post. Try again in a moment." };
+  }
+}
+
 export async function loadAppIssueResult(mode: string | undefined, asUid?: string): Promise<IssueResult | null> {
+  const link = parseLinkMode(mode);
+  if (link) return loadLinkIssue(link.id, asUid);
   const loaded = await loadRaw(mode, asUid);
   if (!loaded) return null;
   if ("error" in loaded) return loaded;
@@ -69,12 +107,32 @@ export async function loadAppIssueResult(mode: string | undefined, asUid?: strin
 
 /** Who and which issue a Manual-tab request is about, for saving or removing highlights. */
 export async function resolveIssueOwner(mode: string | undefined): Promise<{ uid: string; issue: string } | { error: string } | null> {
+  const link = parseLinkMode(mode);
+  if (link) {
+    const uid = readUid((await cookies()).get(SESSION_COOKIE)?.value);
+    if (!uid) return { error: "Log in again to continue." };
+    return (await loadPublicSource(link.id)) ? { uid, issue: linkMode(link.id) } : { error: "That link isn't available any more. Choose a source again." };
+  }
   const loaded = await loadRaw(mode);
   return !loaded || "error" in loaded ? loaded : { uid: loaded.uid, issue: loaded.issue };
 }
 
 /** The issue as published, ready for a sandboxed iframe (the Manual tab). */
 export async function loadAppIssueDocument(mode: string | undefined): Promise<{ html: string } | { error: string } | null> {
+  const link = parseLinkMode(mode);
+  if (link) {
+    try {
+      const uid = readUid((await cookies()).get(SESSION_COOKIE)?.value);
+      if (!uid) return { error: "Log in again to continue." };
+      const source = await loadPublicSource(link.id);
+      if (!source) return { error: "That link isn't available any more. Choose a source again." };
+      const r = await readPublicPost(source.url, uid);
+      return "error" in r ? { error: r.error } : { html: r.post.html };
+    } catch (e) {
+      console.error("showing the public post failed:", (e as Error).message);
+      return { error: "Couldn't show this post. Try again in a moment." };
+    }
+  }
   const loaded = await loadRaw(mode);
   if (!loaded || "error" in loaded) return loaded;
   const html = renderableDocument(loaded.raw.html);
