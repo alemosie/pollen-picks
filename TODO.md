@@ -2,9 +2,24 @@
 
 ## !! TOP PRIORITY: must work before the first Instagram post (Sat 7 Nov)
 
-- [ ] After the next deploy, run the whole demo on the LIVE site in a fresh private window (source, pick, design, prepare, send, Finish demo, feedback).
+- [ ] After the next deploy, run the whole demo on the LIVE site in a fresh private window (source, pick, design, write, send, Finish demo, feedback).
 - [ ] Check prod Supabase: `demo_events` has a row for every step with the same `session_id`, and `feedback` has the row with its `steps` list. (Feedback returned "Not allowed" and step events were missing before the same-site check in `src/lib/sameSite.ts` was loosened.)
+- [ ] Check the new Write / Send split in the browser (4 Nov change): `/write` shows the caption(s) for the networks the account has connected; `/send` has the Channels | Preview folder, channel choice is remembered, and both buttons stay disabled with no channel ticked. Old `/prepare` and `/demo/prepare` links should redirect to `/write` and `/demo/write` with their query string. Run it with `BUFFER_FAKE=1 yarn dev` first.
+- [ ] Try the Send step at scale in the browser: `BUFFER_FAKE=1 BUFFER_FAKE_CHANNELS=60 yarn dev` (60 fake channels across all networks, on top of your real ones; every send is fake). Look at the Channels tab (stacked per-network lists, nested scrolling), the posts modal with 60 rows, and a full send. Likely follow-ups: an overall "Select all / Clear" above the pills, collapse the per-network boxes when there are many networks, shorter modal rows past ~20 channels, and skip or flag disconnected channels (check Buffer's channel fields for a disconnected flag).
+- [ ] Buffer's rate limit is per app and shared by every user (it grows with the number of users who authorised the app; the docs give different numbers per plan). A 60-channel send is 60 requests, so one big send could use a large share of it. Polling is already batched (about one request per check, backing off) and a 429 shows a plain "Try again in a few minutes". Consider asking Buffer (developersupport@buffer.com) for more headroom for the contest period, since the judges are Buffer staff with many channels.
+- [ ] After deploy, the funnel event is `write_reached` (was `prepare_reached`): the live site keeps the old name until the deploy, so count both when reading `demo_events`.
 - [ ] Check the phone (iOS Safari text selection in the Manual iframe, source screen, bottom bar, progress indicator).
+
+## !! IMPORTANT: come back to this when we do tagging (captions per network)
+
+Today there is one caption for every non-Instagram network ("Other platforms", up to 2,200 characters). That is too long for X and Bluesky. Decided on 4 Nov to leave it for now and fix it together with tagging, because tagging changes what goes into captions (@mentions) and how much room /write has.
+
+- [ ] Split the single "Other platforms" caption into Base (long, with the link) and Short, next to Instagram. Show a caption box only for a network family the account has connected (not only the selected channels). LinkedIn + Facebook = one box (Base).
+- [ ] Short limit = the tightest connected short network: 280 if X is connected (also covers Bluesky's 300), 300 if only Bluesky, 500 if only Threads or Mastodon. Treat every X account as free (Buffer doesn't say who has Premium). Show the limit and the networks it covers in the box.
+- [ ] Limits per Buffer's docs (https://developers.buffer.com/guides/character-limits.md): Instagram 2,196 (our `MAX_CAPTION_CHARS` is 2,200, so lower it), LinkedIn 3,000, Facebook 5,000, X free 280 (Premium 25,000), Bluesky 300, Threads 500, Mastodon 500 (varies by server).
+- [ ] Count the link at full length (not X's 23) to leave a margin, since Buffer validates in its own units. Show a live counter and block both send buttons for a network whose caption is over its limit.
+- [ ] Reuse `fitCaption` in `src/lib/caption.ts` with a limit per variant (it already fits what it can and reports what it left out); `variantFor` gets a third case for short-form networks.
+- [ ] Decide the tagging approach first: Instagram tags positioned per image (`image.metadata.userTags`, from Buffer's docs, not checked in detail), or @mentions in the caption (works on every network). Positioned tags need the slide images on screen, which affects the layout.
 
 ## Today (4 Nov): demo for everyone, aimed at real use, then feedback
 
@@ -33,7 +48,7 @@ Goal order: people actually using it (login + Buffer) first, feedback second (pr
 
 ### Later / stretch (not today)
 
-- [ ] Now + Draft send modes (drop "later"): `mode: shareNow` vs `saveToDraft: true`; confirm dialog; treat network/5xx failures as "may have sent" (no auto-retry); check Instagram `schedulingType` for notification-only channels; update the "nothing is published" copy.
+- [x] Now + Draft send modes (drop "later"): built 4 Nov (two buttons, posts modal, `shareNow` vs `saveToDraft`, "unknown, check Buffer" for timeouts, fake mode `BUFFER_FAKE=1`). Migration `db/supabase/0007_draft_log_mode.sql` is applied to dev and prod (4 Nov). Still to do before it is live: one real LinkedIn send on the personal account (delete the post after) to confirm `shareNow` and that `externalLink` comes back. Instagram Now is untested, so publish the Sat 7 Nov post as a draft.
 - [ ] Demo URL tabs: Demo issue / Beehiiv public link / Substack public link. Beehiiv: home or archive lists `/p/slug`, post pages are server-rendered (no RSS needed). Substack: home is a JS shell, use `/feed` (content:encoded). Restrict hosts to `.beehiiv.com` and `.substack.com` (check the final host after redirects), cache fetches 10-15 min, per-IP rate limit, size caps, kill-switch env flag, descriptive User-Agent. Turn picks from fetched sources into demo-cookie rows so slide previews don't refetch.
 - [ ] "Made with Pollen Picks" credit on the closing slide, with an opt-out.
 - [ ] Optional own login (Google) with Buffer as a connection: nullable `users.buffer_user_id`, split `requireSession` into user vs Buffer, account linking in the Buffer callback.
