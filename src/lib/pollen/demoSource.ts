@@ -4,7 +4,7 @@
 
 export const DEMO_SRC_COOKIE = "pp_demo_src";
 
-export type DemoSource = { url: string; title: string; newsletter: string };
+export type DemoSource = { url: string; title: string; newsletter: string; author: string | null };
 
 const clip = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
 
@@ -16,7 +16,7 @@ const toValue = (s: string) => {
 const fromValue = (v: string) =>
   new TextDecoder().decode(Uint8Array.from(atob(v.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)));
 
-export const encodeDemoSource = (s: DemoSource) => toValue(JSON.stringify({ u: s.url, t: s.title, n: s.newsletter }));
+export const encodeDemoSource = (s: DemoSource) => toValue(JSON.stringify({ u: s.url, t: s.title, n: s.newsletter, a: s.author }));
 
 /** Anything unreadable gives no source (the sample issue). The address is only ever fetched through /api/demo/source. */
 export function decodeDemoSource(raw: string | null | undefined): DemoSource | null {
@@ -26,7 +26,7 @@ export function decodeDemoSource(raw: string | null | undefined): DemoSource | n
     const url = clip(d?.u, 2000);
     if (!/^https:\/\//i.test(url)) return null;
     const title = clip(d?.t, 200) || "A newsletter post";
-    return { url, title, newsletter: clip(d?.n, 100) || title };
+    return { url, title, newsletter: clip(d?.n, 100) || title, author: clip(d?.a, 100) || null };
   } catch {
     return null;
   }

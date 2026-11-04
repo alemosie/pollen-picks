@@ -102,12 +102,40 @@ function absolutize(root: HTMLElement, base: string) {
       const v = el.getAttribute(a);
       if (v) el.setAttribute(a, fix(v));
     }
+    // Candidates are separated by a comma and whitespace: image addresses (Substack's CDN) can hold commas themselves.
     const set = el.getAttribute("srcset");
-    if (set) el.setAttribute("srcset", set.split(",").map((c) => { const [u, ...rest] = c.trim().split(/\s+/); return [fix(u), ...rest].join(" "); }).join(", "));
+    if (set) el.setAttribute("srcset", set.split(/,\s+/).map((c) => { const [u, ...rest] = c.trim().split(/\s+/); return [fix(u), ...rest].join(" "); }).join(", "));
   }
 }
 
-export type PublicPage = { html: string; title: string; site: string | null };
+/**
+ * The publication's name and the author, from a page's structured data (JSON-LD): the publisher, else the publication the
+ * post is part of. Substack posts carry both there but have no og:site_name.
+ */
+function structuredData(root: HTMLElement): { site: string | null; author: string | null; published: string | null } {
+  const name = (v: unknown): string | null => {
+    const n = Array.isArray(v) ? name(v[0]) : typeof v === "string" ? v : typeof v === "object" && v ? (v as { name?: unknown }).name : null;
+    return typeof n === "string" && n.trim() && !/^https?:\/\//i.test(n.trim()) ? n.replace(/\s+/g, " ").trim() : null;
+  };
+  let site: string | null = null;
+  let author: string | null = null;
+  let published: string | null = null;
+  for (const tag of root.querySelectorAll('script[type="application/ld+json"]')) {
+    try {
+      const data = JSON.parse(tag.text);
+      for (const item of Array.isArray(data) ? data : [data, ...(Array.isArray(data?.["@graph"]) ? data["@graph"] : [])]) {
+        site ??= name(item?.publisher) ?? name(item?.isPartOf) ?? name(item?.sourceOrganization);
+        author ??= name(item?.author);
+        if (!published && typeof item?.datePublished === "string") published = item.datePublished;
+      }
+    } catch {
+      // not valid JSON: try the next one
+    }
+  }
+  return { site, author, published };
+}
+
+export type PublicPage = { html: string; title: string; site: string | null; author: string | null; image: string | null; publishedAt: string | null };
 
 /**
  * A public newsletter or blog post as a document for the Manual tab: the article, without the site around it. beehiiv pages
@@ -117,12 +145,36 @@ export function renderablePublicPage(html: string, pageUrl: string): PublicPage 
   const root = parse(html);
   const meta = (n: string) => root.querySelector(`meta[property="${n}"], meta[name="${n}"]`)?.getAttribute("content")?.trim() || null;
   const title = (meta("og:title") ?? root.querySelector("title")?.text.trim() ?? "").slice(0, 200) || pageUrl;
-  const site = meta("og:site_name")?.slice(0, 100) ?? null;
+  const data = structuredData(root);
+  const site = (meta("og:site_name") ?? data.site ?? meta("application-name"))?.slice(0, 100) ?? null;
+  // A name, not an address (some sites put the author's profile URL in article:author).
+  const byline = [meta("author"), meta("article:author"), data.author].find((a) => a && !/^https?:\/\//i.test(a) && a.length <= 100);
+  const author = byline ? byline.replace(/\s+/g, " ").trim() : null;
+  // For the post's row in the picker: a preview image (https only) and the publish date when the page says it.
+  let image: string | null = null;
+  try {
+    // The page's preview image, else the first picture in the article.
+    const raw = meta("og:image") ?? meta("twitter:image") ?? root.querySelector("img[src]")?.getAttribute("src");
+    // (An empty address would resolve to the page itself.)
+    const u = raw ? new URL(raw, pageUrl) : null;
+    if (u && u.protocol === "https:") image = u.toString().slice(0, 1000);
+  } catch {
+    // no usable preview image
+  }
+  const stamp =
+    meta("article:published_time") ??
+    meta("og:article:published_time") ??
+    data.published ??
+    meta("date") ??
+    meta("datePublished") ??
+    root.querySelector("time[datetime]")?.getAttribute("datetime") ??
+    null;
+  const publishedAt = stamp && !Number.isNaN(Date.parse(stamp)) ? new Date(stamp).toISOString() : null;
   absolutize(root, pageUrl);
 
   if (root.querySelector("#content-blocks")) {
     const doc = renderableDocument(root.toString());
-    return doc ? { html: doc, title, site } : null;
+    return doc ? { html: doc, title, site, author, image, publishedAt } : null;
   }
 
   const picked = CONTAINERS.map((s) => root.querySelector(s)).find((e) => e && e.text.replace(/\s+/g, " ").trim().length >= 200);
@@ -137,6 +189,9 @@ export function renderablePublicPage(html: string, pageUrl: string): PublicPage 
   return {
     title,
     site,
+    author,
+    image,
+    publishedAt,
     html: [
       "<!doctype html><html><head>",
       '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
