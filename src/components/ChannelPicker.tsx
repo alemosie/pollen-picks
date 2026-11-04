@@ -30,7 +30,8 @@ export function useChannelSelection(channels: Channel[], demo = false) {
   useEffect(() => {
     const t = setTimeout(() => {
       const ids = new Set(usableKey ? usableKey.split(",") : []);
-      const saved = loadChannelChoice();
+      // The demo has no picker: its example channels are all used, and nothing is read from or kept for the real app.
+      const saved = demo ? null : loadChannelChoice();
       if (saved) {
         const kept = saved.selected.filter((id) => ids.has(id));
         const seen = new Set(saved.known);
@@ -67,8 +68,8 @@ export function useChannelSelection(channels: Channel[], demo = false) {
   }, [ready, usableKey]);
 
   useEffect(() => {
-    if (ready) saveChannelChoice({ selected: [...selected], known: usableKey ? usableKey.split(",") : [] });
-  }, [ready, selected, usableKey]);
+    if (ready && !demo) saveChannelChoice({ selected: [...selected], known: usableKey ? usableKey.split(",") : [] });
+  }, [ready, demo, selected, usableKey]);
 
   const router = useRouter();
   useEffect(() => {

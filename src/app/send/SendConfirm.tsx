@@ -232,8 +232,8 @@ export function SendConfirm({
       </div>
       {demo ? (
         <p className="mb-0 max-w-2xl text-lg">
-          You&rsquo;ve made it to the end of the demo. In the live app, this is where your posts go to Buffer: as
-          drafts to review and schedule, or published straight away.
+          You&rsquo;ve made it to the end of the demo. In the live app, this is where you send your posts to socials
+          via Buffer: as drafts to review and schedule, or published straight away.
         </p>
       ) : (
         <p className="mb-0 max-w-2xl text-lg">
@@ -257,7 +257,8 @@ export function SendConfirm({
 
   const { order, edited } = choice;
   const byId = new Map(channels.map((c) => [c.id, c]));
-  const chosen = channels.filter((c) => selected.has(c.id));
+  // The demo has no channel picker: all of its example channels are used.
+  const chosen = demo ? channels : channels.filter((c) => selected.has(c.id));
   const n = chosen.length;
   const captionFor = (v: CaptionVariant) =>
     edited[v] ??
@@ -407,9 +408,11 @@ export function SendConfirm({
       ? mode === "now"
         ? `${okCount} of ${entries.length} sent to Buffer`
         : `${okCount} of ${entries.length} ${entries.length === 1 ? "draft" : "drafts"} created`
-      : n === 0
-        ? "Select at least one channel"
-        : plural(n, "channel");
+      : demo
+        ? ""
+        : n === 0
+          ? "Select at least one channel"
+          : plural(n, "channel");
 
   const ready = armed !== null && !busy;
   const modalTitle = ready
@@ -481,6 +484,8 @@ export function SendConfirm({
         </div>
       )}
 
+      {!demo && (
+        <>
       <div role="tablist" aria-label="Send" className="flex items-end gap-1.5 px-3 sm:pl-6 sm:pr-0">
         {(["channels", "preview"] as const).map((id) => {
           const on = view === id;
@@ -516,12 +521,14 @@ export function SendConfirm({
           <ChannelPicker channels={channels} selected={selected} setSelected={setSelected} demo={Boolean(demo)} />
         </fieldset>
       </div>
+        </>
+      )}
       <div
-        role="tabpanel"
+        role={demo ? undefined : "tabpanel"}
         id="send-panel-preview"
-        aria-labelledby="send-tab-preview"
-        hidden={view !== "preview"}
-        className={`mb-4 rounded-2xl border-[3px] p-4 sm:p-5 ${TAB_ACCENT.preview.border}`}
+        aria-labelledby={demo ? undefined : "send-tab-preview"}
+        hidden={!demo && view !== "preview"}
+        className={demo ? "mb-4" : `mb-4 rounded-2xl border-[3px] p-4 sm:p-5 ${TAB_ACCENT.preview.border}`}
       >
         <div className="grid gap-8 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] md:items-start">
           <SlideCarousel urls={urls} />
@@ -733,7 +740,9 @@ export function SendConfirm({
           )
         }
       >
-        {n === 0 && !started ? (
+        {demo ? (
+          <DemoGate signedIn={demo.signedIn} label="Finish demo" className={finishButton} onOpen={pollenBurst} />
+        ) : n === 0 && !started ? (
           <>
             <span aria-disabled className={primaryDisabled}>
               Create draft
@@ -741,11 +750,6 @@ export function SendConfirm({
             <span aria-disabled className={primaryDisabled}>
               Send now
             </span>
-          </>
-        ) : demo ? (
-          <>
-            <DemoGate signedIn={demo.signedIn} label="Create draft" className={primaryButton} onOpen={pollenBurst} />
-            <DemoGate signedIn={demo.signedIn} label="Send now" className={finishButton} onOpen={pollenBurst} />
           </>
         ) : busy ? (
           <span aria-disabled className={primaryDisabled}>
