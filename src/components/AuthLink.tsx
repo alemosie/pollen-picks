@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { hasSession } from "@/lib/auth";
+import { hasLiveSession } from "@/lib/auth";
 
 const LOGIN = "/login";
 
@@ -21,7 +21,7 @@ export function AuthLink({ className, loggedOut, loggedIn }: { className: string
 
 async function Inner({ className, loggedOut, loggedIn }: { className: string; loggedOut: string; loggedIn: string }) {
   await connection();
-  const yes = await hasSession();
+  const yes = await hasLiveSession();
   return (
     <a href={yes ? "/source" : LOGIN} className={className}>
       {yes ? loggedIn : loggedOut}

@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
-import { hasSession } from "@/lib/auth";
+import { hasLiveSession } from "@/lib/auth";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
@@ -44,7 +44,7 @@ async function DemoSendContent({
   const tail = `picks=${q}${extra ? `&${extra}` : ""}`;
   const issue = await loadDemoIssueWithHighlights();
   const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: issue.newsletter, ...tpl });
-  const signedIn = await hasSession();
+  const signedIn = await hasLiveSession();
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">

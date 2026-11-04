@@ -23,7 +23,21 @@ export async function requireSession(next: string): Promise<AuthedSession> {
   redirect(`/login?next=${encodeURIComponent(next)}`);
 }
 
-/** True when the visitor has a session cookie. Cheap on purpose (no database call): it only picks the landing-page button. */
+/** True when the visitor has a session cookie. Cheap on purpose (no database call). Use `hasLiveSession` to decide where a button leads. */
 export async function hasSession(): Promise<boolean> {
   return (await uidFromCookie()) !== null;
+}
+
+/**
+ * True only when the cookie's user still has a usable Buffer session (same check as `requireSession`, without the redirect).
+ * A cookie alone can outlive its session (revoked grant, other database), and sending that visitor to a protected page loops back to /login.
+ */
+export async function hasLiveSession(): Promise<boolean> {
+  const uid = await uidFromCookie();
+  if (!uid) return false;
+  try {
+    return (await getValidSession(uid)) !== null;
+  } catch {
+    return false;
+  }
 }

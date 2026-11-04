@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { BufferLogo } from "@/components/BufferLogo";
 import { Logo } from "@/components/Logo";
 import { StepWord } from "@/components/StepWord";
-import { hasSession } from "@/lib/auth";
+import { hasLiveSession, hasSession } from "@/lib/auth";
 
 export const metadata = { title: "Log in · Pollen Picks" };
 
@@ -25,10 +25,11 @@ async function LoginWithNext({ searchParams }: { searchParams: Promise<Record<st
   const want = Array.isArray(sp.next) ? sp.next[0] : sp.next;
   // Same-site relative paths only (no open redirect).
   const next = want && want.startsWith("/") && !want.startsWith("//") ? want : "/source";
-  return <LoginContent next={next} loggedIn={await hasSession()} />;
+  const [cookie, live] = await Promise.all([hasSession(), hasLiveSession()]);
+  return <LoginContent next={next} loggedIn={live} expired={cookie && !live} />;
 }
 
-function LoginContent({ next, loggedIn = false }: { next: string; loggedIn?: boolean }) {
+function LoginContent({ next, loggedIn = false, expired = false }: { next: string; loggedIn?: boolean; expired?: boolean }) {
   const go = `/api/auth/buffer/login?next=${encodeURIComponent(next)}&continue=1`;
   return (
     <main className="mx-auto max-w-3xl px-6 pb-24 pt-6">
@@ -38,6 +39,12 @@ function LoginContent({ next, loggedIn = false }: { next: string; loggedIn?: boo
           Try the demo
         </Link>
       </header>
+
+      {expired && (
+        <p className="mb-6 rounded-2xl bg-surface px-5 py-3 text-base">
+          Your Buffer login has expired or was disconnected. Log in again to keep going.
+        </p>
+      )}
 
       {loggedIn && (
         <p className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-surface px-5 py-3 text-base">
