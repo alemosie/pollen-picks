@@ -1,4 +1,4 @@
-// Sample channels for the public demo, so Prepare and Send can show how captions work without a Buffer account.
+// Sample channels for the public demo, so Write and Send can show how captions work without a Buffer account.
 // They never reach Buffer: the demo's final send opens an account prompt instead of calling /api/draft.
 
 export const DEMO_CHANNELS = [

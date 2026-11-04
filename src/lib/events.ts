@@ -7,7 +7,7 @@ export const DEMO_EVENTS = [
   "pick_reached",
   "highlight_added",
   "design_reached",
-  "prepare_reached",
+  "write_reached",
   "send_reached",
   "gate_opened",
   "login_clicked",

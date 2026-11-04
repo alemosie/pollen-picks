@@ -9,7 +9,7 @@ import { pollenPuff } from "@/lib/pollen-puff";
 // Progress indicator: a gently wavy branch with the five steps resting right on it.
 // Done = honey and a link back; current = larger coral; upcoming = hollow. The next step is revealed (coral outline, a soft
 // puff of pollen once, and a link) once the bottom bar's main action is ready, so there are two places to move forward.
-const STEPS = ["Source", "Pick", "Design", "Prepare", "Send"] as const;
+const STEPS = ["Source", "Pick", "Design", "Write", "Send"] as const;
 const STEM = "M30 120 C120 90 240 84 360 92 S 600 128 720 128 S 900 108 970 92";
 // Share of the branch's length at which each step sits.
 const AT = [0.06, 0.28, 0.5, 0.72, 0.94];

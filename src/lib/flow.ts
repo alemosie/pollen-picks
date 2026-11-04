@@ -2,9 +2,9 @@
 //
 // "demo" is the public sample issue. It has its own pages under /demo and never needs a Buffer login. It runs the whole
 // flow with sample channels, and the final send asks for an account instead. Every other mode is a real content source
-// in the signed-in app (/pick, /design, /prepare, /send).
+// in the signed-in app (/pick, /design, /write, /send).
 
-export type Step = "pick" | "design" | "prepare" | "send";
+export type Step = "pick" | "design" | "write" | "send";
 
 export const isDemo = (mode: string | undefined) => mode === "demo";
 

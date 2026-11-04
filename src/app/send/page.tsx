@@ -69,7 +69,7 @@ async function SendContent({
           1: "/source",
           2: stepUrl(mode, "pick"),
           3: stepUrl(mode, "design", `picks=${tail}`),
-          4: stepUrl(mode, "prepare", `picks=${tail}`),
+          4: stepUrl(mode, "write", `picks=${tail}`),
         }}
       />
       <SendConfirm
@@ -94,7 +94,7 @@ async function SendContent({
         author={issue.author}
         creditLink={Boolean(parseLinkMode(mode))}
         heading={coverTitle(tpl)}
-        backHref={stepUrl(mode, "prepare", `picks=${tail}`)}
+        backHref={stepUrl(mode, "write", `picks=${tail}`)}
       />
     </main>
   );

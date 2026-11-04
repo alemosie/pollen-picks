@@ -11,21 +11,21 @@ import { demoUrlFrom, parseLinkMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { captionItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
-import { PrepareView } from "./PrepareView";
+import { WriteView } from "./WriteView";
 
-export const metadata = { title: "Send · Pollen Picks" };
+export const metadata = { title: "Write · Pollen Picks" };
 
-export default function Send(props: {
+export default function Write(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   return (
-    <Suspense fallback={<FlowLoader label="Getting your channels ready…" />}>
-      <SendContent searchParams={props.searchParams} />
+    <Suspense fallback={<FlowLoader label="Getting your caption ready…" />}>
+      <WriteContent searchParams={props.searchParams} />
     </Suspense>
   );
 }
 
-async function SendContent({
+async function WriteContent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -33,8 +33,8 @@ async function SendContent({
   await connection();
   const sp = await searchParams;
   const mode = String(sp.mode ?? "");
-  // The sample issue is the public demo: old demo links go to /demo/prepare, and need no login.
-  if (mode === "demo") redirect(demoUrlFrom("prepare", sp));
+  // The sample issue is the public demo: old demo links go to /demo/write, and need no login.
+  if (mode === "demo") redirect(demoUrlFrom("write", sp));
   const tpl = parseTemplateFromPage(sp);
   const extra = templateParams(tpl).toString();
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
@@ -43,7 +43,7 @@ async function SendContent({
     .filter(Boolean)
     .map(Number)
     .filter(Number.isFinite);
-  const self = `/prepare?mode=${encodeURIComponent(mode)}&picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;
+  const self = `/write?mode=${encodeURIComponent(mode)}&picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;
   const session = await requireSession(self);
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
@@ -55,7 +55,7 @@ async function SendContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={4} />
-      <Track event="prepare_reached" />
+      <Track event="write_reached" />
       <PageHeader
         current={4}
         hrefs={{
@@ -64,7 +64,7 @@ async function SendContent({
           3: stepUrl(mode, "design", `picks=${q}${extra ? `&${extra}` : ""}`),
         }}
       />
-      <PrepareView
+      <WriteView
         channels={channels}
         picks={ids}
         template={extra}

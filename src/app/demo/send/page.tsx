@@ -56,7 +56,7 @@ async function DemoSendContent({
           1: "/demo/source",
           2: stepUrl("demo", "pick"),
           3: stepUrl("demo", "design", tail),
-          4: stepUrl("demo", "prepare", tail),
+          4: stepUrl("demo", "write", tail),
         }}
         right={<DemoHeaderRight />} finalLabel="Finish"
       />
@@ -75,7 +75,7 @@ async function DemoSendContent({
         newsletter={issue.newsletter}
         author={issue.author}
         heading={coverTitle(tpl)}
-        backHref={stepUrl("demo", "prepare", tail)}
+        backHref={stepUrl("demo", "write", tail)}
         demo={{ signedIn }}
       />
     </main>

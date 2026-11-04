@@ -10,19 +10,21 @@ import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { captionItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
-import { PrepareView } from "@/app/prepare/PrepareView";
+import { WriteView } from "@/app/write/WriteView";
 
-export const metadata = { title: "Demo: prepare · Pollen Picks" };
+export const metadata = { title: "Demo: write · Pollen Picks" };
 
-export default function DemoPrepare(props: PageProps<"/demo/prepare">) {
+export default function DemoWrite(props: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   return (
-    <Suspense fallback={<FlowLoader label="Getting your channels ready…" />}>
-      <DemoPrepareContent searchParams={props.searchParams} />
+    <Suspense fallback={<FlowLoader label="Getting your caption ready…" />}>
+      <DemoWriteContent searchParams={props.searchParams} />
     </Suspense>
   );
 }
 
-async function DemoPrepareContent({
+async function DemoWriteContent({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -44,7 +46,7 @@ async function DemoPrepareContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={4} />
-      <Track event="prepare_reached" />
+      <Track event="write_reached" />
       <PageHeader
         current={4}
         hrefs={{
@@ -54,7 +56,7 @@ async function DemoPrepareContent({
         }}
         right={<DemoHeaderRight />} finalLabel="Finish"
       />
-      <PrepareView
+      <WriteView
         channels={DEMO_CHANNELS}
         picks={ids}
         template={extra}
