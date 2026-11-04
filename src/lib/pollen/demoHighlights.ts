@@ -83,6 +83,11 @@ export function readDemoValue(): string | null {
   return hit ? hit.slice(DEMO_HL_COOKIE.length + 1) : null;
 }
 
+/** Forget this visitor's demo highlights (a fresh start). */
+export function clearDemoRows() {
+  document.cookie = `${DEMO_HL_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 export const readDemoRows = (): CustomRow[] => decodeDemoRows(readDemoValue());
 
 /** false when the highlights no longer fit, so nothing was saved. */

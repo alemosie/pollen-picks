@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { FlowLoader } from "@/components/FlowLoader";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { hasSession } from "@/lib/auth";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
@@ -42,12 +43,13 @@ async function DemoSendContent({
   const q = ids.join(",");
   const tail = `picks=${q}${extra ? `&${extra}` : ""}`;
   const issue = await loadDemoIssueWithHighlights();
-  const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: "Just a Phase", ...tpl });
+  const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: issue.newsletter, ...tpl });
   const signedIn = await hasSession();
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={5} />
+      <Track event="send_reached" />
       <PageHeader
         current={5}
         hrefs={{
@@ -69,7 +71,7 @@ async function DemoSendContent({
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
         )}
-        newsletter="Just a Phase"
+        newsletter={issue.newsletter}
         heading={coverTitle(tpl)}
         backHref={stepUrl("demo", "prepare", tail)}
         demo={{ signedIn }}

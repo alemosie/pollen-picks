@@ -5,6 +5,9 @@ import { SESSION_COOKIE, readUid, type BufferSession } from "./session";
 
 export type AuthedSession = BufferSession & { userId: string };
 
+/** The signed-in user's id from the session cookie, or null. No database call. */
+export const sessionUserId = async () => uidFromCookie();
+
 const uidFromCookie = async () => readUid((await cookies()).get(SESSION_COOKIE)?.value);
 
 /**

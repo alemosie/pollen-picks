@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { demoUrlFrom, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
@@ -53,9 +54,11 @@ async function DesignContent({
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
       <SaveStep step={3} />
+      <Track event="design_reached" />
       <PageHeader current={3} hrefs={{ 1: "/source", 2: stepUrl(mode, "pick") }} />
       <TemplateEditor
         mode={mode}
+        newsletter={issue.newsletter}
         items={items}
         picks={ids}
         initial={parseTemplateFromPage(sp)}

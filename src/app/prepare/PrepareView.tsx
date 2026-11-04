@@ -579,7 +579,7 @@ export function PrepareView({
         </section>
       </div>
 
-      <FlowBar back={{ href: backHref, label: "Design" }}>
+      <FlowBar next={n === 0 ? null : { href: nextHref }} back={{ href: backHref, label: "Design" }}>
         <span className="text-sm font-semibold" aria-live="polite">
           {n === 0
             ? "Select at least one channel"

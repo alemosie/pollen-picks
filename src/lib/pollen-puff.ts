@@ -37,3 +37,40 @@ export function pollenBurst(from: Element, count = 34) {
     };
   }
 }
+
+/** A small, soft scatter around one element (a few grains that float up and fade): for quiet "this is ready" moments. */
+export function pollenPuff(from: Element, count = 12) {
+  if (typeof document === "undefined" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const r = from.getBoundingClientRect();
+  const x = r.left + r.width / 2;
+  const y = r.top + r.height / 2;
+
+  const layer = document.createElement("div");
+  layer.setAttribute("aria-hidden", "true");
+  layer.style.cssText = "position:fixed;inset:0;z-index:60;pointer-events:none;overflow:hidden";
+  document.body.appendChild(layer);
+
+  let left = count;
+  for (let k = 0; k < count; k++) {
+    const size = 4 + Math.random() * 5;
+    const el = document.createElement("span");
+    el.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;border-radius:9999px;background:${COLORS[Math.floor(Math.random() * COLORS.length)]};will-change:transform,opacity`;
+    layer.appendChild(el);
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 22 + Math.random() * 38;
+    const tx = x + Math.cos(angle) * dist;
+    const ty = y + Math.sin(angle) * dist;
+    const place = (px: number, py: number, sc: number) => `translate(${px - size / 2}px, ${py - size / 2}px) scale(${sc})`;
+    el.animate(
+      [
+        { transform: place(x, y, 0.4), opacity: 0.9, easing: "cubic-bezier(.2,.8,.3,1)" },
+        { transform: place(tx, ty, 1), opacity: 0.9, offset: 0.35 },
+        { transform: place(tx + (Math.random() - 0.5) * 24, ty - 18 - Math.random() * 26, 0.6), opacity: 0 },
+      ],
+      { duration: 1300 + Math.random() * 900, fill: "forwards", delay: Math.random() * 120 },
+    ).onfinish = () => {
+      el.remove();
+      if (--left === 0) layer.remove();
+    };
+  }
+}

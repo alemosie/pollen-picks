@@ -7,6 +7,7 @@ import { PublicationSummary } from "@/components/PublicationSummary";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import type { BeehiivIssue } from "@/lib/beehiiv";
 import { ownMode, stepUrl } from "@/lib/flow";
+import { clearProgress } from "@/lib/progress";
 import { Check } from "lucide-react";
 import { Select } from "@/components/Select";
 import { useState } from "react";
@@ -198,9 +199,9 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
         </section>
       )}
 
-      <FlowBar status={<ResumeBanner inline />}>
+      <FlowBar next={selected.href ? { href: selected.href, onNavigate: clearProgress } : null} status={<ResumeBanner inline />}>
         {selected.href ? (
-          <Link href={selected.href} className={`inline-flex items-center gap-2 ${primaryButton}`}>
+          <Link href={selected.href} onClick={clearProgress} className={`inline-flex items-center gap-2 ${primaryButton}`}>
             {selected.cta}
             <Arrow />
           </Link>

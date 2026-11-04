@@ -468,6 +468,7 @@ export function Picker({
       </div>
 
       <FlowBar
+        next={picked.length > 0 ? { href: stepUrl(mode, "design", `picks=${picked.join(",")}`) } : null}
         back={{ href: "/source", label: "Source" }}
         status={
           <>

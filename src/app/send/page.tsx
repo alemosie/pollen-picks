@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, previewMode, stepUrl } from "@/lib/flow";
@@ -52,7 +53,7 @@ async function SendContent({
   const issue = await loadAppIssue(mode);
   if (!issue) redirect("/source");
   const slides = planSlides(slideItemsFor(issue.chunks, ids), {
-    newsletter: "Just a Phase",
+    newsletter: issue.newsletter,
     ...tpl,
   });
   const channels = await listChannels(session.accessToken);
@@ -61,6 +62,7 @@ async function SendContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={5} />
+      <Track event="send_reached" />
       <PageHeader
         current={5}
         hrefs={{
@@ -88,7 +90,7 @@ async function SendContent({
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
         )}
-        newsletter="Just a Phase"
+        newsletter={issue.newsletter}
         heading={coverTitle(tpl)}
         backHref={stepUrl(mode, "prepare", `picks=${tail}`)}
       />

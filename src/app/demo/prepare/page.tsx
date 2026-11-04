@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { FlowLoader } from "@/components/FlowLoader";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
@@ -43,6 +44,7 @@ async function DemoPrepareContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={4} />
+      <Track event="prepare_reached" />
       <PageHeader
         current={4}
         hrefs={{
@@ -62,7 +64,7 @@ async function DemoPrepareContent({
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
         )}
-        newsletter="Just a Phase"
+        newsletter={issue.newsletter}
         heading={coverTitle(tpl)}
         nextHref={stepUrl("demo", "send", q)}
         backHref={stepUrl("demo", "design", q)}

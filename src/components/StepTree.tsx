@@ -1,9 +1,14 @@
+"use client";
+
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
+import { useNextStep } from "@/lib/nextStep";
+import { pollenPuff } from "@/lib/pollen-puff";
 
 // Progress indicator: a gently wavy branch with the five steps resting right on it.
-// Done = honey and a link back; current = larger coral; upcoming = hollow and not clickable (use the bar at the bottom to move forward).
+// Done = honey and a link back; current = larger coral; upcoming = hollow. The next step is revealed (coral outline, a soft
+// puff of pollen once, and a link) once the bottom bar's main action is ready, so there are two places to move forward.
 const STEPS = ["Source", "Pick", "Design", "Prepare", "Send"] as const;
 const STEM = "M30 120 C120 90 240 84 360 92 S 600 128 720 128 S 900 108 970 92";
 // Share of the branch's length at which each step sits.
@@ -75,7 +80,24 @@ export function StepTree({
   /** Name for the last step, where it isn't "Send" (the demo ends with "Finish"). */
   finalLabel?: string;
 }) {
-  const progress = AT[current - 1];
+  const next = useNextStep();
+  // Once the next step is ready, the dark line grows halfway toward it.
+  const progress = next !== null && current < 5 ? (AT[current - 1] + AT[current]) / 2 : AT[current - 1];
+  // One soft puff of pollen the moment the next step is revealed (not on every change of its link).
+  const nextDot = useRef<SVGCircleElement>(null);
+  const wasReady = useRef(false);
+  const mountedAt = useRef(0);
+  const isReady = next !== null;
+  useEffect(() => {
+    mountedAt.current = Date.now();
+  }, []);
+  useEffect(() => {
+    // Only for something the visitor just did. A step that is already ready on arrival (picks restored, a source
+    // preselected) is revealed quietly: the puff there would just be noise.
+    const justArrived = Date.now() - mountedAt.current < 1500;
+    if (isReady && !wasReady.current && !justArrived && nextDot.current) pollenPuff(nextDot.current);
+    wasReady.current = isReady;
+  }, [isReady]);
   const steps = finalLabel ? [...STEPS.slice(0, 4), finalLabel] : STEPS;
   return (
     <nav aria-label="Progress" className="w-[26rem] max-w-full">
@@ -99,7 +121,7 @@ export function StepTree({
           strokeLinecap="round"
           pathLength={1}
           strokeDasharray={`${progress} 1`}
-          className="stroke-ink"
+          className="stroke-ink transition-[stroke-dasharray] duration-500 ease-out motion-reduce:transition-none"
         />
         {steps.map((label, i) => {
           const n = i + 1;
@@ -108,10 +130,12 @@ export function StepTree({
           const [x, y] = SPOTS[i];
           const above = i % 2 === 0;
           const ty = above ? y - 34 : y + 52;
-          const href = state === "done" ? hrefs[n] : undefined;
+          const ready = n === current + 1 && next !== null;
+          const href = state === "done" ? hrefs[n] : ready ? next.href : undefined;
           const shape = (
             <g className="group">
               <circle
+                ref={ready ? nextDot : undefined}
                 cx={x}
                 cy={y}
                 r={state === "current" ? 22 : 16}
@@ -121,7 +145,9 @@ export function StepTree({
                     ? "fill-honey transition group-hover:fill-coral"
                     : state === "current"
                       ? "fill-coral"
-                      : "fill-cream stroke-[#dcd3c6]"
+                      : ready
+                        ? "fill-cream stroke-coral transition group-hover:fill-coral"
+                        : "fill-cream stroke-[#dcd3c6]"
                 }
               />
               <text
@@ -129,8 +155,8 @@ export function StepTree({
                 y={ty}
                 textAnchor="middle"
                 fontSize="30"
-                fontWeight={state === "todo" ? 500 : 700}
-                className={`${state === "todo" ? "fill-ink/45" : "fill-ink"} ${href ? "group-hover:fill-coral" : ""}`}
+                fontWeight={state === "todo" && !ready ? 500 : 700}
+                className={`${state === "todo" && !ready ? "fill-ink/45" : "fill-ink"} ${href ? "group-hover:fill-coral" : ""}`}
               >
                 {label}
               </text>
@@ -149,7 +175,8 @@ export function StepTree({
             <Link
               key={label}
               href={href}
-              aria-label={`Go back to ${label}`}
+              aria-label={state === "done" ? `Go back to ${label}` : `Continue to ${label}`}
+              onClick={state === "done" ? undefined : next?.onNavigate}
               className="cursor-pointer outline-offset-2"
             >
               {shape}

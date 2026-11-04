@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { FlowLoader } from "@/components/FlowLoader";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { stepUrl } from "@/lib/flow";
@@ -40,8 +41,9 @@ async function DemoDesignContent({
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
       <SaveStep step={3} />
+      <Track event="design_reached" />
       <PageHeader current={3} hrefs={{ 2: stepUrl("demo", "pick") }} right={<DemoHeaderRight />} finalLabel="Finish" />
-      <TemplateEditor mode="demo" items={items} picks={ids} initial={parseTemplateFromPage(sp)} />
+      <TemplateEditor mode="demo" newsletter={issue.newsletter} items={items} picks={ids} initial={parseTemplateFromPage(sp)} />
     </main>
   );
 }

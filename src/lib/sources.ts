@@ -23,7 +23,7 @@ import { SESSION_COOKIE, readUid } from "./session";
 export type IssueResult = { issue: IssueData } | { error: string };
 
 /** The user's raw issue (from beehiiv, cached a few minutes) and who/what it belongs to, or an error to show. */
-type Loaded = { uid: string; issue: string; raw: BeehiivIssueContent; postId: string };
+type Loaded = { uid: string; issue: string; raw: BeehiivIssueContent; postId: string; newsletter: string };
 
 /** `asUid`: the user is already known (a signed slide-preview URL), so the session cookie is not read. */
 async function loadRaw(mode: string | undefined, asUid?: string): Promise<Loaded | { error: string } | null> {
@@ -42,7 +42,8 @@ async function loadRaw(mode: string | undefined, asUid?: string): Promise<Loaded
     const postId = own.postId ?? (await listIssues(key, publicationId, { limit: 1 })).issues[0]?.id;
     if (!postId) return { error: "This publication has no sent issues yet." };
     const raw = await cachedIssue(`${uid}:${postId}`, () => fetchIssue(key, publicationId, postId));
-    return { uid, issue: issueKey(publicationId, postId), raw, postId };
+    const newsletter = conn.publications.find((p) => p.id === publicationId)?.name?.trim() || "this newsletter";
+    return { uid, issue: issueKey(publicationId, postId), raw, postId, newsletter };
   } catch (e) {
     if (e instanceof BeehiivKeyError) return { error: e.message };
     console.error("loading the issue failed:", (e as Error).message);
@@ -55,7 +56,7 @@ export async function loadAppIssueResult(mode: string | undefined, asUid?: strin
   if (!loaded) return null;
   if ("error" in loaded) return loaded;
   try {
-    const issue = buildIssue(loaded.raw);
+    const issue = buildIssue(loaded.raw, loaded.newsletter);
     await dumpForDebugging(loaded.postId, loaded.raw, issue);
     // The user's highlights from the Manual tab are extra chunks of this issue, so every later step finds them by id.
     issue.chunks.push(...(await listCustomChunks(loaded.uid, loaded.issue)));
@@ -104,7 +105,7 @@ async function dumpForDebugging(postId: string, raw: BeehiivIssueContent, issue:
 }
 
 /** Same ranking as the demo, against today's date: upcoming activities ordered by unique verified clickers. */
-function buildIssue(raw: BeehiivIssueContent): IssueData {
+function buildIssue(raw: BeehiivIssueContent, newsletter: string): IssueData {
   const html = contentRoot(raw.html);
   const today = new Date().toISOString().slice(0, 10);
   const ranked = rankActivities(parseActivities(html, { reference: raw.publishedAt.slice(0, 10) }), mergeClicks(raw.clicks), { today, onlyUpcoming: true });
@@ -113,7 +114,7 @@ function buildIssue(raw: BeehiivIssueContent): IssueData {
     const r = c.key ? byKey.get(c.key) : undefined;
     return { ...c, rank: r?.rank ?? null, score: r?.stats?.score ?? null };
   });
-  return { title: raw.title, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: raw.clicks.length > 0 };
+  return { title: raw.title, newsletter, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: raw.clicks.length > 0 };
 }
 
 // Every step reloads the issue, and beehiiv renders expanded content on demand, so keep a fetched issue for a few minutes.

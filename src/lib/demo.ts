@@ -9,7 +9,7 @@ import type { ClickRow } from "./pollen/types";
 export const DEMO_TODAY = "2026-10-21";
 
 export type PickChunk = Chunk & { rank: number | null; score: number | null };
-export type IssueData = { title: string; publishedAt: string; url: string; chunks: PickChunk[]; hasClicks: boolean };
+export type IssueData = { title: string; /** The newsletter's name, shown on slides and in captions. */ newsletter: string; publishedAt: string; url: string; chunks: PickChunk[]; hasClicks: boolean };
 
 export function loadDemoIssue(): IssueData {
   const dir = join(process.cwd(), "fixtures");
@@ -25,5 +25,5 @@ export function loadDemoIssue(): IssueData {
     const r = c.key ? byKey.get(c.key) : undefined;
     return { ...c, rank: r?.rank ?? null, score: r?.stats?.score ?? null };
   });
-  return { title: post.title, publishedAt: post.publishedAt, url: post.url, chunks, hasClicks: true };
+  return { title: post.title, newsletter: "Just a Phase", publishedAt: post.publishedAt, url: post.url, chunks, hasClicks: true };
 }

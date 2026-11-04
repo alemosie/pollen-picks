@@ -6,6 +6,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { demoUrlFrom } from "@/lib/flow";
 import { loadAppIssueResult } from "@/lib/sources";
@@ -47,6 +48,7 @@ async function PickContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
+      <Track event="pick_reached" />
       <PageHeader current={2} hrefs={{ 1: "/source" }} />
       <div className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">

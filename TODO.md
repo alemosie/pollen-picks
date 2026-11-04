@@ -1,5 +1,29 @@
 # TODO
 
+## Today (4 Nov): demo for everyone, aimed at real use, then feedback
+
+Goal order: people actually using it (login + Buffer) first, feedback second (proof of utility for judging). No download button.
+
+- [x] Remove the hard-coded "Just a Phase" and sample issue URL: pass the newsletter name and link through the demo (preview route, demo prepare/send) and carry the publication name on the signed-in issue data (send, prepare, /api/draft).
+- [x] Demo paste feature built, then removed on purpose (Alex wants content to come from Beehiiv/Substack links, not pasting). Backup in `.git/paste-backup-2026-11-04/`.
+- [x] Demo starts on a source screen (`/demo/source`): Demo issue is live; Beehiiv link, Substack link and "Any public newsletter" show as coming soon. Landing page buttons point there.
+- [ ] Make the Beehiiv / Substack public-link cards work (fetchers; see the safety list under Later). Confirm with Alex before building.
+- [x] Final demo screen: "Send it to your Buffer" (login) as the primary action, feedback link as secondary (deadline 12 Nov). After the first real draft, ask for feedback in the results dialog and ask permission to quote.
+- [x] Anonymous funnel events (event, which content was used, timestamp; no cookie, no id, no content, no IP; once per tab session) and a draft log (user, channel service, ok/failed, timestamp). New numbered migration in `db/supabase/`.
+- [x] Privacy page: describe the demo cookie, the anonymous usage events and the draft log.
+- [x] Applied `db/supabase/0005_demo_events_and_draft_log.sql` to the Supabase project on 4 Nov (was: written, not applied; creates `demo_events`, `draft_log` and `feedback`. Until then the event and draft-log writes only log an error, and the feedback form shows "Couldn't save that").
+- [x] Native feedback form on `/feedback` (replaces the Google form): host, easy, likelihood, loved, would change, OK to quote you; stored in `feedback` with the tab session id, steps reached, flow (demo/app) and the account when logged in. Needs migration 0005 applied.
+- [ ] Test on the deployed site and on a phone: landing > source screen > pick > design > prepare > send; newsletter name on slides and captions; final-screen login and feedback links; iOS Safari text selection in the Manual iframe.
+
+### Later / stretch (not today)
+
+- [ ] Now + Draft send modes (drop "later"): `mode: shareNow` vs `saveToDraft: true`; confirm dialog; treat network/5xx failures as "may have sent" (no auto-retry); check Instagram `schedulingType` for notification-only channels; update the "nothing is published" copy.
+- [ ] Demo URL tabs: Demo issue / Beehiiv public link / Substack public link. Beehiiv: home or archive lists `/p/slug`, post pages are server-rendered (no RSS needed). Substack: home is a JS shell, use `/feed` (content:encoded). Restrict hosts to `.beehiiv.com` and `.substack.com` (check the final host after redirects), cache fetches 10-15 min, per-IP rate limit, size caps, kill-switch env flag, descriptive User-Agent. Turn picks from fetched sources into demo-cookie rows so slide previews don't refetch.
+- [ ] "Made with Pollen Picks" credit on the closing slide, with an opt-out.
+- [ ] Optional own login (Google) with Buffer as a connection: nullable `users.buffer_user_id`, split `requireSession` into user vs Buffer, account linking in the Buffer callback.
+- [ ] Parser fixes for Section view on Substack HTML: bold/italic-only short paragraphs as headings, generic link text ("here") as titles, keep all links per chunk.
+
+
 - [ ] Run an accessibility audit on the site (keyboard navigation, focus states, screen reader landmarks and headings, color contrast, modals/dialogs, drag-and-drop alternatives in the Design builder, reduced motion).
 
 ## Next: Bring your own Beehiiv, public newsletters and tagging

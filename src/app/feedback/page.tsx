@@ -2,10 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { StepWord } from "@/components/StepWord";
-
-const FORM_PAGE =
-  "https://docs.google.com/forms/d/e/1FAIpQLSfLwdKrhxmvs_HYoOWfh-2GJXzcJyMi-YpcPJ2Kc7X6VaJwtg/viewform";
-const FORM = `${FORM_PAGE}?embedded=true`;
+import { FeedbackForm } from "./FeedbackForm";
 
 export const metadata = { title: "Feedback · Pollen Picks" };
 
@@ -28,25 +25,7 @@ export default function Feedback() {
         Pollen Picks is a work in progress! I&rsquo;d love to hear your thoughts
         to guide its build. It goes straight to me, Alex 👋🏻
       </p>
-      <iframe
-        title="Pollen Picks feedback form"
-        src={FORM}
-        className="block h-[1500px] w-full rounded-2xl border-0 bg-surface sm:h-[1250px]"
-      >
-        Loading…
-      </iframe>
-      <p className="mt-4 mb-0 text-sm">
-        Form not showing?{" "}
-        <a
-          href={FORM_PAGE}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-bold underline underline-offset-4"
-        >
-          Open it in a new tab
-        </a>
-        .
-      </p>
+      <FeedbackForm />
       <p className="mt-10">
         <Link
           href="/"

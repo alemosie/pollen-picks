@@ -8,7 +8,7 @@ export const metadata = { title: "Privacy · Pollen Picks" };
 
 // Keep this in step with what the app really stores. When a new connection or data store lands (Beehiiv API key,
 // brand logo uploads, ...), add its line to the matching section below and bump UPDATED.
-const UPDATED = "3 November 2026";
+const UPDATED = "4 November 2026";
 
 type Section = { id: string; title: string; body: ReactNode };
 
@@ -26,6 +26,10 @@ const sections: Section[] = [
             encrypted, and never shown in the app.
           </li>
           <li>Your brand settings (name, colors and fonts), which start with defaults and are yours to change.</li>
+          <li>
+            A simple log of the drafts Pollen Picks tried to create for you: which network, and whether it worked. Never the
+            caption or the posts.
+          </li>
         </ul>
         <p>If you connect your newsletter, Pollen Picks also stores:</p>
         <ul>
@@ -36,8 +40,8 @@ const sections: Section[] = [
           <li>The name, organization and basic stats of the publications that key can see, so the app can show what is connected.</li>
         </ul>
         <p>
-          Pollen Picks never sees your Buffer password: you type it on Buffer&rsquo;s own page. The demo needs no account
-          and stores nothing about you on our servers.
+          Pollen Picks never sees your Buffer password: you type it on Buffer&rsquo;s own page. The demo needs no account.
+          What you highlight in the demo stays in your browser and is not saved on our servers (see below).
         </p>
       </>
     ),
@@ -76,8 +80,42 @@ const sections: Section[] = [
             <b>Saved progress.</b> Where you got to in the flow, your picks and your slide colors are kept in your
             browser&rsquo;s own storage, so a closed tab doesn&rsquo;t lose them. That stays on your device.
           </li>
+          <li>
+            <b>Demo cookie.</b> In the demo, the text you highlight is kept in a cookie for a day, so the next steps and
+            the slide previews can be built. We don&rsquo;t save it on our servers.
+          </li>
         </ul>
-        <p>There are no ads, no analytics and no tracking cookies.</p>
+        <p>There are no ads and no tracking cookies. The only analytics are the anonymous counts described next.</p>
+      </>
+    ),
+  },
+  {
+    id: "feedback",
+    title: "Feedback",
+    body: (
+      <>
+        <p>
+          If you send feedback, Pollen Picks stores your answers, the random tab code and the list of steps that visit reached.
+          If you were logged in, it is also linked to your account. It goes to Alex only. Your words are only quoted if you
+          answer &ldquo;OK to quote you?&rdquo; with yes.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "counts",
+    title: "Usage counts",
+    body: (
+      <>
+        <p>
+          To see whether Pollen Picks is useful, it counts the steps people reach (for example &ldquo;reached the design
+          step&rdquo; or &ldquo;clicked log in&rdquo;), in the demo and in the app.
+        </p>
+        <p>
+          Each count is one row with the step, the time, whether you were logged in, and a random code made in your browser
+          tab, so one visit&rsquo;s steps can be read together. There is no cookie, no IP address, no content, and the code
+          is not tied to you. It is forgotten when you close the tab.
+        </p>
       </>
     ),
   },
@@ -95,14 +133,11 @@ const sections: Section[] = [
         </li>
         <li>
           <b>Supabase</b>, our database, hosted in the EU (Ireland). It holds the account, brand and encrypted token and key data
-          above.
+          above, the usage counts and any feedback you send.
         </li>
         <li>
           <b>Netlify</b>, which hosts the site and, like any host, sees technical request data such as IP addresses in its
           logs.
-        </li>
-        <li>
-          <b>Google Forms</b>, only if you choose to fill in the feedback form.
         </li>
       </ul>
     ),

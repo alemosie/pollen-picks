@@ -26,12 +26,15 @@ const SPEC_WARN = 6000;
 
 export function TemplateEditor({
   mode,
+  newsletter,
   items,
   picks,
   initial,
 }: {
   /** Content source: "demo" is the public sample, with its own /demo pages. */
   mode: string;
+  /** The newsletter's name, used in slide and caption wording. */
+  newsletter: string;
   items: SlideItem[];
   picks: number[];
   initial: TemplateOptions;
@@ -81,7 +84,7 @@ export function TemplateEditor({
 
   const shareUrl = () => `${window.location.origin}${stepUrl(mode, "design", query)}`;
 
-  const standard = planSlides(items, { newsletter: "Just a Phase" });
+  const standard = planSlides(items, { newsletter });
 
   return (
     <>
@@ -133,6 +136,7 @@ export function TemplateEditor({
 
       {custom ? (
         <SlideBuilder
+          newsletter={newsletter}
           items={items}
           picks={q}
           mode={mode}
@@ -166,6 +170,7 @@ export function TemplateEditor({
       )}
 
       <FlowBar
+        next={custom && (placed === 0 || extra.length > SPEC_WARN) ? null : { href: next }}
         back={{ href: stepUrl(mode, "pick"), label: "Pick" }}
         status={
           custom

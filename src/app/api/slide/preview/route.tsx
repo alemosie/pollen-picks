@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
   if (!issue) return NextResponse.json({ error: "Couldn't load this issue. Log in again from the Source step." }, { status: 401 });
   const items = slideItemsFor(issue.chunks, (q.get("picks") ?? "").split(",").filter(Boolean).map(Number).filter(Number.isFinite));
   if (items.length === 0) return NextResponse.json({ error: "No picks" }, { status: 400 });
-  const slides = planSlides(items, { newsletter: "Just a Phase", ...parseTemplateFrom(q) });
+  const slides = planSlides(items, { newsletter: issue.newsletter, ...parseTemplateFrom(q) });
   const n = Number(q.get("n") ?? 0);
   if (!(n >= 0 && n < slides.length)) return NextResponse.json({ error: `n must be 0-${slides.length - 1}` }, { status: 400 });
-  return renderSlide(slides[n], { name: "Just a Phase", colors: DEFAULT_COLORS });
+  return renderSlide(slides[n], { name: issue.newsletter, colors: DEFAULT_COLORS });
 }

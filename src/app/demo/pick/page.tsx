@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
+import { Track } from "@/components/Track";
 import { Picker } from "@/app/pick/Picker";
 import { parsePicking } from "@/app/pick/picking";
 
@@ -36,6 +37,7 @@ async function DemoPickContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
+      <Track event="demo_start" />
       <PageHeader current={2} right={<DemoHeaderRight />} finalLabel="Finish" />
       <div className="mb-6">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">

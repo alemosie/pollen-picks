@@ -92,7 +92,7 @@ export default function Home() {
         <Logo height={56} />
         <nav aria-label="Get started" className="flex items-center gap-2 sm:gap-3">
           <Link
-            href="/demo/pick"
+            href="/demo/source"
             className="rounded-xl px-3 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral sm:px-4"
           >
             Try demo
@@ -137,7 +137,7 @@ export default function Home() {
           words in more places.
         </p>
         <div className="flex flex-col items-center gap-3 sm:flex-row">
-          <Link href="/demo/pick" className={cta}>
+          <Link href="/demo/source" className={cta}>
             Try demo
           </Link>
           <AuthLink
@@ -378,7 +378,7 @@ export default function Home() {
                   Try the demo, or log in and bring your own issue.
                 </p>
                 <div className="flex flex-col items-start gap-3 sm:flex-row">
-                  <Link href="/demo/pick" className={cta}>
+                  <Link href="/demo/source" className={cta}>
                     Try demo
                   </Link>
                   <AuthLink

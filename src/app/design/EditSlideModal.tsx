@@ -22,7 +22,6 @@ export type Target =
 export const DEFAULTS = {
   coverTitle: "This week's picks",
   closingTitle: "Want the full list?",
-  closingLine: "Read every pick in Just a Phase",
   cta: "Subscribe · link in bio",
 };
 
@@ -49,6 +48,7 @@ const input =
 
 /** Edit the text of one slide. The header and footer belong to the template and aren't editable. */
 export function EditSlideModal({
+  newsletter,
   target,
   spec,
   items,
@@ -58,6 +58,7 @@ export function EditSlideModal({
   onSave,
   onClose,
 }: {
+  newsletter: string;
   target: Target;
   spec: CustomSpec;
   items: SlideItem[];
@@ -77,7 +78,8 @@ export function EditSlideModal({
   useEffect(() => {
     latest.current = draft;
   }, [draft]);
-  const coverDefaultSub = `${placed} ${placed === 1 ? "pick" : "picks"} from Just a Phase`;
+  const closingLineDefault = `Read every pick in ${newsletter}`;
+  const coverDefaultSub = `${placed} ${placed === 1 ? "pick" : "picks"} from ${newsletter}`;
   /** Raw drafts keep whatever is typed (even an empty field); this drops anything that is blank or equals the default. */
   const normalize = (d: CustomSpec): CustomSpec => {
     const pick = (
@@ -110,7 +112,7 @@ export function EditSlideModal({
       }),
       closing: pick(d.closing, {
         title: DEFAULTS.closingTitle,
-        line: DEFAULTS.closingLine,
+        line: closingLineDefault,
         cta: DEFAULTS.cta,
       }),
       edits: Object.keys(edits).length ? edits : undefined,
@@ -303,7 +305,7 @@ export function EditSlideModal({
                 <label className="grid gap-1 text-sm font-semibold">
                   Line
                   <input
-                    value={draft.closing?.line ?? DEFAULTS.closingLine}
+                    value={draft.closing?.line ?? closingLineDefault}
                     maxLength={SPEC_LIMITS.closingLine}
                     onChange={(e) => setClosing("line", e.target.value)}
                     className={input}

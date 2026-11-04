@@ -7,6 +7,7 @@ import { planSlides } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFrom, templateParams } from "@/lib/slides/options";
 import { imageLimit, unsupportedReason } from "@/lib/channels";
+import { logDrafts } from "@/lib/draftLog";
 
 export type DraftResult = { channelId: string; ok: boolean; postId?: string; error?: string; slides?: number; note?: string };
 
@@ -38,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   const tpl = parseTemplateFrom(new URLSearchParams(body.template ?? ""));
-  const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: "Just a Phase", ...tpl });
+  const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: issue.newsletter, ...tpl });
   // Buffer fetches the images with no login, so the URLs are signed for this user, issue, picks and template (see previewSig).
   const signed = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", body.source as string]]), g.session.userId).toString();
   const all = slides.map((_, i) => `${base}/api/slide/preview?${signed}&n=${i}`);
@@ -83,6 +84,10 @@ export async function POST(req: NextRequest) {
       results.push({ channelId: c.id, ok: false, error: e instanceof Error ? e.message : String(e) });
     }
   }
+  await logDrafts(
+    g.session.userId,
+    results.map((r) => ({ service: channels.find((c) => c.id === r.channelId)?.service ?? "unknown", ok: r.ok, error: r.error })),
+  );
   const okCount = results.filter((r) => r.ok).length;
   return NextResponse.json({ ok: okCount > 0, results }, { status: okCount > 0 ? 200 : 502 });
 }

@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
+import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, stepUrl } from "@/lib/flow";
@@ -54,6 +55,7 @@ async function SendContent({
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={4} />
+      <Track event="prepare_reached" />
       <PageHeader
         current={4}
         hrefs={{
@@ -75,7 +77,7 @@ async function SendContent({
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
         )}
-        newsletter="Just a Phase"
+        newsletter={issue.newsletter}
         heading={coverTitle(tpl)}
         nextHref={stepUrl(mode, "send", `picks=${q}${extra ? `&${extra}` : ""}`)}
         backHref={stepUrl(mode, "design", `picks=${q}${extra ? `&${extra}` : ""}`)}

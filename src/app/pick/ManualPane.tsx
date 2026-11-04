@@ -10,6 +10,7 @@ import {
   cleanHighlight,
   customChunk,
 } from "@/lib/pollen/custom";
+import { track } from "@/lib/events";
 import {
   MAX_DEMO_WORDS,
   demoWords,
@@ -169,6 +170,7 @@ export function ManualPane({
           return setNote(
             "The demo can't hold any more highlight text. Remove one first.",
           );
+        track("highlight_added");
         onAdd(customChunk(row));
         frame.current?.contentDocument?.getSelection()?.removeAllRanges();
         setSel(null);

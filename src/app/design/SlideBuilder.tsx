@@ -24,12 +24,14 @@ import { useSettled } from "./useSettled";
 
 /** Lay out the carousel by hand: drag picks onto slides (up to 4 each), reorder, and click any slide to edit its text. */
 export function SlideBuilder({
+  newsletter,
   items,
   picks,
   mode,
   spec,
   onChange,
 }: {
+  newsletter: string;
   items: SlideItem[];
   picks: string;
   mode?: string;
@@ -189,7 +191,7 @@ export function SlideBuilder({
       spec.slides.map((_, k) => spec.bgs?.[k] ?? "").filter((_, k) => k !== i),
     );
   const autoFill = () => {
-    const planned = planSlides(items, { newsletter: "Just a Phase" }).filter(
+    const planned = planSlides(items, { newsletter }).filter(
       (s) => s.kind === "picks",
     );
     set(
@@ -634,6 +636,7 @@ export function SlideBuilder({
 
       {editing && (
         <EditSlideModal
+          newsletter={newsletter}
           key={JSON.stringify(editing)}
           target={editing}
           spec={spec}

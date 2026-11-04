@@ -16,6 +16,7 @@ import {
   type CaptionVariant,
 } from "@/lib/caption";
 import { serviceLabel, unsupportedReason } from "@/lib/channels";
+import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
 import { clearProgress, loadFormat } from "@/lib/progress";
 import type { DraftResult } from "@/app/api/draft/route";
@@ -152,20 +153,23 @@ export function SendConfirm({
             </>
           )}
         </h1>
-        <div className="sm:mt-2">
+        <div className="flex flex-wrap items-center gap-3 sm:mt-2">
           <ShareLinkButton />
+          {demo && (
+            <a
+              href="/feedback"
+              onClick={() => track("feedback_clicked")}
+              className="inline-flex shrink-0 items-center rounded-xl bg-coral px-4 py-2.5 font-bold text-ink-deep hover:brightness-95"
+            >
+              Leave feedback
+            </a>
+          )}
         </div>
       </div>
       {demo ? (
         <p className="mb-0 max-w-2xl text-lg">
-          You&rsquo;ve made it to the end of the demo. In the live app, here&rsquo;s where we&rsquo;d send your posts to
-          Buffer: now, later, or as drafts.{" "}
-          <a
-            href={demo.signedIn ? "/source" : "/api/auth/buffer/login?next=%2Fsource"}
-            className="whitespace-nowrap font-bold underline underline-offset-4"
-          >
-            {demo.signedIn ? "Choose your source" : "Log in"} →
-          </a>
+          You&rsquo;ve made it to the end of the demo. In the live app, this is where your posts go to Buffer as
+          drafts, ready to review and schedule.
         </p>
       ) : (
         <p className="mb-0 max-w-2xl text-lg">
@@ -318,7 +322,7 @@ export function SendConfirm({
     : started
       ? `${okCount} of ${entries.length} ${entries.length === 1 ? "draft" : "drafts"} created`
       : demo
-        ? `${plural(n, "sample channel")} · nothing is sent`
+        ? ""
         : `${plural(n, "channel")} · saved as drafts`;
 
   const statusOf = (c: Channel) => {
@@ -577,6 +581,18 @@ export function SendConfirm({
           <p className="m-0 px-7 pb-4 text-sm">
             Nothing is published. Open each draft in Buffer to review, edit and
             schedule it.
+          </p>
+          <p className="m-0 px-7 pb-4 text-sm">
+            How did it go?{" "}
+            <a
+              href="/feedback"
+              target="_blank"
+              rel="noreferrer"
+              className="font-bold underline underline-offset-4"
+            >
+              Tell me
+            </a>{" "}
+            (the form asks if I may quote you).
           </p>
           <div className="min-h-0 overflow-y-auto px-7 pb-2">
             <table className="w-full border-collapse text-left text-sm">
