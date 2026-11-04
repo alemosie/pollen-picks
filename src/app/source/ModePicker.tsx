@@ -20,7 +20,7 @@ const MODES: Mode[] = [
     id: "own",
     title: "Your newsletter",
     tag: "Pick your own content",
-    body: "Connect your Beehiiv API key to share your own content. Unlock top-click ranking and every issue in your archive.",
+    body: "Connect your beehiiv API key to share your own content. Unlock top-click ranking and every issue in your archive.",
     tone: "bg-accent",
     cta: "Coming soon",
   },
@@ -122,14 +122,13 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
             {radioDot}
             <span className="flex flex-wrap items-center gap-2 pr-8">
               <span className="rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">Your newsletter</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-cream">
-                <Check aria-hidden className="size-3" strokeWidth={3} /> Connected to beehiiv
-              </span>
             </span>
             <PublicationSummary publication={publication} avatar="bg-surface" compact />
             <span className="text-sm">
-              Key ending <span className="font-mono font-bold">{beehiiv?.last4}</span> is saved.{" "}
-              <Link href="/settings" className="font-bold underline underline-offset-4">
+              <span className="inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-cream">
+                <Check aria-hidden className="size-3" strokeWidth={3} /> Connected to beehiiv
+              </span>
+              <Link href="/settings" className="ml-2 font-bold underline underline-offset-4">
                 Manage in Settings
               </Link>
             </span>

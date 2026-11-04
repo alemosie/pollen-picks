@@ -1,4 +1,4 @@
-// Normalizes links so a newsletter body link and the (tracked, re-ordered) link in Beehiiv's click data
+// Normalizes links so a newsletter body link and the (tracked, re-ordered) link in beehiiv's click data
 // collapse to the same key.
 
 const TRACKING_PARAMS = new Set(["fbclid", "gclid", "igsh", "igshid", "stkn", "xtok", "img_index", "dlrf", "mc_cid", "mc_eid", "ref", "si", "_hsenc", "_hsmi"]);

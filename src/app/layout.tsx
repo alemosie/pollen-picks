@@ -19,7 +19,7 @@ const madimi = localFont({
 
 export const metadata: Metadata = {
   title: "Pollen Picks",
-  description: "From picks to posts: top content from Beehiiv, to Buffer, and beyond.",
+  description: "From picks to posts: top content from beehiiv, to Buffer, and beyond.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -3,7 +3,7 @@ import { normalizeUrl } from "./url";
 import type { Activity, ClickRow, LinkStats, Ranked } from "./types";
 
 /**
- * Merges Beehiiv's per-link click rows by normalized URL. The same link shows up several times (email vs web
+ * Merges beehiiv's per-link click rows by normalized URL. The same link shows up several times (email vs web
  * archive, differently ordered tracking params), so rows are summed per key.
  * Score = unique *verified* email clickers + unique web clickers. Verified excludes bot/prefetch clicks.
  * Email and web uniques can overlap a little (the same person opening both); that is accepted for ranking.

@@ -132,7 +132,7 @@ export default function Home() {
         </h1>
         <p className="mx-auto max-w-2xl text-xl leading-relaxed">
           <strong>From picks to posts:</strong> Pollen Picks turns the
-          most-clicked parts of your Beehiiv newsletter — or any public blog —
+          most-clicked parts of your beehiiv newsletter — or any public blog —
           into socials posts, tagging creators along the way. No AI, just your
           words in more places.
         </p>
@@ -195,7 +195,7 @@ export default function Home() {
                 Start with what they <StepWord>loved</StepWord>
               </h2>
               <p className="mb-8 max-w-2xl text-lg leading-relaxed">
-                Connect to Beehiiv to rank your newsletter content by what your
+                Connect to beehiiv to rank your newsletter content by what your
                 readers clicked the most. What they clicked is what they found most valuable — and worth sharing across all of your channels.
               </p>
             </Reveal>

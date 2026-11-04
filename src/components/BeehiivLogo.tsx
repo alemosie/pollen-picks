@@ -1,4 +1,4 @@
-// Beehiiv's brand assets, as provided by Alex. Single color: inherit `currentColor`.
+// beehiiv's brand assets, as provided by Alex. Single color: inherit `currentColor`.
 type Props = { className?: string; title?: string };
 
 /** The hive mark alone. */

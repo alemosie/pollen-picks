@@ -6,7 +6,7 @@ import { StepWord } from "@/components/StepWord";
 
 export const metadata = { title: "Privacy · Pollen Picks" };
 
-// Keep this in step with what the app really stores. When a new connection or data store lands (Beehiiv API key,
+// Keep this in step with what the app really stores. When a new connection or data store lands (beehiiv API key,
 // brand logo uploads, ...), add its line to the matching section below and bump UPDATED.
 const UPDATED = "4 November 2026";
 

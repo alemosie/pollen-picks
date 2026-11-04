@@ -18,7 +18,7 @@ export function listHeadings(html: string): string[] {
 
 /**
  * Finds the activities section and extracts every list item as an Activity.
- * Layout assumed (Beehiiv editor HTML): heading, then optional group labels (a short, link-less paragraph)
+ * Layout assumed (beehiiv editor HTML): heading, then optional group labels (a short, link-less paragraph)
  * each followed by a <ul>; each <li> has the title (usually a link) in its first paragraph, an italic date line,
  * and the blurb.
  */

@@ -26,7 +26,7 @@ export const DEFAULT_COLORS: KitColors = {
 };
 
 export const BRAND_NAME = "Pollen Picks";
-export const TAGLINE = "From picks to posts: top content from Beehiiv, to Buffer, and beyond.";
+export const TAGLINE = "From picks to posts: top content from beehiiv, to Buffer, and beyond.";
 
 // WCAG relative-luminance contrast, used to warn when a user's kit makes text unreadable.
 function lum(hex: string): number {
