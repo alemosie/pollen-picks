@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { useState, type FormEvent, type ReactNode } from "react";
 import { FlowBar, primaryButton } from "@/components/FlowBar";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import { clearProgress } from "@/lib/progress";
 import { clearDemoRows } from "@/lib/pollen/demoHighlights";
+import { clearDemoSource, writeDemoSource } from "@/lib/pollen/demoSource";
+import { stepUrl } from "@/lib/flow";
 
-type Source = { id: string; title: string; tag: string; badge?: string; body: ReactNode; tone: string; href?: string };
+type Source = { id: string; title: string; tag: string; badge?: string; body: ReactNode; tone: string; href?: string; link?: string };
 
-// Same cards as the signed-in source step (see app/source/ModePicker). Only the demo issue works so far.
+// Same cards as the signed-in source step (see app/source/ModePicker). The demo issue opens its parsed picker; the link
+// cards read one public page (Manual tab only: select text, press Pick).
 const radioDot = (
   <span
     aria-hidden
@@ -25,17 +29,46 @@ const cardBase =
 function startFresh() {
   clearProgress();
   clearDemoRows();
+  clearDemoSource();
 }
 
 export function DemoSourcePicker({ sources }: { sources: Source[] }) {
   const [chosen, setChosen] = useState(sources[0].id);
   const selected = sources.find((s) => s.id === chosen)!;
+  const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function openLink(e: FormEvent) {
+    e.preventDefault();
+    if (busy) return;
+    const address = url.trim();
+    if (!address) return setError("Paste a link to a public post first.");
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/demo/source?url=${encodeURIComponent(address)}`);
+      const data = (await res.json().catch(() => ({}))) as { error?: string; title?: string; site?: string | null; url?: string };
+      if (!res.ok) return setError(data.error ?? "Couldn't read that page.");
+      startFresh();
+      const title = data.title || "A newsletter post";
+      const host = (() => { try { return new URL(data.url ?? address).hostname.replace(/^www\./, ""); } catch { return ""; } })();
+      if (!writeDemoSource({ url: data.url ?? address, title, newsletter: data.site || host || title }))
+        return setError("That link is too long for the demo. Try a shorter one.");
+      router.push(`${stepUrl("demo", "pick")}?picking=manual`);
+    } catch {
+      setError("Couldn't reach Pollen Picks. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div>
       <div role="radiogroup" aria-label="Newsletter source" className="grid gap-5 md:grid-cols-2">
         {sources.map((s) => {
-          const ready = Boolean(s.href);
+          const ready = Boolean(s.href || s.link);
           return (
             <label key={s.id} className={`${cardBase} ${s.tone} ${ready ? "cursor-pointer" : "cursor-not-allowed opacity-80"}`}>
               <input
@@ -60,10 +93,43 @@ export function DemoSourcePicker({ sources }: { sources: Source[] }) {
         })}
       </div>
 
+      {selected.link && (
+        <form onSubmit={openLink} noValidate className="mt-6 max-w-2xl">
+          <label htmlFor="source-url" className="mb-2 block font-bold">
+            Link to the post
+          </label>
+          <div className="flex flex-wrap gap-3">
+            <input
+              id="source-url"
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder={selected.link}
+              className="min-w-0 flex-1 rounded-xl border-2 border-ink/30 bg-card px-4 py-3 text-base"
+            />
+          </div>
+          {error && (
+            <p role="alert" className="mb-0 mt-3 border-l-4 border-coral pl-3 text-sm font-semibold">
+              {error}
+            </p>
+          )}
+          <p className="mb-0 mt-3 text-sm">
+            Only public posts work. Nothing is stored: the page is read once and shown here for you to highlight.
+          </p>
+        </form>
+      )}
+
       <FlowBar
         next={selected.href ? { href: selected.href, onNavigate: startFresh } : null}
         status={<ResumeBanner inline />}
       >
+        {selected.link && (
+          <button type="button" onClick={openLink} disabled={busy} className={`inline-flex items-center gap-2 ${primaryButton} disabled:opacity-60`}>
+            {busy ? "Reading…" : "Open"}
+          </button>
+        )}
         {selected.href && (
           <Link
             href={selected.href}

@@ -1,5 +1,11 @@
 # TODO
 
+## !! TOP PRIORITY: must work before the first Instagram post (Sat 7 Nov)
+
+- [ ] After the next deploy, run the whole demo on the LIVE site in a fresh private window (source, pick, design, prepare, send, Finish demo, feedback).
+- [ ] Check prod Supabase: `demo_events` has a row for every step with the same `session_id`, and `feedback` has the row with its `steps` list. (Feedback returned "Not allowed" and step events were missing before the same-site check in `src/lib/sameSite.ts` was loosened.)
+- [ ] Check the phone (iOS Safari text selection in the Manual iframe, source screen, bottom bar, progress indicator).
+
 ## Today (4 Nov): demo for everyone, aimed at real use, then feedback
 
 Goal order: people actually using it (login + Buffer) first, feedback second (proof of utility for judging). No download button.
@@ -18,6 +24,12 @@ Goal order: people actually using it (login + Buffer) first, feedback second (pr
 - [x] Design step: keep the loading animation up until the first slide previews have loaded (they render slowly on the server), so /design never shows empty frames. Next if still slow: cache rendered slides, or pre-warm the previews on the Pick step.
 
 - [x] Separate databases: prod = Supabase project "Pollen Picks" (`hmzprlzhvhdwpjgrymrk`, creds in `.env.production` and Netlify); dev = "Dev: Pollen Picks" (`nzufhmvyewifebojjaue`, creds in `.env.local`). Dev got migrations 0001-0005 as one migration. Prod test rows in `demo_events`, `feedback` and `draft_log` were cleared on 4 Nov (users, connections, brand and custom picks kept). Apply every new migration to BOTH projects.
+
+- [x] beehiiv is always lowercase in copy (platform name).
+- [x] Public beehiiv step 1: `src/lib/pollen/flatten.ts` turns div-based newsletters (WellyBuzz: cards, no h/p/ul) into headings, paragraphs and lists inside `contentRoot`; own-issue fixtures give identical results. Fixture: `fixtures/wellybuzz-issue.web.html` (6 chunks before, 78 after). Next: the live fetcher (allowed hosts, cache, rate limit, kill switch), then the source screen cards. Still to do: flag sponsor/weather/footer sections; Camber, Vibe Hamilton fixtures.
+
+- [x] Public links = Manual mode only (no parser; the flattener stays built but unused). Step 1 done: `src/lib/publicFetch.ts` (https only, private/internal addresses blocked on every redirect, 8s and 2.5 MB limits, 10 min cache, 20 links per 10 min per visitor, kill switch `PUBLIC_FETCH_DISABLED=1`), `renderablePublicPage` in `src/lib/pollen/render.ts` (beehiiv pages keep their look, other pages get a plain reading style), route `GET /api/demo/source?url=`.
+- [x] Public links step 2: "paste a link" cards on the demo source screen (beehiiv, Substack, any) open the Manual pane (only tab) with that page; the page and newsletter name live in the `pp_demo_src` cookie, highlights in `pp_demo_hl` (demo limit: 5 highlights, 250 words; pick tray bottom right). Step 3 (still to do): test with WellyBuzz, Camber, Vibe Hamilton, a Substack, on a phone. Known gap: DNS rebinding isn't fully closed (each hop is checked, not pinned).
 
 ### Later / stretch (not today)
 

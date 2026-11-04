@@ -8,7 +8,7 @@ import { DemoSourcePicker } from "./DemoSourcePicker";
 
 export const metadata = { title: "Demo: choose a source · Pollen Picks" };
 
-type Source = { id: string; title: string; tag: string; badge?: string; body: ReactNode; tone: string; href?: string };
+type Source = { id: string; title: string; tag: string; badge?: string; body: ReactNode; tone: string; href?: string; link?: string };
 
 export default function DemoSource() {
   const issue = loadDemoIssue();
@@ -38,24 +38,27 @@ export default function DemoSource() {
     },
     {
       id: "beehiiv",
-      title: "Beehiiv newsletter",
+      title: "beehiiv newsletter",
       tag: "Paste a public link",
-      body: "Pick from the latest issue of any public beehiiv newsletter.",
+      body: "Pick from any public beehiiv newsletter post.",
       tone: "bg-card",
+      link: "https://yourname.beehiiv.com/p/your-post",
     },
     {
       id: "substack",
       title: "Substack newsletter",
       tag: "Paste a public link",
-      body: "Pick from the latest post of any public Substack.",
+      body: "Pick from any public Substack post.",
       tone: "bg-card",
+      link: "https://yourname.substack.com/p/your-post",
     },
     {
       id: "any",
       title: "Any public newsletter",
       tag: "Pick any content",
-      body: "Highlight text from any newsletter you can open in a browser.",
+      body: "Highlight text from any public newsletter post or blog article.",
       tone: "bg-card",
+      link: "https://",
     },
   ];
 
@@ -67,7 +70,7 @@ export default function DemoSource() {
           Choose a newsletter <StepWord>source</StepWord>
         </h1>
         <p className="mb-0 max-w-2xl text-lg">
-          Start with the demo issue. More sources are on the way.
+          Start with the demo issue, or paste a link to a public post and highlight what you want to share.
         </p>
       </div>
       <DemoSourcePicker sources={sources} />

@@ -14,17 +14,19 @@ export const DEMO_HL_COOKIE = "pp_demo_hl";
 export const DEMO_HL_PARAM = "hl";
 /** The demo's limit is on the words highlighted in total, which is what a visitor can see and reason about. */
 export const MAX_DEMO_WORDS = 250;
-const MAX_ROWS = 50;
+/** The demo keeps a handful of highlights; with the word limit this always fits in the cookie (a link is dropped before text is). */
+export const MAX_DEMO_HIGHLIGHTS = 5;
+const MAX_ROWS = MAX_DEMO_HIGHLIGHTS;
 export const wordCount = (text: string) =>
   text.split(/\s+/).filter(Boolean).length;
 export const demoWords = (rows: CustomRow[]) =>
   rows.reduce((n, r) => n + wordCount(r.text), 0);
 /**
- * A backstop on the encoded value, which is also the longest the `hl=` part of a share link can get (about 3 KB: fine for
+ * A backstop on the encoded value, which is also the longest the `hl=` part of a share link can get (about 3.6 KB: fine for
  * browsers, chat apps and servers, and inside a cookie's 4 KB). 250 ordinary words come to around 2 KB encoded, so it only
  * matters for odd text, such as very long unbroken words.
  */
-export const MAX_DEMO_VALUE = 3000;
+export const MAX_DEMO_VALUE = 3600;
 
 // base64url of the UTF-8 JSON: about a third bigger than the text itself, and safe to use as-is in a cookie and a URL.
 const toValue = (s: string) => {

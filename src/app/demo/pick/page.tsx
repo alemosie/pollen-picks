@@ -80,6 +80,7 @@ async function DemoPickContent({
         initialView={parsePicking(picking)}
         initialPicks={initialPicks}
         manual
+        manualOnly={issue.custom}
       />
     </main>
   );

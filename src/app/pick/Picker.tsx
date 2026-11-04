@@ -80,6 +80,7 @@ export function Picker({
   initialView,
   initialPicks,
   manual = false,
+  manualOnly = false,
 }: {
   mode: string;
   chunks: Chunk[];
@@ -88,6 +89,8 @@ export function Picker({
   initialPicks?: number[];
   /** Show the Manual tab (highlight text in the issue as published). Only for the user's own issues. */
   manual?: boolean;
+  /** Only the Manual tab: the page is one the visitor pasted, so there is nothing parsed to browse. */
+  manualOnly?: boolean;
 }) {
   // Highlights saved or removed in the Manual tab this visit; the server's list covers earlier visits.
   const [extra, setExtra] = useState<Chunk[]>([]);
@@ -100,7 +103,9 @@ export function Picker({
   }, [serverChunks, extra, removed]);
   const parsed = serverChunks.some((c) => !isCustomId(c.id));
   const [view, setViewState] = useState<View>(
-    initialView === "manual" && !manual
+    manualOnly
+      ? "manual"
+      : initialView === "manual" && !manual
       ? "section"
       : initialView === "top-clicks" && !hasClicks
         ? "section"
@@ -250,12 +255,13 @@ export function Picker({
 
   return (
     <>
+      {!manualOnly && (
       <div
         role="tablist"
         aria-label="How to choose"
         className="flex items-end gap-1.5 px-3 sm:pl-6 sm:pr-0"
       >
-        {tabs.map((t) => (
+        {tabs.filter((t) => !manualOnly || t.id === "manual").map((t) => (
           <button
             key={t.id}
             role="tab"
@@ -263,7 +269,7 @@ export function Picker({
             aria-selected={view === t.id}
             disabled={t.disabled}
             onClick={() => setView(t.id)}
-            title={t.disabled ? "Needs the newsletter's Beehiiv key" : t.hint}
+            title={t.disabled ? "Needs the newsletter's beehiiv key" : t.hint}
             className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-2xl px-2 text-sm font-bold transition min-[420px]:text-base sm:flex-none sm:px-6 sm:text-lg ${
               view === t.id
                 ? `${ACCENT[t.id].solid} relative z-10 -mb-[3px] py-3.5 text-ink-deep`
@@ -286,6 +292,7 @@ export function Picker({
           </button>
         ))}
       </div>
+      )}
 
       <div
         className={`mb-4 rounded-2xl border-[3px] p-4 sm:p-5 ${ACCENT[view].border}`}

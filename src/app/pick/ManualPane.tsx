@@ -1,6 +1,6 @@
 "use client";
 
-import { Highlighter, X } from "lucide-react";
+import { Highlighter } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { isDemo } from "@/lib/flow";
 import {
@@ -11,7 +11,10 @@ import {
   customChunk,
 } from "@/lib/pollen/custom";
 import { track } from "@/lib/events";
+import { PickTray } from "./PickTray";
+import { readDemoSource } from "@/lib/pollen/demoSource";
 import {
+  MAX_DEMO_HIGHLIGHTS,
   MAX_DEMO_WORDS,
   demoWords,
   wordCount,
@@ -24,7 +27,7 @@ type Selection =
   | { tooLong: true; left: number; top: number };
 
 const buttonStyle =
-  "absolute z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm font-bold text-cream shadow-lg";
+  "absolute z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold shadow-lg";
 
 /**
  * The issue as published, in a sandboxed iframe without scripts. Select any text in it and press Pick: the highlight is
@@ -60,10 +63,14 @@ export function ManualPane({
 
   useEffect(() => {
     let cancelled = false;
+    // A pasted public page (kept in a cookie) stands in for the sample issue in the demo.
+    const src = demo ? readDemoSource() : null;
     fetch(
-      demo
-        ? "/api/demo/document"
-        : `/api/issue/document?mode=${encodeURIComponent(mode)}`,
+      src
+        ? `/api/demo/source?url=${encodeURIComponent(src.url)}`
+        : demo
+          ? "/api/demo/document"
+          : `/api/issue/document?mode=${encodeURIComponent(mode)}`,
     )
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as {
@@ -154,6 +161,10 @@ export function ManualPane({
     try {
       if (demo) {
         const rows = readDemoRows();
+        if (rows.length >= MAX_DEMO_HIGHLIGHTS)
+          return setNote(
+            `The demo keeps up to ${MAX_DEMO_HIGHLIGHTS} highlights. Remove one first.`,
+          );
         const left = MAX_DEMO_WORDS - demoWords(rows);
         if (wordCount(sel.text) > left)
           return setNote(
@@ -161,19 +172,21 @@ export function ManualPane({
               ? `The demo allows ${MAX_DEMO_WORDS} highlighted words in total, and you have ${left} left. Select less, or remove a highlight first.`
               : `You've used the demo's ${MAX_DEMO_WORDS} highlighted words. Remove a highlight first.`,
           );
-        const row = {
-          id: Math.max(0, ...rows.map((r) => r.id)) + 1,
-          text: sel.text,
-          url: sel.url,
-        };
-        if (!writeDemoRows([...rows, row]))
-          return setNote(
-            "The demo can't hold any more highlight text. Remove one first.",
-          );
+        const id = Math.max(0, ...rows.map((r) => r.id)) + 1;
+        let row = { id, text: sel.text, url: sel.url };
+        let linkDropped = false;
+        // Long links are what fill the cookie, so the link goes before the text does.
+        if (!writeDemoRows([...rows, row])) {
+          row = { ...row, url: null };
+          linkDropped = Boolean(sel.url);
+          if (!writeDemoRows([...rows, row]))
+            return setNote("The demo can't hold any more highlight text. Remove one first.");
+        }
         track("highlight_added");
         onAdd(customChunk(row));
         frame.current?.contentDocument?.getSelection()?.removeAllRanges();
         setSel(null);
+        if (linkDropped) setNote("Saved without its link: the demo is short on space.");
         return;
       }
       const res = await fetch("/api/picks/custom", {
@@ -222,6 +235,20 @@ export function ManualPane({
     }
   }
 
+  // At a limit the selection can't be picked: say why instead of offering a button that fails.
+  const usedWords = demo
+    ? demoWords(highlights.map((h) => ({ id: h.id - CUSTOM_BASE, text: h.text, url: h.url })))
+    : 0;
+  const limit = full
+    ? "You've reached the pick limit. Remove a pick first."
+    : demo && highlights.length >= MAX_DEMO_HIGHLIGHTS
+      ? `The demo holds ${MAX_DEMO_HIGHLIGHTS} highlights. Remove one to add another.`
+      : demo && usedWords >= MAX_DEMO_WORDS
+        ? `You've used the demo's ${MAX_DEMO_WORDS} words. Remove a highlight first.`
+        : !demo && highlights.length >= MAX_HIGHLIGHTS_PER_ISSUE
+          ? `You can keep up to ${MAX_HIGHLIGHTS_PER_ISSUE} highlights per issue. Remove one first.`
+          : null;
+
   return (
     <div>
       <p className="mb-3 mt-0 text-sm">
@@ -234,83 +261,24 @@ export function ManualPane({
         Links aren&rsquo;t clickable here.
       </p>
 
-      {highlights.length > 0 && (
-        <>
-          <p className="mb-2 mt-0 text-xs font-bold">
-            Your highlights ·{" "}
-            {demo
-              ? `${demoWords(
-                  highlights.map((h) => ({
-                    id: h.id - CUSTOM_BASE,
-                    text: h.text,
-                    url: h.url,
-                  })),
-                )} of ${MAX_DEMO_WORDS} words`
-              : `${highlights.length} of ${MAX_HIGHLIGHTS_PER_ISSUE}`}
-          </p>
-          <ul
-            className="mb-4 flex list-none flex-col gap-2 p-0"
-            aria-label="Your highlights"
-          >
-            {highlights.map((h) => {
-              const on = h.pick > 0;
-              return (
-                <li key={h.id} className="contents">
-                  <div
-                    className={`relative flex items-start gap-3 rounded-2xl p-4 pr-12 ring-1 ${
-                      on ? "bg-blush ring-2 ring-ink" : "bg-surface ring-ink/10"
-                    }`}
-                  >
-                    <span
-                      title="Highlight"
-                      className="absolute right-4 top-4 text-ink/60"
-                    >
-                      <Highlighter
-                        aria-hidden
-                        className="size-4"
-                        strokeWidth={2.25}
-                      />
-                      <span className="sr-only">Highlight</span>
-                    </span>
-                    {on ? (
-                      <button
-                        type="button"
-                        onClick={() => remove(h.id)}
-                        aria-label={`Remove pick ${h.pick}`}
-                        title="Remove this pick"
-                        className="group mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-cream"
-                      >
-                        <span className="group-hover:hidden group-focus-visible:hidden">
-                          {h.pick}
-                        </span>
-                        <X
-                          aria-hidden
-                          className="hidden size-3.5 group-hover:block group-focus-visible:block"
-                          strokeWidth={3}
-                        />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => onToggle(h.id)}
-                        disabled={full}
-                        aria-label="Pick this highlight"
-                        title="Pick this highlight"
-                        className="mt-0.5 size-6 shrink-0 rounded-full border-2 border-ink/30 hover:border-ink/60 disabled:cursor-not-allowed disabled:opacity-50"
-                      />
-                    )}
-                    <span className="min-w-0 flex-1 font-bold">
-                      {h.text.length > 200
-                        ? `${h.text.slice(0, 199).trimEnd()}…`
-                        : h.text}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
+      <PickTray
+        items={highlights}
+        full={full}
+        meter={
+          demo
+            ? {
+                count: highlights.length,
+                maxCount: MAX_DEMO_HIGHLIGHTS,
+                maxWords: MAX_DEMO_WORDS,
+                words: demoWords(
+                  highlights.map((h) => ({ id: h.id - CUSTOM_BASE, text: h.text, url: h.url })),
+                ),
+              }
+            : undefined
+        }
+        onRemove={remove}
+        onToggle={onToggle}
+      />
 
       {note && (
         <p
@@ -350,11 +318,20 @@ export function ManualPane({
               characters
             </p>
           )}
-          {sel && !("tooLong" in sel) && (
+          {sel && !("tooLong" in sel) && limit && (
+            <p
+              role="status"
+              style={{ left: sel.left, top: sel.top }}
+              className={`${buttonStyle} w-max max-w-[16rem] whitespace-normal bg-coral text-center text-ink-deep`}
+            >
+              {limit}
+            </p>
+          )}
+          {sel && !("tooLong" in sel) && !limit && (
             <button
               type="button"
               style={{ left: sel.left, top: sel.top }}
-              className={`${buttonStyle} hover:bg-ink-deep disabled:opacity-60`}
+              className={`${buttonStyle} bg-ink text-cream hover:bg-ink-deep disabled:opacity-60`}
               onMouseDown={(e) => e.preventDefault()}
               onClick={pick}
               disabled={busy}
