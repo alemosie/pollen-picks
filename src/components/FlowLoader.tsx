@@ -1,5 +1,5 @@
 // Shown while a step loads. A gust of pollen blows in from the left, loops once and drifts out to the right, then comes round again.
-// Pure SVG (SMIL), so it works as a Suspense fallback. It only appears if a page takes close to a second, so quick loads never flash it.
+// Pure SVG (SMIL), so it works as a Suspense fallback. It only appears if a page takes a second or more, so quick loads never flash it.
 
 const GUST = "M-60 150 C 120 150 230 140 310 112 C 400 80 470 30 420 10 C 360 -12 290 40 330 90 C 370 135 480 145 580 126 C 680 108 770 84 860 96";
 const SECS = 6.5; // one pass of the gust

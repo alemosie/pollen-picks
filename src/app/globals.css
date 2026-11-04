@@ -154,9 +154,9 @@
 [data-state="hidden"] .pp-squig { background-size: 0% 0.3em; }
 @media (prefers-reduced-motion: reduce) { .pp-squig { transition: none; } }
 
-/* Step loader (FlowLoader): the stage fades in after a short beat, so quick loads never flash it. The pollen itself is SVG animation, which CSS can't pause, so reduced motion hides it. */
+/* Step loader (FlowLoader): the stage fades in after a full second, so quick loads never show it, and then fades in fast, so a load that just crosses the line doesn't flash a half-drawn loader. The pollen itself is SVG animation, which CSS can't pause, so reduced motion hides it. */
 @keyframes pp-flow-in { from { opacity: 0; } to { opacity: 1; } }
-.pp-flow-stage { animation: pp-flow-in 0.5s ease-out 0.8s both; }
+.pp-flow-stage { animation: pp-flow-in 0.25s ease-out 1s both; }
 @media (prefers-reduced-motion: reduce) {
   .pp-gust { display: none; }
 }
