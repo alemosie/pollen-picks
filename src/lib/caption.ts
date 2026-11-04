@@ -67,9 +67,18 @@ function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; le
   const outro = opts.variant === "link" ? `Read it here: ${opts.link}` : "Link in bio.";
   const head = `${opts.heading ?? "This week's picks"} from ${opts.newsletter} 🌼`;
   const foot = `Details on every pick are in the newsletter. ${outro}`;
+  // By date with a mix of dated and undated picks: the dated ones first, then the rest under "Other picks:" (dated sort first).
+  const datedCount = opts.order === "date" ? sorted.filter((i) => i.date).length : 0;
+  const mixed = datedCount > 0 && datedCount < sorted.length;
+  const list = (n: number) => {
+    if (!mixed) return all.slice(0, n).join("\n");
+    const dated = all.slice(0, Math.min(n, datedCount)).join("\n");
+    const other = all.slice(datedCount, n);
+    return other.length ? `${dated}${dated ? "\n\n" : ""}Other picks:\n\n${other.join("\n")}` : dated;
+  };
   const build = (n: number) => {
     const more = all.length - n;
-    return [head, "", all.slice(0, n).join("\n") + (more > 0 ? `\n…and ${more} more` : ""), "", foot].join("\n");
+    return [head, "", list(n) + (more > 0 ? `\n…and ${more} more` : ""), "", foot].join("\n");
   };
   // Every pick goes in while the caption fits; otherwise as many as fit, then "…and N more". At least one always stays.
   let n = all.length;

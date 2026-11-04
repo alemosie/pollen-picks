@@ -120,7 +120,14 @@ export function PrepareView({
   // Networks whose channel box stays open after its last channel is unticked, until focus leaves the box (in case it was a slip).
   const [held, setHeld] = useState<Set<string>>(new Set());
   const [queries, setQueries] = useState<Record<string, string>>({});
-  const [order, setOrder] = useState<CaptionOrder>("clicks");
+  const [chosenOrder, setOrder] = useState<CaptionOrder>("clicks");
+  // Only the orders the picks can support: highlights have no click ranking and no dates, so they can only go A–Z.
+  const orders = CAPTION_ORDERS.filter(
+    (o) =>
+      o.id === "alpha" ||
+      captionItems.some((i) => (o.id === "clicks" ? i.rank != null : i.date != null)),
+  );
+  const order = orders.some((o) => o.id === chosenOrder) ? chosenOrder : orders[0].id;
   const [edited, setEdited] = useState<Partial<Record<CaptionVariant, string>>>(
     {},
   );
@@ -437,13 +444,14 @@ export function PrepareView({
             <h2 className="mb-3 text-2xl">
               {visible.length > 1 ? "Captions" : "Caption"}
             </h2>
+            {orders.length > 1 && (
             <div
               className="mb-3 flex flex-wrap items-center gap-1.5 text-sm"
               role="group"
               aria-label="Picks by"
             >
               <span className="mr-1 font-semibold">Picks by</span>
-              {CAPTION_ORDERS.map((o) => (
+              {orders.map((o) => (
                 <button
                   key={o.id}
                   type="button"
@@ -458,10 +466,11 @@ export function PrepareView({
                 </button>
               ))}
             </div>
+            )}
           </div>
           <p className="mb-6 mt-0 text-sm">
-            Choose how picks are listed.{" "}
-            {visible.length > 1
+            {orders.length > 1 ? "Choose how picks are listed. " : ""}
+            {orders.length > 1 && visible.length > 1
               ? "Picking a different order replaces both captions. "
               : ""}
             Per-channel tweaks happen in Buffer.
