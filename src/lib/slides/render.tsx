@@ -8,7 +8,7 @@ import { SLIDE_H, SLIDE_W, type Kit, type Slide } from "./types";
 const dir = join(process.cwd(), "src", "assets", "fonts");
 let fonts: Promise<{ name: string; data: Buffer; weight: 400 | 500 | 700; style: "normal" }[]> | null = null;
 
-function loadFonts() {
+export function loadFonts() {
   fonts ??= Promise.all([
     readFile(join(dir, "DMSans-400.woff")),
     readFile(join(dir, "DMSans-500.woff")),

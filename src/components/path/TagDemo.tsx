@@ -11,12 +11,8 @@ const TAGS = [
   { id: "instructor", role: "Instructor", handle: "@theinstructor" },
 ] as const;
 
-/** Where each tag sits on the slide. */
-const SPOTS: Record<string, string> = {
-  host: "left-3 top-[38%] -rotate-3",
-  venue: "right-3 top-[52%] rotate-2",
-  instructor: "left-4 bottom-[14%] rotate-1",
-};
+/** A slight tilt for each tag so they look stuck on. */
+const TILT = ["-rotate-2", "rotate-1", "-rotate-1"];
 
 /** A small, interactive look at tagging: tap who was involved and they show up on the post and in the caption. */
 export function TagDemo({ event }: { event: DemoEvent }) {
@@ -38,16 +34,17 @@ export function TagDemo({ event }: { event: DemoEvent }) {
           </p>
         )}
         {event.place && <p className="mt-2 text-sm">{event.place}</p>}
-        {TAGS.map(
-          (t) =>
-            on.includes(t.id) && (
+        {tagged.length > 0 && (
+          <div className="absolute inset-x-4 bottom-4 flex flex-wrap gap-1.5">
+            {tagged.map((t, i) => (
               <span
                 key={t.id}
-                className={`pp-pop absolute ${SPOTS[t.id]} rounded-full bg-ink px-2.5 py-1 text-xs font-semibold text-cream shadow`}
+                className={`pp-pop ${TILT[i % TILT.length]} rounded-full bg-ink px-2.5 py-1 text-xs font-semibold text-cream shadow`}
               >
                 {t.handle}
               </span>
-            ),
+            ))}
+          </div>
         )}
       </div>
 

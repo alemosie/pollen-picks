@@ -17,9 +17,17 @@ const madimi = localFont({
   src: [{ path: "../assets/fonts/MadimiOne-400.woff", weight: "400" }],
 });
 
+const TITLE = "Pollen Picks: Let your words travel";
+const DESCRIPTION =
+  "Your best writing, cross-pollinated to your socials. Pollen Picks turns newsletters and blog posts into carousel drafts via Buffer. No AI and free to use.";
+
 export const metadata: Metadata = {
-  title: "Pollen Picks",
-  description: "From picks to posts: top content from beehiiv, to Buffer, and beyond.",
+  // Makes the social preview image URL absolute. PUBLIC_BASE_URL overrides it (e.g. a tunnel); the deployed site is the default.
+  metadataBase: new URL((process.env.PUBLIC_BASE_URL ?? "https://pollenpicks.netlify.app").replace(/\/$/, "")),
+  title: TITLE,
+  description: DESCRIPTION,
+  openGraph: { title: TITLE, description: DESCRIPTION, siteName: "Pollen Picks", type: "website" },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: ["/opengraph-image"] },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

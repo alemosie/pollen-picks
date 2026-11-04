@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AuthLink } from "@/components/AuthLink";
-import { BeehiivLogo } from "@/components/BeehiivLogo";
+import { BeehiivLogo, BeehiivMark } from "@/components/BeehiivLogo";
 import { BufferLogo } from "@/components/BufferLogo";
+import { SubstackMark } from "@/components/SubstackLogo";
+import { Globe } from "lucide-react";
 import { StepWord } from "@/components/StepWord";
 import { Logo } from "@/components/Logo";
 import { ResumeBanner } from "@/components/ResumeBanner";
@@ -79,14 +81,18 @@ export default function Home() {
         aria-label="Project status"
         className="bg-ink px-6 py-3 text-center text-sm font-semibold text-cream"
       >
-        In build mode 🏗️ for Buffer Commit.{" "}
+        <span className="sm:hidden">We need you: </span>
+        <span className="hidden sm:inline">
+          In build mode 🏗️ for Buffer Commit.{" "}
+        </span>
+        Try the <span className="hidden sm:inline">2-min </span>demo and{" "}
         <Link
           href="/feedback"
           className="underline decoration-honey decoration-[3px] underline-offset-4 hover:decoration-coral"
         >
-          Leave us feedback before 12 Nov
+          leave feedback
         </Link>{" "}
-        — help our self-funded nonprofit win up to $25,000!
+        to help our self-funded nonprofit win up to $25,000!
       </div>
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <Logo height={56} />
@@ -131,10 +137,9 @@ export default function Home() {
           .
         </h1>
         <p className="mx-auto max-w-2xl text-xl leading-relaxed">
-          <strong>From picks to posts:</strong> Pollen Picks turns the
-          most-clicked parts of your beehiiv newsletter — or any public blog —
-          into socials posts, tagging creators along the way. No AI, just your
-          words in more places.
+          <strong>From picks to posts:</strong> Pollen Picks turns any newsletter
+          or blog into carousel posts via Buffer, tagging creators along the
+          way. No AI, just your words in more places.
         </p>
         <div className="flex flex-col items-center gap-3 sm:flex-row">
           <Link href="/demo/source" className={cta}>
@@ -143,12 +148,9 @@ export default function Home() {
           <AuthLink
             className={ctaAlt}
             loggedOut="Log in to create"
-            loggedIn="Continue to the app"
+            loggedIn="Open app"
           />
         </div>
-        <p className="text-sm italic">
-          The demo needs no account. Log in with Buffer to use your own content.
-        </p>
       </section>
 
       <div className="mx-auto max-w-3xl px-6 mt-12">
@@ -157,14 +159,14 @@ export default function Home() {
           <Stop>
             <Reveal>
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
-                The newsletter is out. Now, how to{" "}
+                You hit publish. Now, how to{" "}
                 <Squiggle>spread the word?</Squiggle>
               </h2>
               <p className="max-w-2xl text-lg leading-relaxed">
-                It took hours to write your newsletter. The last thing
-                you want is for your words to be stuck there, for only some subscribers to see. 
+                It took hours to write, and the last thing
+                you want is for your words to be stuck there, seen only by some of your readers. 
                 What about your socials followers? You don&rsquo;t have the time or energy
-                to cross-post newsletter content to other channels, so{" "}
+                to cross-post the content to other channels, so{" "}
                 <b>your best work never reaches socials</b>.
               </p>
             </Reveal>
@@ -177,10 +179,10 @@ export default function Home() {
                 <StepWord>Pick</StepWord> what to post
               </h2>
               <p className="mb-8 max-w-2xl text-lg leading-relaxed">
-                Before Pollen Picks, creating a socials post from a newsletter
-                meant: Create the post design, open the issue, copy the pull quote, copy the link, 
-                look up the details, adjust the template, retype the caption. Over and over again. 
-                Now, Pollen Picks fills in the blanks — without AI.
+                <b>Before:</b> Open the issue, copy the quote, copy the link,
+                retype the caption, repeat. <b>Now:</b> You pick what you want
+                to highlight, and Pollen Picks builds the slides from your own
+                words.
               </p>
             </Reveal>
             <Reveal delay={0.1}>
@@ -194,10 +196,22 @@ export default function Home() {
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
                 Start with what they <StepWord>loved</StepWord>
               </h2>
-              <p className="mb-8 max-w-2xl text-lg leading-relaxed">
-                Connect to beehiiv to rank your newsletter content by what your
-                readers clicked the most. What they clicked is what they found most valuable — and worth sharing across all of your channels.
+              <p className="mb-4 max-w-2xl text-lg leading-relaxed">
+                With beehiiv, your readers have already voted on what they found
+                most valuable. Connect it and Pollen Picks ranks your content by
+                what they clicked the most, so you don&rsquo;t have to guess what
+                your social audience will love.
               </p>
+              <div className="mb-8 flex items-center gap-3">
+                <span className="text-sm font-semibold">Works with</span>
+                <span
+                  role="img"
+                  aria-label="beehiiv"
+                  className="flex h-10 items-center rounded-2xl bg-surface px-3 ring-1 ring-ink/10 sm:h-12 sm:px-3.5"
+                >
+                  <BeehiivLogo className="h-4 w-auto sm:h-5" />
+                </span>
+              </div>
             </Reveal>
             <Reveal delay={0.1}>
               <figure className="max-w-2xl -rotate-1 rounded-[2rem] bg-surface p-5 ring-1 ring-ink/10 sm:p-7">
@@ -227,11 +241,17 @@ export default function Home() {
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
                 Tag them <Squiggle>in</Squiggle>
               </h2>
-              <p className="mb-8 max-w-2xl text-lg leading-relaxed">
-                Pollen Picks extracts social handles from link content to add to your captions, to extend your reach even further and bring the community along. Sharing across channels helps your whole network grow &mdash; a win-win-win for{" "}
-                <b>your audience</b>, <b>organizers</b>, and your own{" "}
-                <b>newsletter</b>.
+              <p className="mb-4 max-w-2xl text-lg leading-relaxed">
+                Every link has people behind it. Soon, Pollen Picks will pull
+                their Instagram handles from picked links and tag them in your
+                caption, so they see the post, share it, and send new readers
+                back to you. Sharing helps your whole network grow &mdash; a
+                win-win-win for <b>your audience</b>, <b>the organizers</b>, and{" "}
+                <b>your own reach</b>.
               </p>
+              <span className="mb-8 inline-block rounded-full bg-honey/80 px-3.5 py-1 text-sm font-bold text-ink-deep">
+                Coming soon
+              </span>
             </Reveal>
             <Reveal delay={0.1}>
               <TagDemo event={demoEvent} />
@@ -244,10 +264,11 @@ export default function Home() {
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
                 One click to <Squiggle>all your socials</Squiggle>
               </h2>
-              <p className="mb-8 max-w-2xl text-lg leading-relaxed">
-                No repeating posts for multiple channels — Pollen Picks uses
-                Buffer to send your creations to all of your social networks at
-                once. Instagram, LinkedIn, Facebook, and more; see the full list
+              <p className="mb-4 max-w-2xl text-lg leading-relaxed">
+                No repeating posts for multiple channels &mdash; Pollen Picks
+                sends your slides and caption to Buffer for every channel
+                you&rsquo;ve connected: as a draft today, and soon straight to
+                publish. Nothing goes out until you say so. See the full list
                 of supported platforms{" "}
                 <a
                   href="https://support.buffer.com/article/567-supported-channels"
@@ -259,14 +280,25 @@ export default function Home() {
                 </a>
                 .
               </p>
+              <span className="mb-8 inline-block rounded-full bg-honey/80 px-3.5 py-1 text-sm font-bold text-ink-deep">
+                Send now: Coming soon
+              </span>
             </Reveal>
             <div
               aria-hidden
               className="flex max-w-2xl items-center gap-1.5 sm:gap-4"
             >
-              <span className="flex h-10 shrink-0 items-center rounded-2xl bg-surface px-2 ring-1 ring-ink/10 sm:h-12 sm:px-3.5">
-                <BeehiivLogo className="h-3.5 w-auto sm:h-5" />
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
+                  <BeehiivMark className="h-4 w-auto sm:h-5" />
+                </span>
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
+                  <SubstackMark className="h-4 w-auto sm:h-5" />
+                </span>
+                <span title="Any public post" className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
+                  <Globe aria-hidden className="size-4 sm:size-5" strokeWidth={2} />
+                </span>
+              </div>
               <span className="font-display text-ink/50">→</span>
               <span className="flex h-10 shrink-0 items-center rounded-2xl bg-accent px-2 sm:h-12 sm:px-3.5">
                 {/* max-w-none: the global img max-width of 100% lets a shrinking flex item squeeze the logo to nothing. */}
@@ -293,13 +325,13 @@ export default function Home() {
                   className="absolute -top-3 right-12 h-6 w-24 -rotate-3 rounded-sm bg-honey/80"
                 />
                 <h2 className="mb-4 text-3xl leading-tight sm:text-4xl">
-                  Now, later, or draft — you choose
+                  Send now or later &mdash; you choose
                 </h2>
                 <p className="mb-4 text-lg leading-relaxed">
-                  Humans are at the core of Pollen Picks. From <b>auto mode</b>, to {" "}
-                  pre-made <b>templates</b> to a fully customizable{" "}
-                  <b>slide builder</b>, you decide how much review you want to
-                  do, in Pollen Picks or Buffer.
+                  Humans are at the core of Pollen Picks. From pre-made{" "}
+                  <b>templates</b> to a fully customizable <b>slide builder</b>,
+                  you decide how much tweaking you want to do before send
+                  &mdash; in Pollen Picks or Buffer.
                 </p>
                 <p className="text-lg leading-relaxed">
                   And there&rsquo;s <b>no AI inventing things</b>: it only uses
@@ -350,7 +382,7 @@ export default function Home() {
                       Amsterdam Parent Project
                     </a>
                     , a nonprofit building community infrastructure for new
-                    parents. For two years I&rsquo;ve published a local, new
+                    parents. For 2 years I&rsquo;ve published a local, new
                     parent activities digest, and every issue used to cost me 6
                     hours in my newsletter editor and 2 more hours to cross-post
                     that content to Instagram. I built Pollen Picks so that the
@@ -372,10 +404,10 @@ export default function Home() {
               <div className="relative max-w-2xl">
                 <Bloom />
                 <h2 className="mb-4 text-3xl leading-tight sm:max-w-[calc(100%-8rem)] sm:text-5xl">
-                  Let the best of your newsletter <Squiggle>travel.</Squiggle>
+                  Let the best of your writing <Squiggle>travel.</Squiggle>
                 </h2>
                 <p className="mb-6 text-lg leading-relaxed">
-                  Try the demo, or log in and bring your own issue.
+                  Try the demo, or log in with Buffer and bring your own newsletter or blog post.
                 </p>
                 <div className="flex flex-col items-start gap-3 sm:flex-row">
                   <Link href="/demo/source" className={cta}>
@@ -384,22 +416,23 @@ export default function Home() {
                   <AuthLink
                     className={ctaAlt}
                     loggedOut="Log in to create"
-                    loggedIn="Continue to the app"
+                    loggedIn="Open app"
                   />
                 </div>
                 <p className="mt-8 mb-2 text-sm font-semibold">
-                  People use it for
+                  Works for
                 </p>
                 <ul className="flex flex-wrap gap-2">
                   {[
                     "Activities digests",
-                    "Public newsletter summaries",
+                    "Link roundups",
                     "Best-of recaps",
-                    "Curated link roundups",
+                    "Blog posts",
+                    "Weekly newsletters",
                   ].map((u, i) => (
                     <li
                       key={u}
-                      className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${["bg-accent", "bg-card", "bg-chip/70", "bg-surface ring-1 ring-ink/10"][i]}`}
+                      className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${["bg-accent", "bg-card", "bg-chip/70", "bg-surface ring-1 ring-ink/10"][i % 4]}`}
                     >
                       {u}
                     </li>
@@ -419,8 +452,8 @@ export default function Home() {
           </Link>
           <AuthLink
             className="font-semibold underline decoration-[3px] underline-offset-[7px] hover:decoration-coral"
-            loggedOut="Log in with Buffer"
-            loggedIn="Continue to the app"
+            loggedOut="Log in to create"
+            loggedIn="Open app"
           />
         </span>
       </footer>
