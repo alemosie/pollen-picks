@@ -44,7 +44,8 @@ export function track(event: DemoEvent, source: DemoEventSource = "sample"): voi
   void fetch("/api/demo/event", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event, source, session: sessionId() }),
+    // The flow is where the visitor is, not whether they are logged in: a logged-in person can run the demo too.
+    body: JSON.stringify({ event, source, session: sessionId(), flow: location.pathname.startsWith("/demo") ? "demo" : "app" }),
     keepalive: true,
   }).catch(() => {});
 }
