@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useRef } from "react";
 import { primaryButton } from "@/components/FlowBar";
 import { track } from "@/lib/events";
@@ -39,8 +40,16 @@ export function DemoGate({
         onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
         className="m-auto w-[min(32rem,94vw)] rounded-2xl bg-page p-0 text-ink backdrop:bg-ink/60"
       >
-        <div className="p-6 sm:p-8">
-          <h2 id="demo-gate-title" className="mb-3 text-2xl sm:text-3xl">
+        <div className="relative p-6 sm:p-8">
+          <button
+            type="button"
+            onClick={() => dialog.current?.close()}
+            aria-label="Close"
+            className="absolute right-3 top-3 grid size-10 place-items-center rounded-full hover:bg-ink/10"
+          >
+            <X aria-hidden className="size-5" strokeWidth={2.5} />
+          </button>
+          <h2 id="demo-gate-title" className="mb-3 pr-10 text-2xl sm:text-3xl">
             Now, create your own
           </h2>
           <p className="mb-6 text-lg leading-relaxed">
@@ -73,9 +82,6 @@ export function DemoGate({
             </a>
             .
           </p>
-          <button type="button" onClick={() => dialog.current?.close()} className="mt-5 text-sm font-semibold underline underline-offset-4">
-            Keep exploring the demo
-          </button>
         </div>
       </dialog>
     </>
