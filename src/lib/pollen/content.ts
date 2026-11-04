@@ -1,4 +1,5 @@
 import { HTMLElement, parse } from "node-html-parser";
+import { flattenLayout } from "./flatten";
 
 const BLOCK = /^(h[1-6]|p|ul|ol)$/i;
 const SKIP = /^(script|style|nav|header|footer|noscript|template)$/i;
@@ -60,6 +61,9 @@ export function contentRoot(html: string): string {
   if (!container) return html;
   const body = container as HTMLElement;
   const blocks = collectBlocks(body);
+  // Headings, paragraphs and lists that hold under half of the post's text: the post is built from plain divs (cards).
+  const covered = blocks.reduce((n, b) => n + b.text.length, 0);
+  if (covered < body.text.length * 0.5) return semantic(flattenLayout(body));
   // A container that already holds its blocks directly (the old behaviour) keeps its inner HTML as it was.
   if (blocks.length === directBlocks(body)) return semantic(body.innerHTML);
   return semantic(blocks.map((b) => b.outerHTML).join("\n"));
