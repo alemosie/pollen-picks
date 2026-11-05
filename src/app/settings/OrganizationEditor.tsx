@@ -14,7 +14,10 @@ const field = "w-full rounded-xl bg-surface px-4 py-2.5 ring-1 ring-ink/15";
  * Saves as you go. Only these two fields are sent, so it never touches the slide style chosen on the other screen.
  */
 export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { initialName: string; initialLogo: string | null; orgFallback?: string }) {
-  const [name, setName] = useState(initialName);
+  // Left empty, the slides use the organization beehiiv gives for the publication, so the field starts filled in with it.
+  // Saving that same name stores nothing: the slides then keep following beehiiv if the name changes there.
+  const [name, setName] = useState(initialName || orgFallback || "");
+  const stored = (v: string) => (orgFallback && v.replace(/\s+/g, " ").trim() === orgFallback ? "" : v);
   const [logo, setLogo] = useState<string | null>(initialLogo);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,19 +84,28 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
             onChange={(e) => {
               setName(e.target.value);
               window.clearTimeout(timer.current);
-              const next = e.target.value;
-              timer.current = window.setTimeout(() => void save({ orgName: next }), 600);
+              const next = stored(e.target.value);
+              timer.current = window.setTimeout(() => void (next.trim() !== savedName.current && save({ orgName: next })), 600);
             }}
             onBlur={() => {
               // Leaving the field saves straight away rather than waiting out the pause.
               window.clearTimeout(timer.current);
-              if (name.trim() !== savedName.current) void save({ orgName: name });
+              // An emptied field goes back to the beehiiv name.
+              if (!name.trim() && orgFallback) setName(orgFallback);
+              const next = stored(name);
+              if (next.trim() !== savedName.current) void save({ orgName: next });
             }}
             maxLength={MAX_ORG_NAME}
             placeholder={orgFallback ?? "For example, Amsterdam Parent Project"}
             className={field}
           />
-          {orgFallback && <p className="mb-0 mt-1.5 text-xs">Left empty, it uses &ldquo;{orgFallback}&rdquo; from beehiiv.</p>}
+          {orgFallback && (
+            <p className="mb-0 mt-1.5 text-xs">
+              {name.trim() === orgFallback
+                ? "Filled in from beehiiv. Change it to use a different name on your slides."
+                : <>Your own name. Clear the field to go back to &ldquo;{orgFallback}&rdquo; from beehiiv.</>}
+            </p>
+          )}
         </div>
 
         <div>

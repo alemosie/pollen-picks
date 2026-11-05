@@ -19,7 +19,7 @@ export function PublicationSummary({ publication: p, avatar = "bg-honey", compac
       <Avatar publication={p} className={avatar} />
       <div className="min-w-0">
         <p className={`m-0 truncate font-display ${compact ? "text-2xl" : "text-xl"}`}>{p.name}</p>
-        {p.organization && <p className="m-0 truncate text-sm">{p.organization}</p>}
+        {p.organization && p.organization !== p.name && <p className="m-0 truncate text-sm">{p.organization}</p>}
         {compact ? (
           <ul className="m-0 mt-2 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-sm font-semibold">
             {p.subscribers !== undefined && <Stat icon={Users} value={fmt.format(p.subscribers)} label={`${fmt.format(p.subscribers)} subscribers`} />}

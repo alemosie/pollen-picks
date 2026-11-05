@@ -10,7 +10,10 @@ const API = "https://api.beehiiv.com/v2";
 export type BeehiivPublication = {
   id: string;
   name: string;
+  /** The organization behind the publication, as beehiiv names it (may be the same as the publication's name). */
   organization?: string;
+  /** True once beehiiv has been asked for the organization (it may have none), so Settings doesn't ask again on every visit. */
+  orgChecked?: boolean;
   /** https URL of the publication's logo. */
   logo?: string;
   /** Unix seconds. */
@@ -69,7 +72,7 @@ function toPublication(p: Raw): BeehiivPublication | null {
   return {
     id: p.id,
     name: p.name,
-    organization: typeof p.organization_name === "string" && p.organization_name !== p.name ? p.organization_name : undefined,
+    organization: typeof p.organization_name === "string" && p.organization_name.trim() ? p.organization_name.trim() : undefined,
     logo: httpsUrl(p.logo) ?? httpsUrl(p.logo_url),
     created: num(p.created),
     subscribers: num(p.stats?.active_subscriptions),
@@ -112,27 +115,33 @@ export async function checkKey(key: string): Promise<BeehiivPublication[]> {
   if (publications.length === 0) {
     throw new BeehiivKeyError("no-publications", "This key works, but it can't see any publications. Check which publication it is limited to.");
   }
-  // The list may leave the logo out. The single-publication endpoint might have it; ask, but never fail the connect over it.
+  // The list may leave the logo or the organization out. The single-publication endpoint might have them; ask, but never fail the connect over it.
   await Promise.all(
     publications.slice(0, 10).map(async (p) => {
-      if (!p.logo) p.logo = await fetchLogo(key, p.id);
+      if (!p.logo || !p.organization) {
+        const d = await fetchDetails(key, p.id);
+        p.logo ??= d.logo;
+        p.organization ??= d.organization;
+      }
+      p.orgChecked = true;
     }),
   );
   return publications;
 }
 
-async function fetchLogo(key: string, publicationId: string): Promise<string | undefined> {
+async function fetchDetails(key: string, publicationId: string): Promise<{ logo?: string; organization?: string }> {
   try {
     const res = await fetch(`${API}/publications/${publicationId}`, {
       headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(5_000),
     });
-    if (!res.ok) return undefined;
+    if (!res.ok) return {};
     const d = ((await res.json().catch(() => null)) as { data?: Raw } | null)?.data;
-    return httpsUrl(d?.logo) ?? httpsUrl(d?.logo_url);
+    const org = typeof d?.organization_name === "string" && d.organization_name.trim() ? d.organization_name.trim() : undefined;
+    return { logo: httpsUrl(d?.logo) ?? httpsUrl(d?.logo_url), organization: org };
   } catch {
-    return undefined;
+    return {};
   }
 }
 

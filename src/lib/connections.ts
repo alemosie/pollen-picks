@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { TokenError, refresh } from "./buffer";
-import type { BeehiivPublication } from "./beehiiv";
+import { checkKey, type BeehiivPublication } from "./beehiiv";
 import { isExpired, type BufferSession } from "./session";
 
 // Users and their Buffer connection. Tokens are stored as one JSON secret in Supabase Vault (via the
@@ -120,6 +120,24 @@ export async function loadBeehiivKey(userId: string): Promise<string | null> {
   const { data, error } = await db().rpc("get_connection_secret", { p_user_id: userId, p_provider: BEEHIIV });
   if (error) throw new Error(`Could not read the beehiiv key: ${error.message}`);
   return typeof data === "string" && data ? data : null;
+}
+
+/**
+ * Connections saved before beehiiv's organization name was kept have none in their snapshot. Ask beehiiv again, once per publication
+ * (`orgChecked`), keeping the logos the user set. Best effort: on any failure the saved snapshot is returned as it was.
+ */
+export async function withOrganization(userId: string, conn: BeehiivConnection | null): Promise<BeehiivConnection | null> {
+  if (!conn || conn.publications.every((p) => p.organization || p.orgChecked)) return conn;
+  try {
+    const key = await loadBeehiivKey(userId);
+    if (!key) return conn;
+    const fresh = await checkKey(key);
+    const publications = fresh.map((p) => ({ ...p, logo: conn.publications.find((o) => o.id === p.id)?.logo ?? p.logo }));
+    return await saveBeehiivKey(userId, key, publications);
+  } catch (e) {
+    console.error("refreshing the beehiiv organization failed:", (e as Error).message);
+    return conn;
+  }
 }
 
 /** Removes the connection and deletes the key from Vault. */
