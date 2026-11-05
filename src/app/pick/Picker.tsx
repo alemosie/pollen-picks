@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadPicked, savePicked } from "@/lib/progress";
 import Link from "next/link";
 import { Select } from "@/components/Select";
@@ -17,6 +17,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { isCustomId } from "@/lib/pollen/custom";
+import { instagramPostKey, instagramTag, type KnownHandles } from "@/lib/pollen/url";
+import { ChannelIcon } from "@/components/ChannelIcon";
+import { ApifyConnect } from "@/components/ApifyConnect";
+import { TagChip, type TagState } from "./TagChip";
 import { ManualPane } from "./ManualPane";
 import type { View } from "./picking";
 
@@ -81,6 +85,8 @@ export function Picker({
   initialPicks,
   manual = false,
   manualOnly = false,
+  knownHandles,
+  lookups = false,
 }: {
   mode: string;
   chunks: Chunk[];
@@ -91,6 +97,10 @@ export function Picker({
   manual?: boolean;
   /** Only the Manual tab: the page is one the visitor pasted, so there is nothing parsed to browse. */
   manualOnly?: boolean;
+  /** Accounts already looked up for this issue's Instagram post links (cached answers). */
+  knownHandles?: KnownHandles;
+  /** Signed in: a picked post link is looked up (the server decides whether this account may). The public demo only shows cached answers. */
+  lookups?: boolean;
 }) {
   // Highlights saved or removed in the Manual tab this visit; the server's list covers earlier visits.
   const [extra, setExtra] = useState<Chunk[]>([]);
@@ -168,6 +178,87 @@ export function Picker({
   }, [view, section, chunks]);
 
   const full = picked.length >= MAX;
+  // Picks whose link is an Instagram account (or a post, once its account is looked up) get tagged in the Instagram caption (Write step).
+  const byId = useMemo(() => new Map(chunks.map((c) => [c.id, c])), [chunks]);
+  const [found, setFound] = useState<KnownHandles>(knownHandles ?? {});
+  const [lookup, setLookup] = useState<Record<string, "loading" | "failed" | "missing" | "limit" | "paused" | "refused">>({});
+  const tried = useRef(new Set<string>());
+  const settle = useCallback((key: string, to?: "failed" | "missing" | "limit" | "paused" | "refused") => {
+    setLookup((l) => {
+      const next = { ...l };
+      if (to) next[key] = to;
+      else delete next[key];
+      return next;
+    });
+  }, []);
+  // One post link -> its account, through the server (cache first, then Apify for allowed accounts).
+  const resolve = useCallback(
+    async (key: string, url: string) => {
+      await Promise.resolve();
+      setLookup((l) => ({ ...l, [key]: "loading" }));
+      try {
+        const r = await fetch("/api/instagram/handle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const j = (await r.json().catch(() => null)) as { handle?: string; error?: string } | null;
+        if (r.ok && j?.handle) {
+          setFound((f) => ({ ...f, [key]: j.handle! }));
+          settle(key);
+        } else if (r.status === 401) settle(key); // signed out: nothing to look up with
+        else if (j?.error === "limit-reached") settle(key, "limit");
+        else if (j?.error === "capped") settle(key, "paused");
+        else if (j?.error === "own-token") settle(key, "refused");
+        else settle(key, r.status === 404 ? "missing" : "failed");
+      } catch {
+        settle(key, "failed");
+      }
+    },
+    [settle],
+  );
+  // Look up when a post link is picked: restored picks, quick-select chips and highlights all come through here.
+  useEffect(() => {
+    if (!lookups) return;
+    for (const id of picked) {
+      const url = byId.get(id)?.url ?? null;
+      const key = instagramPostKey(url);
+      if (!url || !key || found[key] || tried.current.has(key)) continue;
+      tried.current.add(key);
+      void resolve(key, url);
+    }
+  }, [picked, byId, lookups, found, resolve]);
+  const tagOf = (url: string | null) => instagramTag(url, found);
+  const tagState = (url: string | null): TagState => {
+    const handle = tagOf(url);
+    if (handle) return { kind: "handle", handle };
+    const key = instagramPostKey(url);
+    if (!key || !lookups) return null;
+    const st = lookup[key];
+    if (st === "loading") return { kind: "loading" };
+    if (st === "missing") return { kind: "missing" };
+    if (st === "limit") return { kind: "limit", onConnect: () => setTokenOpen(true) };
+    if (st === "refused") return { kind: "refused", onConnect: () => setTokenOpen(true) };
+    if (st === "paused") return { kind: "paused" };
+    if (st === "failed") return { kind: "failed", onRetry: () => void resolve(key, url!) };
+    return null;
+  };
+  // The token form opens from a "used up" chip. Once a token is saved, every picked post that was waiting is looked up again.
+  const [tokenOpen, setTokenOpen] = useState(false);
+  const tokenDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = tokenDialog.current;
+    if (tokenOpen && d && !d.open) d.showModal();
+  }, [tokenOpen]);
+  const retryWaiting = () => {
+    for (const id of picked) {
+      const url = byId.get(id)?.url ?? null;
+      const key = instagramPostKey(url);
+      if (url && key && !found[key] && ["limit", "refused", "failed"].includes(lookup[key] ?? "")) void resolve(key, url);
+    }
+  };
+  const taggedCount = picked.filter((id) => tagOf(byId.get(id)?.url ?? null)).length;
+  const anyTags = visible.some((c) => tagOf(c.url) || (lookups && instagramPostKey(c.url)));
   const addHighlight = (chunk: Chunk) => {
     setExtra((e) => [...e, chunk]);
     setPicked((p) =>
@@ -357,11 +448,22 @@ export function Picker({
                 text: c.text,
                 url: c.url,
                 pick: picked.indexOf(c.id) + 1,
+                tag: tagState(c.url),
               }))}
             onAdd={(c) => addHighlight(c as Chunk)}
             onRemove={removeHighlight}
             onToggle={toggle}
           />
+        )}
+
+        {view !== "manual" && anyTags && (
+          <p className="mb-3 mt-0 flex items-start gap-2 text-sm">
+            <ChannelIcon service="instagram" className="mt-0.5 size-4 shrink-0" />
+            <span>
+              Picks that link to Instagram show the account&rsquo;s handle{lookups ? " (for a post, we find it when you pick it)" : ""}. Your Instagram caption credits them with{" "}
+              <span className="font-semibold">&ldquo;From @handle&rdquo;</span>, which tags them.
+            </span>
+          </p>
         )}
 
         {view !== "manual" && (
@@ -460,6 +562,7 @@ export function Picker({
                           {c.score} unique clicks
                         </span>
                       )}
+                      <TagChip state={tagState(c.url)} className="mt-2" />
                     </span>
                   </label>
                 </li>
@@ -474,6 +577,33 @@ export function Picker({
         )}
       </div>
 
+      {lookups && tokenOpen && (
+        <dialog
+          ref={tokenDialog}
+          onClose={() => setTokenOpen(false)}
+          aria-labelledby="apify-title"
+          className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-2xl bg-cream p-6 text-ink shadow-xl backdrop:bg-ink/50"
+        >
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <h2 id="apify-title" className="m-0 text-2xl">
+              Add your Apify token
+            </h2>
+            <button type="button" onClick={() => tokenDialog.current?.close()} aria-label="Close" className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-ink/10">
+              <X aria-hidden className="size-5" strokeWidth={2.5} />
+            </button>
+          </div>
+          <p className="mb-4 mt-0 text-sm">You&rsquo;ve used your free account lookups. With your own Apify token you can keep tagging Instagram posts.</p>
+          <ApifyConnect
+            initial={null}
+            onChange={(s) => {
+              if (!s) return;
+              tokenDialog.current?.close();
+              retryWaiting();
+            }}
+          />
+        </dialog>
+      )}
+
       <FlowBar
         next={picked.length > 0 ? { href: stepUrl(mode, "design", `picks=${picked.join(",")}`) } : null}
         back={{ href: "/source", label: "Source" }}
@@ -481,7 +611,7 @@ export function Picker({
           <>
             {picked.length === 0
               ? "Select 1 to 20 items"
-              : `${picked.length} of ${MAX} selected`}
+              : `${picked.length} of ${MAX} selected${taggedCount > 0 ? ` · ${taggedCount} to tag on Instagram` : ""}`}
             {full && <span className="ml-2 font-normal">Maximum reached</span>}
           </>
         }

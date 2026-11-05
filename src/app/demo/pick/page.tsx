@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
+import { knownHandles } from "@/lib/instagramHandles";
 import { Track } from "@/components/Track";
 import { Picker } from "@/app/pick/Picker";
 import { parsePicking } from "@/app/pick/picking";
@@ -34,6 +35,7 @@ async function DemoPickContent({
     .filter((n) => Number.isInteger(n) && n >= 0);
 
   const issue = await loadDemoIssueWithHighlights();
+  const known = await knownHandles(issue.chunks.map((c) => c.url));
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
@@ -81,6 +83,7 @@ async function DemoPickContent({
         initialPicks={initialPicks}
         manual
         manualOnly={issue.custom}
+        knownHandles={known}
       />
     </main>
   );

@@ -12,6 +12,7 @@ import {
 } from "@/lib/pollen/custom";
 import { track } from "@/lib/events";
 import { PickTray } from "./PickTray";
+import type { TagState } from "./TagChip";
 import { readDemoSource } from "@/lib/pollen/demoSource";
 import {
   MAX_DEMO_HIGHLIGHTS,
@@ -43,7 +44,7 @@ export function ManualPane({
 }: {
   mode: string;
   /** `pick` is the 1-based pick number, or 0 when the highlight is saved but not picked. */
-  highlights: { id: number; text: string; url: string | null; pick: number }[];
+  highlights: { id: number; text: string; url: string | null; pick: number; tag?: TagState }[];
   /** The pick limit is reached. */
   full: boolean;
   onAdd: (chunk: unknown) => void;

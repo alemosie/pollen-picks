@@ -9,6 +9,7 @@ import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { demoUrlFrom, parseLinkMode } from "@/lib/flow";
+import { knownHandles } from "@/lib/instagramHandles";
 import { loadAppIssueResult } from "@/lib/sources";
 import { Picker } from "./Picker";
 import { parsePicking } from "./picking";
@@ -45,6 +46,7 @@ async function PickContent({
   // Say what went wrong instead of bouncing back to the source step, which just looks like a refresh.
   if ("error" in result) return <LoadError message={result.error} />;
   const issue = result.issue;
+  const known = await knownHandles(issue.chunks.map((c) => c.url));
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <SaveStep step={2} />
@@ -92,6 +94,8 @@ async function PickContent({
         initialPicks={initialPicks}
         manual
         manualOnly={Boolean(parseLinkMode(String(mode ?? "")))}
+        knownHandles={known}
+        lookups
       />
     </main>
   );

@@ -3,8 +3,9 @@
 import { Check, Highlighter, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/events";
+import { TagChip, type TagState } from "./TagChip";
 
-export type TrayItem = { id: number; text: string; url: string | null; pick: number };
+export type TrayItem = { id: number; text: string; url: string | null; pick: number; tag?: TagState };
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 
@@ -115,7 +116,10 @@ export function PickTray({
                         className="mt-0.5 size-5 shrink-0 rounded-full border-2 border-ink/30 hover:border-ink/60 disabled:cursor-not-allowed disabled:opacity-50"
                       />
                     )}
-                    <span className="min-w-0 flex-1 font-semibold leading-snug">{clip(h.text, 110)}</span>
+                    <span className="min-w-0 flex-1 font-semibold leading-snug">
+                      {clip(h.text, 110)}
+                      <TagChip state={h.tag ?? null} small className="mt-1" />
+                    </span>
                     <button
                       type="button"
                       onClick={() => onRemove(h.id)}
