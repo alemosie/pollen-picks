@@ -5,7 +5,7 @@ import { renderablePublicPage, type PublicPage } from "./pollen/render";
 export type PublicPost = PublicPage & { url: string };
 export type PostRead = { post: PublicPost } | { error: string; status: number };
 
-const PUBLICATION = "This looks like a link to a publication, not a specific post. Paste a direct link to a public post instead.";
+const PUBLICATION = "This looks like a link to a publication, not a specific post. Paste a direct link to a post instead.";
 
 /** `visitor` keys the rate limit (an IP address, or a user id). */
 export async function readPublicPost(raw: string, visitor: string): Promise<PostRead> {

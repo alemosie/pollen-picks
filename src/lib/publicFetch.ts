@@ -62,7 +62,7 @@ export function privateAddress(ip: string): boolean {
   return true;
 }
 
-async function assertPublicHost(host: string) {
+export async function assertPublicHost(host: string) {
   let addrs: { address: string }[];
   try {
     addrs = await lookup(host, { all: true });
