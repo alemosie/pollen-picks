@@ -4,9 +4,10 @@ import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import { connection } from "next/server";
 import { PageHeader } from "@/components/StepTree";
-import { requireSession } from "@/lib/auth";
+import { requireSession, sessionUserId } from "@/lib/auth";
 import { getBeehiivConnection } from "@/lib/connections";
-import { loadIssueList } from "@/lib/issues";
+import { ServerTimings } from "@/components/ServerTimings";
+import { timer } from "@/lib/timing";
 import { ModePicker } from "./ModePicker";
 
 export const metadata = { title: "Choose your setup · Pollen Picks" };
@@ -21,10 +22,11 @@ export default function Start() {
 
 async function StartContent() {
   await connection();
-  const session = await requireSession("/source");
-  const beehiiv = await getBeehiivConnection(session.userId);
-  // Sent issues, newest first, so the list is there on first render. A failure shows a message and a retry, not a blank page.
-  const issues = beehiiv ? await loadIssueList(session.userId) : null;
+  // The connection read needs only the id from the cookie, so it runs alongside the session check instead of after it. The issue list is not loaded
+  // here: it is a call to beehiiv, and the page used to wait for it behind the loader. The picker asks for it as soon as it is on screen.
+  const t = timer("/source");
+  const uid = await sessionUserId();
+  const [, beehiiv] = await Promise.all([t.step("session", requireSession("/source")), t.step("connection", uid ? getBeehiivConnection(uid) : Promise.resolve(null))]);
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
@@ -44,7 +46,8 @@ async function StartContent() {
         </p>
       </div>
 
-      <ModePicker beehiiv={beehiiv} initialIssues={issues && "list" in issues ? issues.list : null} initialIssuesError={issues && "error" in issues ? issues.error : null} />
+      <ServerTimings report={t.report()} />
+      <ModePicker beehiiv={beehiiv} initialIssues={null} initialIssuesError={null} />
     </main>
   );
 }

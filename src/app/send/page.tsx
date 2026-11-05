@@ -1,3 +1,5 @@
+import { ServerTimings } from "@/components/ServerTimings";
+import { timer } from "@/lib/timing";
 import { Suspense } from "react";
 import { FlowLoader } from "@/components/FlowLoader";
 import { connection } from "next/server";
@@ -5,7 +7,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
-import { requireSession } from "@/lib/auth";
+import { currentSession, toLogin } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, parseLinkMode, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
@@ -38,7 +40,10 @@ async function SendContent({
   const mode = String(sp.mode ?? "");
   // The sample issue is the public demo: old demo links go to /demo/send, and need no login.
   if (mode === "demo") redirect(demoUrlFrom("send", sp));
-  const tpl = { ...parseTemplateFromPage(sp), sv: await currentStyleVersion() };
+  // The style version (database) and the session check (database) don't depend on each other, so they run together.
+  const t = timer("/send");
+  const [sv, session] = await Promise.all([t.step("style version", currentStyleVersion()), t.step("session", currentSession())]);
+  const tpl = { ...parseTemplateFromPage(sp), sv };
   const extra = templateParams(tpl).toString();
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(sp.picks ?? "")
@@ -47,23 +52,23 @@ async function SendContent({
     .map(Number)
     .filter(Number.isFinite);
   const tail = `${ids.join(",")}${extra ? `&${extra}` : ""}`;
-  const session = await requireSession(
-    `/send?mode=${encodeURIComponent(mode)}&picks=${tail}`,
-  );
+  if (!session) toLogin(`/send?mode=${encodeURIComponent(mode)}&picks=${tail}`);
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
-  const issue = await loadAppIssue(mode);
+  // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
+  const [issue, channels] = await Promise.all([t.step("issue", loadAppIssue(mode)), t.step("channels (Buffer)", listChannels(session.accessToken))]);
   if (!issue) redirect("/source");
-  const known = await knownForPicks(issue.chunks, ids);
+  const known = await t.step("handles", knownForPicks(issue.chunks, ids));
+  const report = t.report();
   const slides = planSlides(slideItemsFor(issue.chunks, ids, known), {
     newsletter: issue.newsletter,
     ...tpl,
   });
-  const channels = await listChannels(session.accessToken);
   const q = ids.join(",");
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
+      <ServerTimings report={report} />
       <SaveStep step={5} />
       <Track event="send_reached" />
       <PageHeader

@@ -1,3 +1,5 @@
+import { ServerTimings } from "@/components/ServerTimings";
+import { timer } from "@/lib/timing";
 import { Suspense } from "react";
 import { FlowLoader } from "@/components/FlowLoader";
 import { connection } from "next/server";
@@ -41,7 +43,8 @@ async function DesignContent({
   for (const [k, v] of Object.entries(sp))
     if (typeof v === "string") back.set(k, v);
     else if (Array.isArray(v) && v[0]) back.set(k, v[0]);
-  await requireSession(`/design?${back.toString()}`);
+  const t = timer("/design");
+  await t.step("session", requireSession(`/design?${back.toString()}`));
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(picks ?? "")
     .split(",")
@@ -50,13 +53,16 @@ async function DesignContent({
     .filter(Number.isFinite);
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
-  const issue = await loadAppIssue(mode);
+  const issue = await t.step("issue", loadAppIssue(mode));
   if (!issue) redirect("/source");
-  const items = slideItemsFor(issue.chunks, ids, await knownForPicks(issue.chunks, ids));
-  const { version, palette } = await currentSlideSettings();
+  // The picks' handles and the slide settings don't depend on each other, so they load together.
+  const [known, { version, palette }] = await Promise.all([t.step("handles", knownForPicks(issue.chunks, ids)), t.step("settings", currentSlideSettings())]);
+  const items = slideItemsFor(issue.chunks, ids, known);
+  const report = t.report();
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
+      <ServerTimings report={report} />
       <SaveStep step={3} />
       <Track event="design_reached" />
       <PageHeader current={3} hrefs={{ 1: "/source", 2: stepUrl(mode, "pick") }} />

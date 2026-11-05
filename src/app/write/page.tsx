@@ -1,3 +1,5 @@
+import { ServerTimings } from "@/components/ServerTimings";
+import { timer } from "@/lib/timing";
 import { Suspense } from "react";
 import { FlowLoader } from "@/components/FlowLoader";
 import { connection } from "next/server";
@@ -5,7 +7,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
-import { requireSession } from "@/lib/auth";
+import { currentSession, toLogin } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, parseLinkMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
@@ -37,7 +39,10 @@ async function WriteContent({
   const mode = String(sp.mode ?? "");
   // The sample issue is the public demo: old demo links go to /demo/write, and need no login.
   if (mode === "demo") redirect(demoUrlFrom("write", sp));
-  const tpl = { ...parseTemplateFromPage(sp), sv: await currentStyleVersion() };
+  // The style version (database) and the session check (database) don't depend on each other, so they run together.
+  const t = timer("/write");
+  const [sv, session] = await Promise.all([t.step("style version", currentStyleVersion()), t.step("session", currentSession())]);
+  const tpl = { ...parseTemplateFromPage(sp), sv };
   const extra = templateParams(tpl).toString();
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(sp.picks ?? "")
@@ -46,18 +51,20 @@ async function WriteContent({
     .map(Number)
     .filter(Number.isFinite);
   const self = `/write?mode=${encodeURIComponent(mode)}&picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;
-  const session = await requireSession(self);
+  if (!session) toLogin(self);
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
-  const issue = await loadAppIssue(mode);
+  // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
+  const [issue, channels] = await Promise.all([t.step("issue", loadAppIssue(mode)), t.step("channels (Buffer)", listChannels(session.accessToken))]);
   if (!issue) redirect("/source");
-  const channels = await listChannels(session.accessToken);
   const q = ids.join(",");
-  const known = await knownForPicks(issue.chunks, ids);
+  const known = await t.step("handles", knownForPicks(issue.chunks, ids));
+  const report = t.report();
 
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
+      <ServerTimings report={report} />
       <SaveStep step={4} />
       <Track event="write_reached" />
       <PageHeader
