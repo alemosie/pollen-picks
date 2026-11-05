@@ -9,6 +9,7 @@ import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, parseLinkMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { WriteView } from "./WriteView";
@@ -51,6 +52,8 @@ async function WriteContent({
   if (!issue) redirect("/source");
   const channels = await listChannels(session.accessToken);
   const q = ids.join(",");
+  const known = await knownForPicks(issue.chunks, ids);
+
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
@@ -76,6 +79,7 @@ async function WriteContent({
             : ids,
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
+          known,
         )}
         newsletter={issue.newsletter}
         author={issue.author}

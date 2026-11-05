@@ -117,6 +117,7 @@ export function EditSlideModal({
       }),
       edits: Object.keys(edits).length ? edits : undefined,
       bgs: d.bgs?.some(Boolean) ? d.bgs : undefined,
+      hideTags: d.hideTags?.some(Boolean) ? d.hideTags : undefined,
     };
   };
   const closing = () => {
@@ -184,7 +185,7 @@ export function EditSlideModal({
       ? !!nd.cover
       : target.kind === "closing"
         ? !!nd.closing
-        : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex];
+        : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex] || !!nd.hideTags?.[slideIndex];
   const revert = () =>
     setDraft((d) => {
       if (target.kind === "cover") return { ...d, cover: undefined };
@@ -193,10 +194,13 @@ export function EditSlideModal({
       for (const id of d.slides[target.index] ?? []) delete edits[id];
       const bgs = [...(d.bgs ?? [])];
       bgs[target.index] = "";
+      const hideTags = [...(d.hideTags ?? [])];
+      hideTags[target.index] = false;
       return {
         ...d,
         edits: Object.keys(edits).length ? edits : undefined,
         bgs,
+        hideTags,
       };
     });
 
@@ -233,14 +237,40 @@ export function EditSlideModal({
           </button>
         </div>
         <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-7 py-4 md:grid-cols-[17rem_minmax(0,1fr)]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewSrc(picks, normalize(settled), target, mode)}
-            alt="Slide preview"
-            width={540}
-            height={675}
-            className="aspect-[4/5] w-full rounded-2xl bg-surface ring-1 ring-ink/10 md:sticky md:top-0"
-          />
+          <div className="grid content-start gap-3 md:sticky md:top-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewSrc(picks, normalize(settled), target, mode)}
+              alt="Slide preview"
+              width={540}
+              height={675}
+              className="aspect-[4/5] w-full rounded-2xl bg-surface ring-1 ring-ink/10"
+            />
+            {target.kind === "slide" && ids.some((id) => byId.get(id)?.tag) && (
+              <div>
+                <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
+                  <input
+                    type="checkbox"
+                    checked={!draft.hideTags?.[target.index]}
+                    onChange={(e) =>
+                      setDraft((d) => {
+                        const hideTags = [...(d.hideTags ?? [])];
+                        while (hideTags.length <= target.index) hideTags.push(false);
+                        hideTags[target.index] = !e.target.checked;
+                        return { ...d, hideTags };
+                      })
+                    }
+                    aria-describedby="tags-hint"
+                    className="size-5 shrink-0 accent-ink"
+                  />
+                  Credit Instagram accounts
+                </label>
+                <p id="tags-hint" className="mb-0 mt-1 text-xs">
+                  Shows @handle on this slide&rsquo;s picks that link to an Instagram account.
+                </p>
+              </div>
+            )}
+          </div>
           <div className="grid content-start gap-5">
             <p className="m-0 text-sm">
               The header and footer are part of the template. Everything else on

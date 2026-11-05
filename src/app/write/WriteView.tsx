@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SavedFlash } from "@/components/SavedFlash";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import Link from "next/link";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { loadFormat, saveFormat } from "@/lib/progress";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, X } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import type { Channel } from "@/components/ChannelPicker";
 import {
@@ -74,6 +74,7 @@ export function WriteView({
   demo?: boolean;
 }) {
   const usable = channels.filter((c) => !unsupportedReason(c.service));
+  const taggedCount = captionItems.filter((i) => i.tag).length;
   const [chosenOrder, setOrder] = useState<CaptionOrder>("clicks");
   // Only the orders the picks can support: highlights have no click ranking and no dates, so they can only go A–Z.
   const orders = CAPTION_ORDERS.filter(
@@ -85,6 +86,7 @@ export function WriteView({
   const [edited, setEdited] = useState<Partial<Record<CaptionVariant, string>>>({});
   const [tab, setTab] = useState<CaptionVariant>("instagram");
   const [copied, setCopied] = useState(false);
+  const [linkHelp, setLinkHelp] = useState(false);
   // Remember order, tab and caption edits for this set of picks + template, so a detour doesn't lose them.
   const sig = `${link}|${picks.join(",")}|${template}`;
   const [restored, setRestored] = useState(false);
@@ -224,7 +226,17 @@ export function WriteView({
                   hand.
                 </p>
               )}
-              {visible.length > 1 && (
+              {activeTab === "instagram" && edited.instagram === undefined && taggedCount > 0 && (
+                <p className="m-0 flex items-start gap-2 text-sm">
+                  <ChannelIcon service="instagram" className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    {plural(taggedCount, "pick")} link{taggedCount === 1 ? "s" : ""} to an Instagram account, so{" "}
+                    {taggedCount === 1 ? "its line ends" : "their lines end"} with{" "}
+                    <span className="font-semibold">&ldquo;From @handle&rdquo;</span> — that tags the account when you post.
+                  </span>
+                </p>
+              )}
+              {visible.length > 1 && activeTab !== "instagram" && (
                 <p className="m-0 text-sm">
                   <span className="font-semibold">{variant.note}</span> Used for your {list(networksFor(activeTab))}{" "}
                   {usedBy(activeTab).length === 1 ? "channel" : "channels"}.
@@ -243,6 +255,11 @@ export function WriteView({
                   )}
                   <span role="status">{copied ? "Caption copied" : "Copy caption"}</span>
                 </button>
+                {activeTab === "instagram" && (
+                  <button type="button" onClick={() => setLinkHelp(true)} className="w-fit text-sm font-semibold underline underline-offset-4">
+                    Where&rsquo;s my source link?
+                  </button>
+                )}
                 {edited[activeTab] !== undefined && (
                   <button
                     type="button"
@@ -269,6 +286,15 @@ export function WriteView({
         )}
       </section>
 
+      {linkHelp && (
+        <SourceLinkHelp
+          link={link}
+          creditLink={Boolean(creditLink)}
+          otherPlatforms={usedBy("link").length > 0}
+          onClose={() => setLinkHelp(false)}
+        />
+      )}
+
       <FlowBar next={visible.length === 0 ? null : { href: nextHref }} back={{ href: backHref, label: "Design" }}>
         {visible.length === 0 ? (
           <span aria-disabled className={primaryDisabled}>
@@ -281,5 +307,76 @@ export function WriteView({
         )}
       </FlowBar>
     </>
+  );
+}
+
+/** Why the Instagram caption has no clickable link, and the link to put in the bio instead. */
+function SourceLinkHelp({
+  link,
+  creditLink,
+  otherPlatforms,
+  onClose,
+}: {
+  link: string;
+  creditLink: boolean;
+  otherPlatforms: boolean;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    const d = ref.current;
+    if (d && !d.open) d.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      onClose={onClose}
+      onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
+      aria-labelledby="source-link-title"
+      className="m-auto w-[min(32rem,calc(100vw-2rem))] rounded-2xl bg-cream p-6 text-ink shadow-xl backdrop:bg-ink/50"
+    >
+      <div className="mb-3 flex items-start justify-between gap-4">
+        <h2 id="source-link-title" className="m-0 text-2xl">
+          Where&rsquo;s my source link?
+        </h2>
+        <button type="button" onClick={() => ref.current?.close()} aria-label="Close" className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-ink/10">
+          <X aria-hidden className="size-5" strokeWidth={2.5} />
+        </button>
+      </div>
+      {creditLink ? (
+        <p className="mb-4 mt-0 text-sm">
+          This post comes from someone else&rsquo;s newsletter, so the caption ends with a link to the original. Instagram doesn&rsquo;t make links in captions
+          clickable, so readers would have to copy it. Put it in your bio to make it one tap.
+        </p>
+      ) : (
+        <p className="mb-4 mt-0 text-sm">
+          Instagram doesn&rsquo;t make links in captions clickable, so the caption says &ldquo;Link in bio&rdquo; instead of showing the link. To send readers
+          to your newsletter, put this link in your Instagram bio:
+        </p>
+      )}
+      <div className="mb-4 flex items-center gap-2 rounded-xl bg-surface p-2 pl-4 ring-1 ring-ink/15">
+        <span className="min-w-0 flex-1 truncate font-mono text-sm" title={link}>
+          {link}
+        </span>
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(link);
+            } catch {
+              window.prompt("Copy this link", link);
+            }
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2200);
+          }}
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-ink px-3 py-2 text-sm font-bold text-cream hover:bg-ink-deep"
+        >
+          {copied ? <Check aria-hidden className="size-4" strokeWidth={3} /> : <Copy aria-hidden className="size-4" strokeWidth={2.25} />}
+          <span role="status">{copied ? "Copied" : "Copy link"}</span>
+        </button>
+      </div>
+      {otherPlatforms && <p className="m-0 text-sm">Your other platforms&rsquo; captions include the link directly.</p>}
+    </dialog>
   );
 }

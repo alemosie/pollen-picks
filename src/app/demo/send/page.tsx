@@ -9,6 +9,7 @@ import { hasLiveSession } from "@/lib/auth";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
@@ -43,7 +44,8 @@ async function DemoSendContent({
   const q = ids.join(",");
   const tail = `picks=${q}${extra ? `&${extra}` : ""}`;
   const issue = await loadDemoIssueWithHighlights();
-  const slides = planSlides(slideItemsFor(issue.chunks, ids), { newsletter: issue.newsletter, ...tpl });
+  const known = await knownForPicks(issue.chunks, ids);
+  const slides = planSlides(slideItemsFor(issue.chunks, ids, known), { newsletter: issue.newsletter, ...tpl });
   const signedIn = await hasLiveSession();
 
   return (
@@ -71,6 +73,7 @@ async function DemoSendContent({
           tpl.spec ? tpl.spec.slides.flat().filter((id) => ids.includes(id)) : ids,
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
+          known,
         )}
         newsletter={issue.newsletter}
         author={issue.author}

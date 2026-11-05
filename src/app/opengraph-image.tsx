@@ -71,7 +71,7 @@ export default async function Image() {
   const issue = loadDemoIssue();
   const c = issue.chunks.find((x) => /halloween brunch/i.test(x.title));
   const name = stripEmoji(issue.newsletter);
-  const slides = planSlides(slideItemsFor(issue.chunks, c ? [c.id] : []).map(clean), { newsletter: name }).slice(0, 2);
+  const slides = planSlides(slideItemsFor(issue.chunks, c ? [c.id] : []).map(clean), { newsletter: name, showTags: false }).slice(0, 2);
   const kit = { name, colors: DEFAULT_COLORS };
   // Render each slide to a PNG at full size first: scaling live slide markup inside another image clips its text.
   const pics = await Promise.all(

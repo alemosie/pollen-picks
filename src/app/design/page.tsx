@@ -8,6 +8,7 @@ import { Track } from "@/components/Track";
 import { requireSession } from "@/lib/auth";
 import { demoUrlFrom, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { TemplateEditor } from "./TemplateEditor";
@@ -49,7 +50,7 @@ async function DesignContent({
 
   const issue = await loadAppIssue(mode);
   if (!issue) redirect("/source");
-  const items = slideItemsFor(issue.chunks, ids);
+  const items = slideItemsFor(issue.chunks, ids, await knownForPicks(issue.chunks, ids));
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">

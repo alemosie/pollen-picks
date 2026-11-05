@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import { BRAND_NAME, contrast, sameColor } from "@/lib/brand";
 import { MARK_SVG } from "./mark";
-import { shortBlurb } from "./plan";
+import { TAG_SHRINK, shortBlurb } from "./plan";
 import { SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types";
 
 // Satori (next/og) renders this: flexbox only, inline styles, no Tailwind.
@@ -183,6 +183,7 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
         <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
       {z.blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(z.blurbLines) }}>{n >= 3 ? shortBlurb(item.blurb) : item.blurb}</div>}
+      {item.tag && <div style={{ display: "flex", fontSize: z.meta - TAG_SHRINK, fontWeight: 700, ...clamp(1) }}>{`@${item.tag}`}</div>}
     </div>
   );
 }

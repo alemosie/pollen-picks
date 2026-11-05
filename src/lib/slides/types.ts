@@ -20,6 +20,8 @@ export type SlideItem = {
   partnerAspect?: number;
   /** Optional square image (data URI), shown in the footer corner of a single-pick slide. */
   image?: string;
+  /** Instagram handle (no "@") the pick's link points to. Drawn on the card unless the design turns tags off (planSlides drops it then). */
+  tag?: string;
 };
 
 export type Slide =

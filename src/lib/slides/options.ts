@@ -30,6 +30,8 @@ export type CustomSpec = {
   slides: number[][];
   /** Background hex per pick slide, parallel to `slides` ("" or missing = default). */
   bgs?: string[];
+  /** Parallel to `slides`: true = this slide leaves out the @handle of picks that link to an Instagram account. Missing = shown. */
+  hideTags?: boolean[];
   edits?: Record<number, PickEdit>;
 };
 
@@ -87,6 +89,7 @@ export function encodeSpec(spec: CustomSpec): string {
       g: hex6(spec.closing.bg),
     },
     s: spec.slides,
+    h: spec.hideTags?.some(Boolean) ? spec.slides.map((_, i) => (spec.hideTags![i] ? 1 : 0)) : undefined,
     g: spec.bgs?.some((b) => b)
       ? spec.slides.map((_, i) => hex6(spec.bgs![i]) ?? "")
       : undefined,
@@ -160,6 +163,7 @@ export function decodeSpec(
           }
         : undefined,
       slides,
+      hideTags: Array.isArray(w.h) && w.h.some((x: unknown) => x === 1) ? slides.map((_: unknown, i: number) => w.h[i] === 1) : undefined,
       bgs: Array.isArray(w.g)
         ? slides.map((_: unknown, i: number) => withHash(w.g[i]) ?? "")
         : undefined,

@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/guard";
 import { signPreview } from "@/lib/previewSig";
 import { loadAppIssue } from "@/lib/sources";
 import { planSlides } from "@/lib/slides/plan";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFrom, templateParams } from "@/lib/slides/options";
 import { imageLimit, unsupportedReason } from "@/lib/channels";
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   const tpl = parseTemplateFrom(new URLSearchParams(body.template ?? ""));
-  const slides = planSlides(slideItemsFor(issue.chunks, picks), { newsletter: issue.newsletter, ...tpl });
+  const slides = planSlides(slideItemsFor(issue.chunks, picks, await knownForPicks(issue.chunks, picks)), { newsletter: issue.newsletter, ...tpl });
   // Buffer fetches the images with no login, so the URLs are signed for this user, issue, picks and template (see previewSig).
   const signed = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", body.source as string]]), g.session.userId).toString();
   const all = slides.map((_, i) => `${base}/api/slide/preview?${signed}&n=${i}`);

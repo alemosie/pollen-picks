@@ -60,12 +60,13 @@ export function SlideBuilder({
     spec.edits?.[id]?.title?.trim()
       ? spec.edits[id].title!
       : (byId.get(id)?.title ?? "");
-  // Slide colors (`bgs`) are parallel to `slides`: operations that move or drop whole slides pass the matching colors along.
-  const set = (slides: number[][], bgs?: string[]) =>
+  // Slide colors (`bgs`) and the hide-tags flags are parallel to `slides`: operations that move or drop whole slides pass the matching values along.
+  const set = (slides: number[][], bgs?: string[], hideTags?: boolean[]) =>
     onChange({
       ...spec,
       slides: slides.length ? slides : [[]],
       ...(bgs ? { bgs: slides.length ? bgs : [] } : {}),
+      ...(hideTags ? { hideTags: slides.length ? hideTags : [] } : {}),
     });
 
   /** Put pick `id` on slide `to` (before position `at`, default the end), taking it off wherever it was. */
@@ -182,13 +183,16 @@ export function SlideBuilder({
     [slides[i], slides[to]] = [slides[to], slides[i]];
     const bgs = slides.map((_, k) => spec.bgs?.[k] ?? "");
     [bgs[i], bgs[to]] = [bgs[to], bgs[i]];
+    const hide = slides.map((_, k) => !!spec.hideTags?.[k]);
+    [hide[i], hide[to]] = [hide[to], hide[i]];
     setActive(to);
-    set(slides, bgs);
+    set(slides, bgs, hide);
   };
   const deleteSlide = (i: number) =>
     set(
       spec.slides.filter((_, k) => k !== i),
       spec.slides.map((_, k) => spec.bgs?.[k] ?? "").filter((_, k) => k !== i),
+      spec.slides.map((_, k) => !!spec.hideTags?.[k]).filter((_, k) => k !== i),
     );
   const autoFill = () => {
     const planned = planSlides(items, { newsletter }).filter(
@@ -260,7 +264,7 @@ export function SlideBuilder({
               <button
                 type="button"
                 onClick={() =>
-                  onChange({ ...spec, slides: [[]], bgs: undefined })
+                  onChange({ ...spec, slides: [[]], bgs: undefined, hideTags: undefined })
                 }
                 className="underline underline-offset-4"
               >

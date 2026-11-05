@@ -9,6 +9,7 @@ import { requireSession } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
 import { demoUrlFrom, parseLinkMode, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
@@ -52,7 +53,8 @@ async function SendContent({
 
   const issue = await loadAppIssue(mode);
   if (!issue) redirect("/source");
-  const slides = planSlides(slideItemsFor(issue.chunks, ids), {
+  const known = await knownForPicks(issue.chunks, ids);
+  const slides = planSlides(slideItemsFor(issue.chunks, ids, known), {
     newsletter: issue.newsletter,
     ...tpl,
   });
@@ -89,6 +91,7 @@ async function SendContent({
             : ids,
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
+          known,
         )}
         newsletter={issue.newsletter}
         author={issue.author}

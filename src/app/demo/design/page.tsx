@@ -7,6 +7,7 @@ import { Track } from "@/components/Track";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { stepUrl } from "@/lib/flow";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { TemplateEditor } from "@/app/design/TemplateEditor";
@@ -36,7 +37,7 @@ async function DemoDesignContent({
   if (ids.length === 0) redirect(stepUrl("demo", "pick"));
 
   const issue = await loadDemoIssueWithHighlights();
-  const items = slideItemsFor(issue.chunks, ids);
+  const items = slideItemsFor(issue.chunks, ids, await knownForPicks(issue.chunks, ids));
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">

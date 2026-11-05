@@ -58,6 +58,8 @@ const Z = {
   2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, gap: 18 },
   3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, gap: 12 },
 } as const;
+/** The @handle line on a card is this much smaller than the card's date line. */
+export const TAG_SHRINK = 6;
 /** With 3 or 4 picks on a slide each description is cut at this many characters (then "…"). */
 export const SHORT_BLURB = 75;
 export const oneLineLimit = (picksOnSlide: number) => (picksOnSlide >= 3 ? SHORT_BLURB : Infinity);
@@ -75,6 +77,7 @@ export function fits(item: SlideItem, n: number): boolean {
   if (titleLines > (n === 2 ? 2 : z.titleLines)) return false; // title would be cut or crowd the card
   if (z.blurbLines > 0 && item.blurb && lines(item.blurb, z.blurb, 0.52, width) > z.blurbLines + BLURB_EXTRA_LINES) return false;
   let h = 2 * z.pad + titleLines * z.title * 1.08;
+  if (item.tag) h += z.gap + (z.meta - TAG_SHRINK) * 1.25; // the @handle line (see Slide.tsx)
   const meta = [item.when, item.place].filter(Boolean).join(" · ");
   if (meta) h += z.gap + Math.min(2, lines(meta, z.meta, 0.55, width)) * z.meta * 1.25;
   if (z.blurbLines > 0 && item.blurb) h += z.gap + Math.min(z.blurbLines, lines(item.blurb, z.blurb, 0.52, width)) * z.blurb * 1.35;
@@ -122,6 +125,8 @@ export type PlanOptions = {
   moreInNewsletter?: number;
   /** A hand-built carousel; when set, picks per slide and packing come from it. */
   spec?: CustomSpec;
+  /** Keep each pick's Instagram tag on its card. On unless false: then the tags are dropped here, before packing. (A hand-built slide can also hide its own, see CustomSpec.hideTags.) */
+  showTags?: boolean;
 };
 
 /** Slides exactly as the user laid them out: picks (with their text edits) on the slides they chose, cover and closing from the spec. */
@@ -142,7 +147,10 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
     };
   };
   const placedSlides = spec.slides
-    .map((ids, i) => ({ g: ids.map(edited).filter((x): x is SlideItem => !!x).slice(0, 4), bg: spec.bgs?.[i] || undefined }))
+    .map((ids, i) => ({
+      g: ids.map(edited).filter((x): x is SlideItem => !!x).map((x) => (spec.hideTags?.[i] ? { ...x, tag: undefined } : x)).slice(0, 4),
+      bg: spec.bgs?.[i] || undefined,
+    }))
     .filter((x) => x.g.length > 0)
     .slice(0, MAX_IMAGES - 2);
   const groups = placedSlides.map((x) => x.g);
@@ -178,6 +186,7 @@ export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
     when: i.when ? tidy(i.when) : null,
     place: i.place ? tidy(i.place) : null,
     blurb: i.blurb ? tidy(i.blurb) : undefined,
+    tag: opts.showTags === false ? undefined : i.tag,
   }));
   if (opts.spec) return planCustom(items, opts.spec, opts);
   let k: number = opts.perSlide ?? picksPerSlide(items.length);

@@ -1,7 +1,7 @@
 import { stripEmoji } from "./slides/plan";
 
-/** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. */
-export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string };
+/** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
+export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null };
 export type CaptionOrder = "clicks" | "alpha" | "date";
 /** `bullet` starts every line of that ordering's caption; change them here. */
 export const CAPTION_ORDERS: { id: CaptionOrder; label: string; bullet: string; hint: string }[] = [
@@ -38,14 +38,18 @@ export function sortCaptionItems(items: CaptionItem[], order: CaptionOrder): Cap
   return [...items].sort(cmp);
 }
 
-function line(i: CaptionItem, order: CaptionOrder): string {
+/** Ends the line of a pick whose link is an Instagram account. An @mention is only a tag on Instagram, so no other network gets it. */
+export const fromTag = (tag: string | null | undefined, variant: CaptionVariant) => (variant === "instagram" && tag ? ` · From @${tag}` : "");
+
+function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): string {
   const title = cleanText(i.title);
   const place = i.place ? ` (${cleanText(i.place)})` : "";
+  const from = fromTag(i.tag, variant);
   const bullet = bulletFor(order);
   // By date: a pick without a date has no day to show, so it gets a plain bullet instead.
-  if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}` : `• ${title}${place}`;
+  if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}${from}` : `• ${title}${place}${from}`;
   const when = i.when ? cleanWhen(i.when) : "";
-  return `${bullet} ${title}${when ? ` — ${when}` : ""}${place}`;
+  return `${bullet} ${title}${when ? ` — ${when}` : ""}${place}${from}`;
 }
 
 export const isInstagram = (service: string) => service.toLowerCase().replace(/[^a-z]/g, "") === "instagram";
@@ -63,7 +67,7 @@ type CaptionOpts = { newsletter: string; /** Content from someone else's public 
 /** The caption, and the titles of the picks that didn't fit in it (in caption order). */
 function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; leftOut: string[] } {
   const sorted = sortCaptionItems(items, opts.order);
-  const all = sorted.map((i) => line(i, opts.order));
+  const all = sorted.map((i) => line(i, opts.order, opts.variant));
   const outro = opts.creditLink ? `Read the original post: ${opts.link}` : opts.variant === "link" ? `Read it here: ${opts.link}` : "Link in bio.";
   const head = `${opts.heading ?? "This week's picks"} from ${opts.newsletter}${opts.author ? ` by ${opts.author}` : ""} 🌼`;
   const foot = opts.creditLink ? outro : `Details on every pick are in the newsletter. ${outro}`;

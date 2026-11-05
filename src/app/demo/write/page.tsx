@@ -8,6 +8,7 @@ import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { WriteView } from "@/app/write/WriteView";
@@ -42,6 +43,7 @@ async function DemoWriteContent({
   const extra = templateParams(tpl).toString();
   const q = `picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;
   const issue = await loadDemoIssueWithHighlights();
+  const known = await knownForPicks(issue.chunks, ids);
 
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
@@ -66,6 +68,7 @@ async function DemoWriteContent({
           tpl.spec ? tpl.spec.slides.flat().filter((id) => ids.includes(id)) : ids,
           issue.publishedAt.slice(0, 10),
           tpl.spec?.edits,
+          known,
         )}
         newsletter={issue.newsletter}
         author={issue.author}

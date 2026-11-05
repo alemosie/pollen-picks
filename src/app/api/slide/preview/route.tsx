@@ -6,6 +6,7 @@ import { loadAppIssue } from "@/lib/sources";
 import { DEFAULT_COLORS } from "@/lib/brand";
 import { planSlides } from "@/lib/slides/plan";
 import { renderSlide } from "@/lib/slides/render";
+import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFrom } from "@/lib/slides/options";
 
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest) {
   if (q.has("sig") && !signedUid) return NextResponse.json({ error: "This slide link is invalid or has expired." }, { status: 403 });
   const issue = mode && !isDemo(mode) ? await loadAppIssue(mode, signedUid ?? undefined) : await loadDemoIssueWithHighlights();
   if (!issue) return NextResponse.json({ error: "Couldn't load this issue. Log in again from the Source step." }, { status: 401 });
-  const items = slideItemsFor(issue.chunks, (q.get("picks") ?? "").split(",").filter(Boolean).map(Number).filter(Number.isFinite));
+  const ids = (q.get("picks") ?? "").split(",").filter(Boolean).map(Number).filter(Number.isFinite);
+  const items = slideItemsFor(issue.chunks, ids, await knownForPicks(issue.chunks, ids));
   if (items.length === 0) return NextResponse.json({ error: "No picks" }, { status: 400 });
   const slides = planSlides(items, { newsletter: issue.newsletter, ...parseTemplateFrom(q) });
   const n = Number(q.get("n") ?? 0);

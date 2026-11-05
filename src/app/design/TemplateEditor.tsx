@@ -57,9 +57,7 @@ export function TemplateEditor({
       return null;
     }
   }, [stored, mode]);
-  const base: TemplateState = initial.spec
-    ? { custom: true, spec: initial.spec }
-    : (saved ?? { custom: false, spec: { slides: [[]] } });
+  const base: TemplateState = initial.spec ? { custom: true, spec: initial.spec } : (saved ?? { custom: false, spec: { slides: [[]] } });
   const [mine, setMine] = useState<TemplateState | null>(null);
   const { custom, spec } = mine ?? base;
   const update = (t: TemplateState) => {
