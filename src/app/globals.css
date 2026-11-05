@@ -161,6 +161,11 @@
   .pp-gust { display: none; }
 }
 
+/* PollenSpinner: the ring of grains turns once every 1.2s. Reduced motion keeps it still (the grains alone still read as "working"). */
+@keyframes pp-spin-grains { to { transform: rotate(360deg); } }
+.pp-pollen-spinner { transform-origin: 50% 50%; animation: pp-spin-grains 1.2s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .pp-pollen-spinner { animation: none; } }
+
 @keyframes pp-pop { from { opacity: 0; transform: translateY(10px) rotate(1deg) scale(0.96); } to { opacity: 1; transform: translateY(0) rotate(1deg) scale(1); } }
 .pp-pop { animation: pp-pop 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 @media (prefers-reduced-motion: reduce) { .pp-pop { animation: none; } }

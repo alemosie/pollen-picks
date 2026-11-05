@@ -168,7 +168,8 @@ export function ChannelPicker({
       <div className="flex flex-wrap gap-3" role="group" aria-label="Networks">
         {networks.map((svc) => {
           const group = byService.get(svc)!;
-          const on = group.some((c) => selected.has(c.id));
+          const ticked = group.filter((c) => selected.has(c.id)).length;
+          const on = ticked > 0;
           return (
             <button
               key={svc}
@@ -189,7 +190,8 @@ export function ChannelPicker({
             >
               <ChannelIcon service={svc} className="size-5 shrink-0" />
               {serviceLabel(svc)}
-              <span className="font-normal opacity-80">({group.length})</span>
+              {/* How many are ticked: "(5)" when all, otherwise "(1 of 5)", and "(0 of 5)" when none. */}
+              <span className="font-normal opacity-80">({ticked === group.length ? ticked : `${ticked} of ${group.length}`})</span>
             </button>
           );
         })}

@@ -5,6 +5,8 @@ import { X } from "lucide-react";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import { ChannelIcon } from "@/components/ChannelIcon";
+import { FeedbackPrompt } from "@/components/FeedbackPrompt";
+import { PollenSpinner } from "@/components/PollenSpinner";
 import { ChannelPicker, useChannelSelection, type Channel } from "@/components/ChannelPicker";
 import { DemoGate } from "@/components/DemoGate";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
@@ -19,26 +21,26 @@ import {
 import { imageLimit } from "@/lib/channels";
 import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
-import { clearProgress, loadFormat } from "@/lib/progress";
-import type { DraftResult } from "@/app/api/draft/route";
-import type { PostStatusResult } from "@/app/api/post-status/route";
+import { clearResume, clearSendBatches, loadFormat, loadSendBatches, saveSendBatches } from "@/lib/progress";
+import type { HistoryEntry } from "@/lib/postHistory";
 import type { PostIntent } from "@/lib/bufferPost";
 import { SlideCarousel } from "./SlideCarousel";
 
-type Progress = "queued" | "sending" | DraftResult;
-
-/** Drafts are created one channel per request, this many at a time: no single long request, and live progress. */
-const CONCURRENCY = 3;
-
-/** After "Send now", how often to ask Buffer whether each post is live, and how long to keep asking. */
-// Buffer limits requests per app (shared by everyone using it), so ask less and less often. One request covers every waiting post.
-const POLL_BACKOFF_MS = [3000, 4000, 6000, 8000, 10_000, 12_000, 15_000];
-const POLL_WINDOW_MS = 90_000;
-/** Buffer's post statuses that won't change again. */
-const FINAL_STATUS = new Set(["sent", "error", "needs_approval"]);
+/**
+ * Sending does not happen in this page. "Send" queues one row per channel on the server (post_history), and the server's send queue creates the
+ * posts, so closing this tab or leaving the page changes nothing. This page only watches: it asks how the batch is doing every few seconds and
+ * shows what comes back. Each answer also moves the queue along a little, so an open tab makes a send quick.
+ */
+/** How often to ask while posts are waiting or being created, and (backing off) while Buffer publishes them. One request covers a whole send. */
+const WATCH_MS = [2500, 3000, 4000, 5000, 6000];
+const PUBLISH_BACKOFF_MS = [3000, 4000, 6000, 8000, 10_000, 12_000, 15_000];
+/** After everything has been created, how long to keep asking Buffer whether each publish-now post is live. */
+const PUBLISH_WINDOW_MS = 90_000;
+/** Stop watching after this long. The server keeps sending; History shows the rest. */
+const WATCH_LIMIT_MS = 20 * 60_000;
+const isOpen = (e: HistoryEntry) => e.status === "queued" || e.status === "working";
 
 const ghostButton = "rounded-xl px-4 py-2.5 font-bold ring-1 ring-ink/30 hover:bg-ink/10";
-const spinner = "inline-block size-3 shrink-0 animate-spin rounded-full border-2 border-ink/25 border-t-ink";
 
 type RowView = {
   text: string;
@@ -48,6 +50,12 @@ type RowView = {
   note?: string;
   bufferId?: string;
   liveUrl?: string | null;
+  /** No link to one post (it was never created, or may not have been): point to Buffer itself. */
+  openBuffer?: boolean;
+  /** Failed: nothing exists in Buffer, so the way forward is Retry in History. */
+  openHistory?: boolean;
+  /** The History entry this row is, so the link can open History at that row. */
+  entryId?: number;
 };
 
 /** The last step's action is coral, to set it apart from the honey Continue buttons. */
@@ -104,23 +112,27 @@ export function SendConfirm({
 }) {
   // What was written on the Write step, read from this browser once mounted.
   const [choice, setChoice] = useState<Choice | "missing" | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [progress, setProgress] = useState<Record<string, Progress>>({});
+  // Each press of Send is a batch on the server. Retries add another; what a channel shows is its latest entry across them.
+  const [batches, setBatches] = useState<string[]>([]);
+  const [byBatch, setByBatch] = useState<Record<string, HistoryEntry[]>>({});
+  const [starting, setStarting] = useState(false);
+  // True once the server has answered for the current batches (so a restored send can say "Checking…" until then).
+  const [checked, setChecked] = useState(false);
   // What the current run is doing. Retries repeat it, so a failed "Send now" never turns into drafts or the other way round.
   const [intent, setIntent] = useState<PostIntent | null>(null);
   // Channels waiting for "Publish now" in the modal: nothing has been sent for them yet.
   const [armed, setArmed] = useState<string[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  // Where each sent post stands in Buffer (by post id), polled while the modal is open.
-  const [live, setLive] = useState<Record<string, PostStatusResult>>({});
   const [pollStopped, setPollStopped] = useState(false);
   const [pollGen, setPollGen] = useState(0);
+  // True while the batches on screen were restored from an earlier visit (not started in this one). Only those are checked for "already finished".
+  const [restored, setRestored] = useState(false);
+  // How many posts of an earlier, finished send failed or are unknown. Shown as a nudge to History.
+  const [earlierProblems, setEarlierProblems] = useState(0);
   const runningRef = useRef(false);
-  const liveRef = useRef(live);
-  useEffect(() => {
-    liveRef.current = live;
-  }, [live]);
+  const batchesRef = useRef<string[]>([]);
+  const byBatchRef = useRef<Record<string, HistoryEntry[]>>({});
   // The folder on this page: where it goes, or one last look.
   const [view, setView] = useState<"channels" | "preview">("channels");
   const { selected, setSelected, ready: selectionReady } = useChannelSelection(channels, Boolean(demo));
@@ -139,14 +151,64 @@ export function SendConfirm({
     return () => clearTimeout(t);
   }, [sig]);
 
-  const results = Object.values(progress);
-  const allSent =
-    !busy &&
-    results.length > 0 &&
-    results.every((v) => typeof v === "object" && v.ok);
-  // A fully successful send finishes the flow: forget the saved progress.
+  // Coming back to this page (or reloading it) while a send is still running: pick it up again, so it isn't sent twice. If it turns out to have finished already, the
+  // effect below drops it and opens a fresh form (History is the record; if something failed, a note points there).
   useEffect(() => {
-    if (allSent) clearProgress();
+    if (demo) return;
+    const t = setTimeout(() => {
+      const saved = loadSendBatches(sig);
+      if (saved && saved.batchIds.length > 0) {
+        batchesRef.current = saved.batchIds;
+        setBatches(saved.batchIds);
+        setIntent(saved.intent);
+        setRestored(true);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [sig, demo]);
+
+  useEffect(() => {
+    if (!restored || !checked || starting) return;
+    const rows = Object.values(byBatch).flat();
+    if (rows.length === 0) return;
+    const newest = new Map<string, HistoryEntry>();
+    for (const e of rows) {
+      const k = e.channelId ?? String(e.id);
+      const cur = newest.get(k);
+      if (!cur || e.id > cur.id) newest.set(k, e);
+    }
+    const entries = [...newest.values()];
+    // Still going: keep showing it. (A publish-now post Buffer is still sending counts: sending it again could duplicate it.)
+    if (entries.some((e) => isOpen(e) || (e.mode === "now" && e.status === "sending"))) return;
+    const problems = entries.filter((e) => e.status === "failed" || e.status === "unknown").length;
+    const t = setTimeout(() => {
+      batchesRef.current = [];
+      byBatchRef.current = {};
+      setBatches([]);
+      setByBatch({});
+      setChecked(false);
+      setIntent(null);
+      setPollStopped(false);
+      setRestored(false);
+      setEarlierProblems(problems);
+      clearSendBatches();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [restored, checked, starting, byBatch]);
+
+  // What each channel shows: its latest entry (the newest batch wins).
+  const latest = new Map<string, HistoryEntry>();
+  for (const e of Object.values(byBatch).flat()) {
+    if (!e.channelId) continue;
+    const cur = latest.get(e.channelId);
+    if (!cur || e.id > cur.id) latest.set(e.channelId, e);
+  }
+  const current = [...latest.values()];
+  const busy = starting || current.some(isOpen);
+  const allSent = !busy && current.length > 0 && current.every((e) => e.postId);
+  // A fully successful send finishes the flow: forget the resume point, but not the caption, so coming back to /send still works.
+  useEffect(() => {
+    if (allSent) clearResume();
   }, [allSent]);
 
   // The posts modal: opens the moment either button is pressed, and can be closed without stopping anything.
@@ -158,38 +220,56 @@ export function SendConfirm({
     if (!modalOpen && d.open) d.close();
   }, [modalOpen]);
 
-  // After a "Send now", ask Buffer where each post stands until it is live (or failed), for a while.
-  const nowIds =
-    intent === "now"
-      ? Object.values(progress).flatMap((v) => (typeof v === "object" && v.ok && v.postId ? [v.postId] : []))
-      : [];
-  const nowKey = nowIds.join(",");
+  // Watch the batches: ask the server how each is doing until nothing is waiting, being created, or (for publish-now) still publishing.
+  const batchKey = batches.join(",");
   useEffect(() => {
-    if (!modalOpen || !nowKey) return;
-    const ids = nowKey.split(",");
+    if (!batchKey) return;
+    const ids = batchKey.split(",");
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const started = Date.now();
+    let quietSince: number | null = null;
     let step = 0;
     const tick = async () => {
-      const waiting = ids.filter((id) => {
-        const l = liveRef.current[id];
-        return !l || "error" in l || !FINAL_STATUS.has(l.status);
+      // Skip a batch that is settled: nothing waiting and nothing still publishing.
+      const live = ids.filter((id) => {
+        const rows = byBatchRef.current[id];
+        return !rows || rows.some((e) => isOpen(e) || (e.mode === "now" && e.status === "sending"));
       });
-      if (waiting.length === 0 || cancelled) return;
-      try {
-        const res = await fetch(`/api/post-status?ids=${encodeURIComponent(waiting.join(","))}`, { cache: "no-store" });
-        const j = (await res.json().catch(() => ({}))) as { results?: PostStatusResult[] };
-        if (!cancelled && j.results) setLive((m) => ({ ...m, ...Object.fromEntries(j.results!.map((r) => [r.id, r])) }));
-      } catch {
-        /* try again on the next tick */
+      for (const id of live) {
+        try {
+          const res = await fetch(`/api/history/refresh?batch=${encodeURIComponent(id)}`, { method: "POST", cache: "no-store" });
+          if (cancelled) return;
+          if (res.status === 401) {
+            setError("Your Buffer session expired. Reload this page to reconnect. Anything already queued is still being sent.");
+            return;
+          }
+          const j = (await res.json().catch(() => ({}))) as { history?: HistoryEntry[] };
+          if (j.history) {
+            byBatchRef.current = { ...byBatchRef.current, [id]: j.history };
+            setByBatch(byBatchRef.current);
+            setChecked(true);
+          }
+        } catch {
+          /* try again on the next tick */
+        }
       }
       if (cancelled) return;
-      if (Date.now() - started > POLL_WINDOW_MS) {
-        setPollStopped(true);
-        return;
+      const rows = ids.flatMap((id) => byBatchRef.current[id] ?? []);
+      const waiting = rows.some(isOpen) || live.length > 0 && rows.length === 0;
+      const publishing = rows.some((e) => e.mode === "now" && e.status === "sending");
+      if (Date.now() - started > WATCH_LIMIT_MS) return;
+      if (waiting) {
+        quietSince = null;
+        timer = setTimeout(tick, WATCH_MS[Math.min(step++, WATCH_MS.length - 1)]);
+      } else if (publishing) {
+        quietSince ??= Date.now();
+        if (Date.now() - quietSince > PUBLISH_WINDOW_MS) {
+          setPollStopped(true);
+          return;
+        }
+        timer = setTimeout(tick, PUBLISH_BACKOFF_MS[Math.min(step++, PUBLISH_BACKOFF_MS.length - 1)]);
       }
-      timer = setTimeout(tick, POLL_BACKOFF_MS[Math.min(step++, POLL_BACKOFF_MS.length - 1)]);
     };
     timer = setTimeout(() => {
       setPollStopped(false);
@@ -199,9 +279,14 @@ export function SendConfirm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [modalOpen, nowKey, pollGen]);
+  }, [batchKey, pollGen]);
 
-  if (choice === null || !selectionReady) return <p className="mt-10 font-semibold">Loading…</p>;
+  if (choice === null || !selectionReady)
+    return (
+      <p className="mt-10 flex items-center gap-3 font-semibold">
+        <PollenSpinner className="size-6" /> Loading…
+      </p>
+    );
 
   const header = (
     <div className="mb-8">
@@ -275,114 +360,65 @@ export function SendConfirm({
     chosen.some((c) => variantFor(c.service) === v.id),
   );
 
-  const entries = Object.entries(progress);
-  const done = entries.filter(([, v]) => typeof v === "object");
-  const okCount = done.filter(([, v]) => (v as DraftResult).ok).length;
+  const done = current.filter((e) => !isOpen(e));
+  const okCount = done.filter((e) => e.postId).length;
+  const entryFor = (id: string) => latest.get(id);
   const failed = done
-    .filter(([, v]) => !(v as DraftResult).ok)
-    .map(([id]) => byId.get(id)!)
-    .filter(Boolean);
-
-  const resultOf = (id: string) => {
-    const v = progress[id];
-    return typeof v === "object" ? v : null;
-  };
+    .filter((e) => e.status === "failed" || e.status === "unknown")
+    .map((e) => byId.get(e.channelId ?? ""))
+    .filter((c): c is Channel => Boolean(c));
   // A publish that died mid-request may have gone out, so it is never offered for retry: check Buffer first.
-  const retryable = failed.filter((c) => !resultOf(c.id)?.unknown);
+  const retryable = failed.filter((c) => entryFor(c.id)?.status === "failed");
   const unknownCount = failed.length - retryable.length;
   const mode: PostIntent = intent ?? "draft";
+  const started = batches.length > 0 || starting;
+  // Posts Buffer hasn't finished publishing. We keep asking for a while after the last one is created, then stop and point to Buffer.
+  const stillPublishing = mode === "now" && !busy && current.some((e) => e.status === "sending");
+  // Everything was created (and, for publish-now, nothing was refused): the only time the window asks for feedback. Otherwise History's button does the job.
+  const cleanSuccess = allSent && !stillPublishing && !current.some((e) => e.status === "error" || e.status === "needs_approval");
+  const fakeAny = current.some((e) => e.postId?.startsWith("fake-"));
 
   // When every failure has the same reason (e.g. images unreachable), say it once instead of on every row.
-  const reasons = new Set(
-    done
-      .filter(([, v]) => !(v as DraftResult).ok)
-      .map(([, v]) => (v as DraftResult).error),
-  );
-  const sharedReason =
-    failed.length > 1 && reasons.size === 1 ? [...reasons][0] : undefined;
+  const reasons = new Set(failed.map((c) => entryFor(c.id)?.error ?? ""));
+  const sharedReason = failed.length > 1 && reasons.size === 1 ? [...reasons][0] || undefined : undefined;
 
+  /** Queues the send on the server and starts watching. Nothing is created in this request: the server's send queue does it. */
   async function send(targets: Channel[], how: PostIntent) {
-    if (demo || runningRef.current) return; // the demo never sends; and one run at a time, so a double click can't post twice
+    if (demo || runningRef.current) return; // the demo never sends; and one press at a time, so a double click can't queue twice
     runningRef.current = true;
     setIntent(how);
     setArmed(null);
     setModalOpen(true);
-    setBusy(true);
+    setStarting(true);
     setError("");
-    setProgress((p) => ({
-      ...p,
-      ...Object.fromEntries(targets.map((c) => [c.id, "queued" as Progress])),
-    }));
-    const queue = [...targets];
-    let expired = false;
-    const set = (id: string, v: Progress) =>
-      setProgress((p) => ({ ...p, [id]: v }));
-
-    const worker = async () => {
-      while (queue.length && !expired) {
-        const c = queue.shift()!;
-        set(c.id, "sending");
-        try {
-          const res = await fetch("/api/draft", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              source,
-              channels: [{ id: c.id, service: c.service }],
-              picks,
-              captions: { [c.id]: captionFor(variantFor(c.service)) },
-              template,
-              intent: how,
-              // Only the "Publish now" click inside the modal gets here with how === "now".
-              confirmed: how === "now",
-            }),
-          });
-          if (res.status === 401) {
-            expired = true;
-            set(c.id, {
-              channelId: c.id,
-              ok: false,
-              error: "Not sent: your Buffer session expired.",
-            });
-            continue;
-          }
-          const j = (await res.json().catch(() => ({}))) as {
-            error?: string;
-            results?: DraftResult[];
-          };
-          set(
-            c.id,
-            j.results?.[0] ?? {
-              channelId: c.id,
-              ok: false,
-              error: j.error ?? `HTTP ${res.status}`,
-            },
-          );
-        } catch (e) {
-          set(c.id, {
-            channelId: c.id,
-            ok: false,
-            error: e instanceof Error ? e.message : String(e),
-          });
-        }
+    try {
+      const res = await fetch("/api/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source,
+          channels: targets.map((c) => ({ id: c.id, service: c.service, name: c.name })),
+          picks,
+          captions: Object.fromEntries(targets.map((c) => [c.id, captionFor(variantFor(c.service))])),
+          template,
+          intent: how,
+          // Only the "Publish now" click inside the modal gets here with how === "now".
+          confirmed: how === "now",
+        }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; batchId?: string };
+      if (res.status === 401) setError("Your Buffer session expired. Reload this page to reconnect, then send again. Nothing was sent.");
+      else if (!res.ok || !j.batchId) setError(j.error ?? `Couldn't start the send (HTTP ${res.status}). Nothing was sent.`);
+      else {
+        const next = [...batchesRef.current, j.batchId];
+        batchesRef.current = next;
+        setBatches(next);
+        saveSendBatches(sig, { batchIds: next, intent: how });
       }
-    };
-    await Promise.all(
-      Array.from({ length: Math.min(CONCURRENCY, targets.length) }, worker),
-    );
-
-    if (expired) {
-      for (const c of queue)
-        set(c.id, {
-          channelId: c.id,
-          ok: false,
-          error: "Not sent: your Buffer session expired.",
-        });
-      setError(
-        "Your Buffer session expired. Reload this page to reconnect, then retry the failed channels.",
-      );
+    } catch {
+      setError("Couldn't reach Pollen Picks. Nothing was sent. Check your connection and try again.");
     }
-    setBusy(false);
+    setStarting(false);
     runningRef.current = false;
   }
 
@@ -394,20 +430,33 @@ export function SendConfirm({
     setModalOpen(true);
   }
 
-  const started = entries.length > 0;
-  // With a single draft, the finish button can open that draft directly.
-  const only = entries.length === 1 ? entries[0][1] : null;
-  const onlyPost =
-    only && typeof only === "object" && only.ok ? only.postId : undefined;
-  const onlyFake = Boolean(only && typeof only === "object" && only.fake);
+  /** Forget the finished send, so the channels can be chosen again. */
+  function startNewSend() {
+    batchesRef.current = [];
+    byBatchRef.current = {};
+    setBatches([]);
+    setByBatch({});
+    setChecked(false);
+    setIntent(null);
+    setPollStopped(false);
+    setRestored(false);
+    setEarlierProblems(0);
+    setError("");
+    clearSendBatches();
+  }
+
+  // With a single post, the finish button can open it directly.
+  const only = current.length === 1 ? current[0] : null;
+  const onlyPost = only?.postId && !only.postId.startsWith("fake-") ? only.postId : undefined;
+  const onlyFake = Boolean(only?.postId?.startsWith("fake-"));
   const status = busy
     ? mode === "now"
-      ? `Sending… ${done.length} of ${entries.length}`
-      : `Creating drafts… ${done.length} of ${entries.length}`
+      ? `Sending… ${done.length} of ${Math.max(current.length, chosen.length)}`
+      : `Creating drafts… ${done.length} of ${Math.max(current.length, chosen.length)}`
     : started
       ? mode === "now"
-        ? `${okCount} of ${entries.length} sent to Buffer`
-        : `${okCount} of ${entries.length} ${entries.length === 1 ? "draft" : "drafts"} created`
+        ? `${okCount} of ${current.length} sent to Buffer`
+        : `${okCount} of ${current.length} ${current.length === 1 ? "draft" : "drafts"} created`
       : demo
         ? ""
         : n === 0
@@ -437,38 +486,42 @@ export function SendConfirm({
       : "Nothing is published. Open each draft in Buffer to review, edit and schedule it.";
   const rowView = (c: Channel): RowView => {
     if (armed?.includes(c.id) && !busy) return { text: "Ready to publish" };
-    const v = progress[c.id];
-    const r = typeof v === "object" ? v : null;
-    if (!r) {
-      if (v === "sending") return { text: "Sending…", busy: true };
-      if (v === "queued") return { text: "Waiting…", busy: true };
-      return { text: "Not sent" };
-    }
-    if (!r.ok) {
-      return r.unknown
-        ? { text: "Unknown, check Buffer", tone: "warn", detail: r.error }
-        : { text: "Failed", tone: "bad", detail: r.error };
-    }
-    const base = { note: r.note, bufferId: r.fake ? undefined : r.postId };
-    if (mode !== "now") return { ...base, text: r.fake ? "Fake draft (not sent)" : "Draft created" };
-    const l = r.postId ? live[r.postId] : undefined;
-    if (l && !("error" in l)) {
-      if (l.status === "sent") return { ...base, text: l.externalLink ? "Live" : "Published", liveUrl: l.externalLink };
-      if (l.status === "error")
-        return { ...base, text: "Buffer couldn't publish this", tone: "bad", detail: "Open it in Buffer to see why and try again there." };
-      if (l.status === "needs_approval") return { ...base, text: "Needs approval in Buffer", tone: "warn" };
-    }
-    return {
-      ...base,
-      text: "Sent to Buffer",
-      detail: pollStopped ? "Still publishing. Refresh to check again." : "Publishing…",
-      busy: !pollStopped,
-    };
+    const e = entryFor(c.id);
+    if (!e) return started && (starting || !checked) ? { text: "Waiting…", busy: true } : { text: "Not sent" };
+    if (e.status === "queued") return { text: "Waiting…", busy: true, detail: "Waiting for its turn." };
+    if (e.status === "working") return { text: "Sending…", busy: true };
+    if (e.status === "failed") return { text: "Failed", tone: "bad", detail: e.error ?? undefined, openHistory: true, entryId: e.id };
+    if (e.status === "unknown") return { text: "Unknown, check Buffer", tone: "warn", detail: e.error ?? undefined, openBuffer: true };
+    const fake = Boolean(e.postId?.startsWith("fake-"));
+    const note = e.slides && e.slides < urls.length ? `Only the first ${e.slides} of ${urls.length} slides fit on ${c.service}.` : undefined;
+    const base = { note, bufferId: fake ? undefined : (e.postId ?? undefined) };
+    if (e.mode !== "now") return { ...base, text: fake ? "Fake draft (not sent)" : "Draft created" };
+    if (e.status === "sent") return { ...base, text: e.liveUrl ? "Live" : "Published", liveUrl: e.liveUrl };
+    if (e.status === "error")
+      return { ...base, text: "Buffer couldn't publish this", tone: "bad", detail: "Open it in Buffer to see why and try again there.", openBuffer: true };
+    if (e.status === "needs_approval") return { ...base, text: "Needs approval in Buffer", tone: "warn" };
+    return pollStopped
+      ? { ...base, text: "Still publishing at Buffer", tone: "warn", detail: "This is taking longer than usual. Open it in Buffer for the latest status." }
+      : { ...base, text: "Sent to Buffer", detail: "Publishing…", busy: true };
   };
 
   return (
     <>
       {header}
+      {earlierProblems > 0 && !busy && (
+        <p role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface p-3 text-sm font-semibold ring-2 ring-honey">
+          <span>
+            {earlierProblems === 1 ? "1 post from your last send didn\u2019t go through." : `${earlierProblems} posts from your last send didn\u2019t go through.`} Check{" "}
+            <a href="/history" className="font-bold underline underline-offset-4">
+              History
+            </a>{" "}
+            to retry {earlierProblems === 1 ? "it" : "them"}.
+          </span>
+          <button type="button" onClick={() => setEarlierProblems(0)} className="font-bold underline underline-offset-4">
+            Dismiss
+          </button>
+        </p>
+      )}
       {(sharedReason || error) && (
         <div className="mb-4 grid gap-3">
           {sharedReason && (
@@ -576,25 +629,45 @@ export function SendConfirm({
             </button>
           </div>
           <p className="m-0 px-7 pb-4 text-sm">{modalIntro}</p>
-          {results.some((v) => typeof v === "object" && v.fake) && (
+          {fakeAny && !(started && !ready && (busy || stillPublishing)) && (
             <p role="status" className="mx-7 mb-4 rounded-xl bg-surface p-3 text-sm font-semibold ring-2 ring-honey">
               Fake mode: nothing was sent to Buffer.
             </p>
           )}
-          {unknownCount > 0 && (
-            <p role="alert" className="mx-7 mb-4 rounded-xl bg-surface p-3 text-sm font-semibold ring-2 ring-coral">
-              {plural(unknownCount, "post")} may or may not have gone out. Check Buffer before sending again, so nothing is
-              posted twice.
+          {started && !ready && (busy || stillPublishing) && (
+            <p role="status" className={`mx-7 mb-4 rounded-xl bg-surface p-3 text-sm ${pollStopped || current.some((e) => e.heldUp) ? "font-semibold ring-2 ring-honey" : ""}`}>
+              {pollStopped ? (
+                <>
+                  Buffer is taking longer than usual to publish. Your posts were sent to Buffer, so they&rsquo;re not lost: check their status in{" "}
+                  <a href="https://publish.buffer.com" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">
+                    Buffer
+                  </a>
+                  . They&rsquo;re also listed in{" "}
+                  <a href="/history" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">
+                    History
+                  </a>
+                  .
+                </>
+              ) : current.some((e) => e.heldUp) ? (
+                <>
+                  <span className="font-bold">Buffer is asking us to slow down a little.</span> Your posts are safe and will go out as it catches up.{" "}
+                  <a href="/history" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">
+                    Go to History
+                  </a>{" "}
+                  to check on them. You can close this window &mdash; they&rsquo;ll keep sending when you open History.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">This can take a while.</span> Everything is saved in{" "}
+                  <a href="/history" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">
+                    History
+                  </a>
+                  , so you can close this window or leave the page. Your posts keep sending!
+                </>
+              )}
             </p>
           )}
-          {started && !busy && !ready && (
-            <p className="m-0 px-7 pb-4 text-sm">
-              How did it go?{" "}
-              <a href="/feedback" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">
-                Leave feedback
-              </a>
-            </p>
-          )}
+          {started && !ready && cleanSuccess && <FeedbackPrompt className="mx-7 mb-4" />}
           <div className="min-h-0 overflow-y-auto px-7 pb-2">
             <table className="w-full border-collapse text-left text-sm">
               <caption className="sr-only">{mode === "now" ? "Posts by channel" : "Drafts by channel"}</caption>
@@ -634,7 +707,7 @@ export function SendConfirm({
                         <span
                           className={`flex items-center gap-2 ${v.tone === "bad" ? "font-semibold text-coral" : v.tone === "warn" ? "font-semibold" : ""}`}
                         >
-                          {v.busy && <span aria-hidden className={spinner} />}
+                          {v.busy && <PollenSpinner className="size-4" />}
                           {v.text}
                         </span>
                         {v.detail && <span className="block text-xs">{v.detail}</span>}
@@ -650,6 +723,16 @@ export function SendConfirm({
                               className="whitespace-nowrap font-bold underline underline-offset-4"
                             >
                               {mode === "now" ? "In Buffer" : "Open in Buffer"}
+                            </a>
+                          )}
+                          {v.openHistory && (
+                            <a href={v.entryId ? `/history#entry-${v.entryId}` : "/history"} target="_blank" rel="noreferrer" className="whitespace-nowrap font-bold underline underline-offset-4">
+                              Go to History
+                            </a>
+                          )}
+                          {!v.bufferId && v.openBuffer && (
+                            <a href="https://publish.buffer.com" target="_blank" rel="noreferrer" className="whitespace-nowrap font-bold underline underline-offset-4">
+                              Open Buffer
                             </a>
                           )}
                           {v.liveUrl && (
@@ -695,7 +778,7 @@ export function SendConfirm({
                 <button type="button" onClick={() => runRef.current?.close()} className={ghostButton}>
                   Close
                 </button>
-                {!busy && mode === "now" && pollStopped && nowIds.length > 0 && (
+                {!busy && mode === "now" && pollStopped && stillPublishing && (
                   <button type="button" onClick={() => setPollGen((g) => g + 1)} className={ghostButton}>
                     Refresh
                   </button>
@@ -709,12 +792,20 @@ export function SendConfirm({
                     Retry {retryable.length} failed
                   </button>
                 )}
+                {started && (
+                  <a
+                    href="/history"
+                    className="rounded-xl bg-honey px-5 py-2.5 font-bold text-ink-deep hover:brightness-95"
+                  >
+                    Go to History
+                  </a>
+                )}
                 {!busy && started && (allSent || retryable.length === 0) && (
                   <a
                     href="https://publish.buffer.com"
                     target="_blank"
                     rel="noreferrer"
-                    className="rounded-xl bg-honey px-5 py-2.5 font-bold text-ink-deep hover:brightness-95"
+                    className="rounded-xl bg-coral px-5 py-2.5 font-bold text-ink-deep hover:brightness-95"
                   >
                     Open Buffer
                   </a>
@@ -726,13 +817,17 @@ export function SendConfirm({
       </dialog>
 
       <FlowBar
-        back={busy ? undefined : { href: backHref, label: "Write" }}
+        back={{ href: backHref, label: "Write" }}
         status={
           started && !busy ? (
             <>
               {status} ·{" "}
               <button type="button" onClick={() => setModalOpen(true)} className="font-bold underline underline-offset-4">
                 {mode === "now" ? "View posts" : "View drafts"}
+              </button>
+              {" · "}
+              <button type="button" onClick={startNewSend} className="font-bold underline underline-offset-4">
+                Start a new send
               </button>
             </>
           ) : (

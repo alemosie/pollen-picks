@@ -97,9 +97,36 @@ export const saveTemplate = (s: TemplateState) => {
   notifySaved();
 };
 
-/** Forget everything: after a finished send, or "Start over". */
+/**
+ * After a finished send: forget where the user "left off" (so there is no resume prompt), but keep what Write saved and the
+ * picks and layout. Going back to /send (browser back, a bookmark, the Send step in the header) then still finds its caption
+ * instead of asking for Write again.
+ */
+export function clearResume() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
+}
+
+// A send runs on the server, so this page can be closed or left while it goes on. The batch ids are kept so that coming back to /send for the same
+// picks shows how it went (and doesn't offer to send it all again). Forgotten after two hours, by "Start a new send", or when a new flow is started from Source.
+const SEND = "pollen-picks:send";
+type SavedSend = { sig: string; batchIds: string[]; intent: "draft" | "now"; savedAt: number };
+export function loadSendBatches(sig: string): { batchIds: string[]; intent: "draft" | "now" } | null {
+  const v = read<SavedSend>(SEND);
+  if (!v || v.sig !== sig || !Array.isArray(v.batchIds) || Date.now() - v.savedAt > 2 * 60 * 60 * 1000) return null;
+  return { batchIds: v.batchIds.filter((b) => typeof b === "string"), intent: v.intent === "now" ? "now" : "draft" };
+}
+export const saveSendBatches = (sig: string, v: { batchIds: string[]; intent: "draft" | "now" }) => write(SEND, { sig, ...v, savedAt: Date.now() } satisfies SavedSend);
+export function clearSendBatches() {
+  try {
+    localStorage.removeItem(SEND);
+  } catch {}
+}
+
+/** Forget everything: "Start over". */
 export function clearProgress() {
   try {
-    for (const k of [KEY, PICKED, FORMAT, TEMPLATE]) localStorage.removeItem(k);
+    for (const k of [KEY, PICKED, FORMAT, TEMPLATE, SEND]) localStorage.removeItem(k);
   } catch {}
 }
