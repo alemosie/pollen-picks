@@ -1,5 +1,27 @@
 # TODO
 
+## 5 Nov: History + server-side send queue (typecheck + lint pass; not yet run in a browser)
+- [x] Sends are queued in `post_history` (migrations 0015, 0016) and processed server-side: after the request (`after()`), by the open page's polling, and by opening History (no cron: Netlify's free plan has a hard credit cap, so nothing runs in the background).
+- [x] 429s are retried with backoff (20s to 5m, 6 attempts); a dropped publish-now becomes `unknown` and is never retried (no double posts).
+- [x] History page (`/history`) shows queued/sending/failed entries and polls while any are open. Filters for network, channel, status and draft/now (URL params, server-side; indexes in 0017).
+- [x] Migrations 0015, 0016 and 0017 applied to PROD on 5 Nov (checked: 23 columns, 7 indexes, RLS on, claim function present).
+- [ ] Try it in a browser: big send (5+ channels), close the tab mid-send, rate-limit retry, filters.
+
+## 5 Nov: fixes from the live test (code written, typecheck + lint pass; not yet run in a browser)
+
+Migrations: `0014_sent_posts.sql` is applied to both Supabase projects. `0015_post_history.sql` (renames the table to `post_history`, keeps failed attempts too) is applied to DEV only: apply it to the prod project before deploying.
+
+- [ ] Double loading animation Pick > Design: `FlowLoader` is now a client component that sets every instance to the same point of its loop (from the clock), and the "instant" one no longer fades in again. Check Pick > Design in the browser with a slow connection.
+- [ ] Organization name: the Name field in Settings is now filled in with beehiiv's organization (typing the same name saves nothing, so slides keep following beehiiv; clearing the field goes back to it). Old beehiiv connections without an organization are refreshed once (`withOrganization`). An organization equal to the publication name is kept now. Check with the Amsterdam Parent Project key.
+- [x] TT Hoves: not added. It is a licensed font, so its files can't go in the repo. Removed again on 5 Nov.
+- [ ] /send after a finished send showed "Write your caption first": a successful send wiped the saved caption (`clearProgress`). It now only clears the resume point (`clearResume`). Check: send, then browser Back / the Send step in the header.
+- [ ] Channel pills show how many are ticked: "(0 of 2)", "(1 of 2)", "(2)".
+- [ ] Branded pollen loading circle: `src/components/PollenSpinner.tsx` (used in the send modal and the Loading state). Could also replace the "Saving..." texts in Settings.
+- [ ] History page (`/history`, linked in the header next to Settings): new table `post_history` (no captions or images; failed attempts are kept too, with Buffer's short error), written by `/api/draft`, listed with Buffer link + live link, refreshed through `/api/sent-posts/refresh`. Only posts sent from now on appear (earlier ones, like the test LinkedIn post, aren't in it). Privacy page updated.
+- [ ] Slow LinkedIn publish. Findings from the code: our `createPost` returns a post id within seconds (the modal shows "Sent to Buffer" right away), so the wait is on Buffer's side, where the post stays in "Sending...". Buffer has to download the slide images from `/api/slide/preview`, which draws each slide on demand (a cold first request is slow) and goes through the beehiiv and database lookups. Not confirmed: I couldn't see Buffer's logs. Change made: `/api/draft` now fetches the slide images itself before creating the post (warms the CDN cache, and stops with a clear error if a slide can't be drawn, instead of a half-published post). Still to check: whether LinkedIn is slower than Instagram for the same post (try a draft and a Now to both), and ask Buffer support about posts stuck in "Sending..." with image uploads.
+- [ ] Timeout: after 90 s of polling the modal now says Buffer is taking longer than usual and links to Buffer and to History. While polling, it says the window can be closed.
+- [ ] Open question: use History as the main place for publish status (instead of the modal)? The modal still shows live progress; the history is the place to come back to.
+
 ## !! TOP PRIORITY: must work before the first Instagram post (Sat 7 Nov)
 
 - [ ] After the next deploy, run the whole demo on the LIVE site in a fresh private window (source, pick, design, write, send, Finish demo, feedback).
