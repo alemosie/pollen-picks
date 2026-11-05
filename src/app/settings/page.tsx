@@ -1,4 +1,4 @@
-import { ArrowLeft, Newspaper, Palette, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, LayoutTemplate, Newspaper, Palette, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -13,14 +13,22 @@ import { StepWord } from "@/components/StepWord";
 import { requireSession } from "@/lib/auth";
 import { getApifyConnection, getBeehiivConnection } from "@/lib/connections";
 import { lookupAllowance } from "@/lib/instagramHandles";
+import { PaletteSync } from "@/components/PaletteSync";
+import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
+import { settingsPreviews } from "@/lib/slides/settingsPreview";
+import { DEFAULT_STYLE } from "@/lib/slides/style";
+import { OrganizationEditor } from "./OrganizationEditor";
 import { PaletteEditor } from "./PaletteEditor";
+import { SlideStyleEditor } from "./SlideStyleEditor";
 
 export const metadata = { title: "Settings · Pollen Picks" };
 
 /** The sections, in the order the navigator lists them. The first is the default; `?section=` picks another, so each is linkable. */
 const SECTIONS: { id: string; label: string; hint: string; icon?: LucideIcon }[] = [
   { id: "newsletter", label: "Newsletter", hint: "Connect beehiiv", icon: Newspaper },
+  { id: "organization", label: "Organization", hint: "Name and logo", icon: Building2 },
   { id: "instagram", label: "Instagram tagging", hint: "Account lookups" },
+  { id: "style", label: "Slide style", hint: "Header, footer and font", icon: LayoutTemplate },
   { id: "colors", label: "Slide colors", hint: "Your palette", icon: Palette },
 ];
 const parseSection = (v: string | string[] | undefined) => SECTIONS.find((s) => s.id === (Array.isArray(v) ? v[0] : v))?.id ?? SECTIONS[0].id;
@@ -38,8 +46,10 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
   const section = parseSection((await searchParams).section);
   const session = await requireSession(section === SECTIONS[0].id ? "/settings" : `/settings?section=${section}`);
   const current = SECTIONS.find((s) => s.id === section)!;
+  const { palette } = await currentSlideSettings();
   return (
     <main className="mx-auto max-w-5xl px-6 pb-24 pt-6">
+      <PaletteSync palette={palette} />
       <header className="mb-10 flex items-center justify-between gap-6 sm:mb-14">
         <Logo height={48} href="/" />
         <a href="/api/auth/buffer/logout" className="text-sm font-semibold underline underline-offset-4">
@@ -62,7 +72,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
             </Link>
           </div>
         </div>
-        <p className="mb-0 max-w-2xl text-lg">Connect your newsletter, set up Instagram tagging and choose your slide colors.</p>
+        <p className="mb-0 max-w-2xl text-lg">Connect your newsletter, add your organization, set up Instagram tagging and choose how your slides look.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-10">
@@ -96,6 +106,8 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
         <div className="min-w-0" aria-label={current.label} role="region">
           {section === "newsletter" && <NewsletterSection userId={session.userId} />}
           {section === "instagram" && <InstagramSection userId={session.userId} />}
+          {section === "organization" && <OrganizationSection userId={session.userId} />}
+          {section === "style" && <StyleSection userId={session.userId} />}
           {section === "colors" && <PaletteEditor />}
         </div>
       </div>
@@ -171,4 +183,20 @@ async function InstagramSection({ userId }: { userId: string }) {
       <ApifyConnect initial={apify} />
     </section>
   );
+}
+
+async function StyleSection({ userId }: { userId: string }) {
+  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).catch(() => null)]);
+  return (
+    <SlideStyleEditor
+      initial={saved?.style ?? DEFAULT_STYLE}
+      previews={settingsPreviews(userId, saved?.version, saved?.palette?.[0])}
+      orgFallback={conn?.publications[0]?.organization}
+    />
+  );
+}
+
+async function OrganizationSection({ userId }: { userId: string }) {
+  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).catch(() => null)]);
+  return <OrganizationEditor initialName={saved?.style.orgName ?? ""} initialLogo={saved?.style.orgLogo ?? null} orgFallback={conn?.publications[0]?.organization} />;
 }

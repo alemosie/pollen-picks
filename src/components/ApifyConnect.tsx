@@ -5,7 +5,7 @@ import { useId, useState } from "react";
 
 export type ApifyState = { last4: string } | null;
 
-const field = "w-full rounded-xl bg-surface px-4 py-3 font-mono text-sm ring-1 ring-ink/15 focus:ring-2 focus:ring-ink";
+const field = "w-full rounded-xl bg-surface px-4 py-3 font-mono text-sm ring-1 ring-ink/15";
 const TOKEN_PAGE = "https://console.apify.com/settings/integrations";
 
 /**

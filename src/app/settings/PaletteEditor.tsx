@@ -1,10 +1,10 @@
 "use client";
 
 import { Plus, RotateCcw, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePalette } from "@/components/usePalette";
 import { contrast } from "@/lib/brand";
-import { DEFAULT_PALETTE, isHex, MAX_COLORS, MIN_COLORS, normalizeHex, parsePalette, resetPalette, savePalette } from "@/lib/palette";
+import { DEFAULT_PALETTE, isHex, MAX_COLORS, MIN_COLORS, normalizeHex, parsePalette, pushPalette, resetPalette, savePalette } from "@/lib/palette";
 
 const INK = "#2b3a36";
 const CREAM = "#f7ede2";
@@ -21,9 +21,23 @@ export function PaletteEditor() {
   const colors = mine ?? saved;
   const valid = colors.every(isHex) && colors.length >= MIN_COLORS;
 
+  // The palette is saved to the account (and kept in this browser too). Color pickers fire many changes while you drag, so the account
+  // gets the result once things settle. If that fails the colors still work here, and the note says so.
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const toAccount = (colors: string[] | null) => {
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => {
+      void pushPalette(colors).then((ok) => setNote(ok ? null : "Couldn't save your palette to your account. It is kept in this browser for now; change a color to try again."));
+    }, 600);
+  };
   const update = (next: string[]) => {
     setMine(next);
-    if (next.length >= MIN_COLORS && next.every(isHex)) savePalette(next.map((c) => c.toLowerCase()));
+    if (next.length >= MIN_COLORS && next.every(isHex)) {
+      const clean = next.map((c) => c.toLowerCase());
+      savePalette(clean);
+      toAccount(clean);
+    }
   };
   const setAt = (i: number, v: string) => update(colors.map((c, k) => (k === i ? v : c)));
 
@@ -101,6 +115,7 @@ export function PaletteEditor() {
             type="button"
             onClick={() => {
               resetPalette();
+              toAccount(DEFAULT_PALETTE); // saved as the standard palette, so other browsers follow the reset
               setMine(null);
               setNote("Back to the Pollen Picks colors.");
             }}
