@@ -54,9 +54,9 @@ export function DemoGate({
             Now, create your own
           </h2>
           <p className="mb-6 text-lg leading-relaxed">
-            You&rsquo;ve done the demo. Now it&rsquo;s time to create posts from your own newsletter content. Log into Pollen Picks to get started with your beehiiv or Substack publication.
+            You&rsquo;ve done the demo — now it&rsquo;s time to create posts from your own content! Log into Pollen Picks to get started with beehiiv, Substack, personal blog, and more.
           </p>
-          <div className="mb-6 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <a
               href={signedIn ? "/source" : "/api/auth/buffer/login?next=%2Fsource"}
               onClick={() => track("login_clicked")}
@@ -72,17 +72,6 @@ export function DemoGate({
               Leave us feedback
             </a>
           </div>
-          <p className="mb-0 text-sm leading-relaxed">
-            The more users and more feedback we get, the better the chance we can win{" "}
-            <a href="https://buffer.com/api/commit" target="_blank" rel="noopener noreferrer" className="font-bold underline underline-offset-4">
-              Buffer Commit
-            </a>
-            . Contest winnings would go towards funding new parent support groups with nonprofit{" "}
-            <a href="https://amsterdamparentproject.nl" target="_blank" rel="noopener noreferrer" className="font-bold underline underline-offset-4">
-              Amsterdam Parent Project
-            </a>
-            .
-          </p>
         </div>
       </dialog>
     </>
