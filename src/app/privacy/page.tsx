@@ -30,6 +30,9 @@ const sections: Section[] = [
             A simple log of the drafts Pollen Picks tried to create for you: which network, and whether it worked. Never the
             caption or the posts.
           </li>
+          <li>
+            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, its caption is kept for 24 hours so you can retry it, then deleted. The slide images are never stored.
+          </li>
         </ul>
         <p>If you connect your newsletter, Pollen Picks also stores:</p>
         <ul>
@@ -62,7 +65,8 @@ const sections: Section[] = [
       <>
         <p>
           Pollen Picks asks Buffer for permission to read your account, channels, posts and queue, and to create posts. It
-          only saves <b>drafts</b>: nothing is published until you review and send it from Buffer.
+          creates <b>drafts</b> by default: nothing is published until you review and send it from Buffer. It publishes
+          straight away only when you press &ldquo;Send now&rdquo; and confirm.
         </p>
         <p>
           To make a draft, Pollen Picks sends Buffer your caption and the web addresses of your slide images. Buffer then

@@ -1,5 +1,6 @@
 "use client";
 
+import { AccountLinks } from "@/components/AccountLinks";
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Logo } from "@/components/Logo";
@@ -215,19 +216,7 @@ export function PageHeader({
       <div className="order-last mt-8 flex w-full justify-center sm:order-none sm:mt-0 sm:w-auto">
         <StepTree current={current} hrefs={hrefs} finalLabel={finalLabel} />
       </div>
-      {right ?? (
-        <span className="flex items-center gap-5 text-sm font-semibold">
-          <Link href="/settings" className="underline underline-offset-4">
-            Settings
-          </Link>
-          <a
-            href="/api/auth/buffer/logout"
-            className="underline underline-offset-4"
-          >
-            Log out
-          </a>
-        </span>
-      )}
+      {right ?? <AccountLinks />}
     </header>
   );
 }
