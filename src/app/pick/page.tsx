@@ -3,6 +3,12 @@ import { FlowLoader } from "@/components/FlowLoader";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import { connection } from "next/server";
+import { cookies } from "next/headers";
+import { FreshRunDone } from "@/components/FreshRunDone";
+import { clearCustomChunks } from "@/lib/customPicks";
+import { FRESH_COOKIE } from "@/lib/progress";
+import { ServerTimings } from "@/components/ServerTimings";
+import { timer } from "@/lib/timing";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
@@ -40,16 +46,29 @@ async function PickContent({
     .filter(Boolean)
     .map(Number)
     .filter((n) => Number.isInteger(n) && n >= 0);
-  await requireSession(`/pick?mode=${encodeURIComponent(String(mode ?? ""))}`);
-  const result = await loadAppIssueResult(String(mode ?? ""));
+  const t = timer("/pick");
+  const session = await t.step("session", requireSession(`/pick?mode=${encodeURIComponent(String(mode ?? ""))}`));
+  // Coming from the source step: a new run. The last run's highlights go before this one's issue is loaded.
+  const fresh = (await cookies()).get(FRESH_COOKIE)?.value === "1";
+  if (fresh) {
+    try {
+      await t.step("fresh start", clearCustomChunks(session.userId));
+    } catch (e) {
+      console.error("clearing the last run's highlights failed:", (e as Error).message);
+    }
+  }
+  const result = await t.step("issue", loadAppIssueResult(String(mode ?? "")));
   if (!result) redirect("/source"); // public newsletters arrive later
   // Say what went wrong instead of bouncing back to the source step, which just looks like a refresh.
   if ("error" in result) return <LoadError message={result.error} />;
   const issue = result.issue;
-  const known = await knownHandles(issue.chunks.map((c) => c.url));
+  const known = await t.step("handles", knownHandles(issue.chunks.map((c) => c.url)));
+  const report = t.report();
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
+      <ServerTimings report={report} />
       <SaveStep step={2} />
+      {fresh && <FreshRunDone />}
       <Track event="pick_reached" />
       <PageHeader current={2} hrefs={{ 1: "/source" }} />
       <div className="mb-6">

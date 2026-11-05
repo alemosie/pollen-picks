@@ -39,9 +39,9 @@ export default function DemoSource() {
     },
     {
       id: "public",
-      title: "Public post",
+      title: "Public link",
       tag: "Paste a public link",
-      logos: <SourceLogos substack more="and any public post" />,
+      logos: <SourceLogos substack more="and any public link" />,
       body: <PublicSourceBody />,
       tone: "bg-card",
       link: true,

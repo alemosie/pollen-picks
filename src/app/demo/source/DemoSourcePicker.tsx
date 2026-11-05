@@ -36,7 +36,7 @@ const radioDot = (
   </span>
 );
 const cardBase =
-  "relative flex cursor-pointer flex-col gap-4 rounded-2xl p-6 outline-offset-4 transition-shadow has-[:checked]:shadow-[0_0_0_3px_var(--color-ink)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink";
+  "relative flex cursor-pointer flex-col gap-4 rounded-2xl p-6 outline-none transition-shadow has-[:checked]:shadow-[0_0_0_2px_var(--color-ink)] has-[input[type=radio]:focus-visible]:shadow-[0_0_0_2px_var(--color-ink)]";
 
 // Starting a demo erases whatever was in progress, including earlier highlights.
 function startFresh() {

@@ -124,6 +124,23 @@ export function clearSendBatches() {
   } catch {}
 }
 
+// Choosing a source starts a new run. The browser's copy of the last run is dropped here at once; the server's (the highlights
+// made on the Manual tab) is dropped by the Pick page's own request, which this cookie asks for. A cookie, not a call of its
+// own, because the click that sets it also navigates: the Pick request carries it, so nothing has to be awaited and nothing
+// can arrive late. The Pick page removes it again once it has loaded (see FreshRunDone).
+export const FRESH_COOKIE = "pp_fresh";
+export function startFreshRun() {
+  clearProgress();
+  try {
+    document.cookie = `${FRESH_COOKIE}=1; path=/; max-age=120; SameSite=Lax`;
+  } catch {}
+}
+export function endFreshRun() {
+  try {
+    document.cookie = `${FRESH_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  } catch {}
+}
+
 /** Forget everything: "Start over". */
 export function clearProgress() {
   try {

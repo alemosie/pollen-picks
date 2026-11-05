@@ -34,19 +34,23 @@ export function PublicLinkForm({
   onSubmit,
   busy,
   error,
-  note = "Only public posts work. Nothing is stored: the page is read once and shown here for you to highlight.",
+  inCard = false,
+  hint,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSubmit: (e: FormEvent) => void;
   busy: boolean;
   error: string | null;
-  note?: string;
+  /** Inside the source card: no top margin or width limit, and the label is for screen readers (the card's title says it). */
+  inCard?: boolean;
+  /** What to do with the link, shown right under the field. */
+  hint?: string;
 }) {
   return (
-    <form onSubmit={onSubmit} noValidate className="mt-8 max-w-2xl">
-      <label htmlFor="source-url" className="mb-2 block font-bold">
-        Link to the post
+    <form onSubmit={onSubmit} noValidate className={inCard ? "min-w-0" : "mt-8 max-w-2xl"}>
+      <label htmlFor="source-url" className={inCard ? "sr-only" : "mb-2 block font-bold"}>
+        {inCard ? "Link to a public post" : "Link to the post"}
       </label>
       <div className="flex flex-wrap gap-3">
         <input
@@ -57,7 +61,7 @@ export function PublicLinkForm({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://"
-          className="min-w-0 flex-1 rounded-xl border-2 border-ink bg-surface px-4 py-3 text-base outline-none focus-visible:shadow-[0_0_0_3px_var(--color-ink)]"
+          className="min-w-0 flex-1 rounded-xl border-2 border-ink bg-surface px-4 py-3 text-base outline-none focus-visible:shadow-[0_0_0_1px_var(--color-ink)]"
         />
         <button
           type="submit"
@@ -72,7 +76,7 @@ export function PublicLinkForm({
           {error}
         </p>
       )}
-      <p className="mb-0 mt-3 text-sm">{note}</p>
+      {hint && <p className="mb-0 mt-3 leading-relaxed">{hint}</p>}
     </form>
   );
 }

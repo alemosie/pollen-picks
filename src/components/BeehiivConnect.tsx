@@ -19,12 +19,15 @@ export function BeehiivConnect({
   initial,
   onChange,
   settingsLink = false,
+  inCard = false,
 }: {
   initial: BeehiivState;
   /** Called after connecting or removing, so a parent (the source page) can react. */
   onChange?: (state: BeehiivState) => void;
   /** On /source the connected card points to Settings for removing the key; on /settings it has the remove button itself. */
   settingsLink?: boolean;
+  /** Inside the source card (not connected yet): the key field and its button in one row, like the public link card. */
+  inCard?: boolean;
 }) {
   const [state, setState] = useState<BeehiivState>(initial);
   const [key, setKey] = useState("");
@@ -126,6 +129,59 @@ export function BeehiivConnect({
           </p>
         )}
       </div>
+    );
+  }
+
+  if (inCard) {
+    return (
+      <form onSubmit={save} noValidate className="min-w-0">
+        <label htmlFor={inputId} className="sr-only">
+          beehiiv API key
+        </label>
+        <div className="flex flex-wrap gap-3">
+          <div className="relative min-w-0 flex-1">
+            <input
+              id={inputId}
+              type={show ? "text" : "password"}
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              data-1p-ignore
+              placeholder="Paste your API key"
+              aria-describedby={error ? `${helpId} ${errId}` : helpId}
+              aria-invalid={error ? true : undefined}
+              className="w-full rounded-xl border-2 border-ink bg-surface py-3 pl-4 pr-12 text-base outline-none focus-visible:shadow-[0_0_0_1px_var(--color-ink)]"
+            />
+            <button
+              type="button"
+              onClick={() => setShow((s) => !s)}
+              aria-label={show ? "Hide key" : "Show key"}
+              aria-pressed={show}
+              className="absolute right-2 top-1/2 grid size-9 -translate-y-1/2 place-items-center rounded-full hover:bg-ink/10"
+            >
+              {show ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
+            </button>
+          </div>
+          <button type="submit" disabled={busy || !key.trim()} className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep disabled:opacity-60">
+            {busy ? "Checking…" : "Connect"}
+          </button>
+        </div>
+        {error && (
+          <p id={errId} role="alert" className="mb-0 mt-3 border-l-4 border-coral pl-3 text-sm font-semibold">
+            {error}
+          </p>
+        )}
+        <p id={helpId} className="mb-0 mt-3 leading-relaxed">
+          Paste your beehiiv API key to share your own content, with top-click ranking and every issue in your archive. It is saved encrypted and only reads your posts.{" "}
+          <Link href="/beehiiv/setup" target="_blank" rel="noopener noreferrer" className="font-bold underline underline-offset-4">
+            How to get your key
+            <span className="sr-only"> (opens in a new tab)</span>
+          </Link>
+        </p>
+      </form>
     );
   }
 

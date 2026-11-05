@@ -49,26 +49,14 @@ export function ResumeBanner({
         </Link>
       </FlowBar>
     );
+  // On the source step there is no "Start over": choosing a source is the start of a new run, and clears the last one.
   if (inline)
     return (
-      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span>You left off at {STEP_NAMES[saved.step - 1]}.</span>
-        <Link
-          href={saved.href}
-          className="underline decoration-coral decoration-[3px] underline-offset-4"
-        >
-          Resume
+      <span>
+        Go back to{" "}
+        <Link href={saved.href} className="underline decoration-coral decoration-[3px] underline-offset-4">
+          {STEP_NAMES[saved.step - 1]}
         </Link>
-        <button
-          type="button"
-          onClick={() => {
-            clearProgress();
-            setSaved(null);
-          }}
-          className="font-normal underline underline-offset-4"
-        >
-          Start over
-        </button>
       </span>
     );
   return (
