@@ -7,6 +7,14 @@
 - [x] Migrations 0015, 0016 and 0017 applied to PROD on 5 Nov (checked: 23 columns, 7 indexes, RLS on, claim function present).
 - [ ] Try it in a browser: big send (5+ channels), close the tab mid-send, rate-limit retry, filters.
 
+## Self-serve "Delete my data" (does not exist yet)
+- [ ] There is no delete button or route. Today it is a manual request through the feedback form (privacy page, "Delete your data"), and nobody has written the steps down. The privacy page promises "your account, brand settings and stored tokens"; History is covered by the same promise but nothing deletes it by itself.
+- [ ] What a deletion has to remove for one user: `users` row, which cascades to `brand_profiles`, `connections`, `custom_picks`, `draft_log`, `public_sources`, `instagram_lookups`, `slide_styles` and `post_history` (all have `on delete cascade`, checked in db/supabase). `feedback.user_id` is set to null, so the feedback text stays: say so, or delete the rows too.
+- [ ] NOT covered by the cascade, check first: the tokens kept in Supabase Vault for `connections` (read through `get_connection_secret`): delete those secrets explicitly, or they outlive the account. Also the browser's own copy (localStorage `pollen-picks:*`, the `pp_in` / `pp_fresh` / `pp_demo_hl` cookies), and the session cookie.
+- [ ] Shared on purpose, not the user's: `instagram_handles` (public post owner cache) and `demo_events` (anonymous). Say so on the privacy page.
+- [ ] Build: a button in Settings (confirm by typing the account name), `POST /api/account/delete` (same-site check, session required): remove vault secrets, delete the `users` row, clear cookies, send them to a "Your data is deleted" page. Optionally revoke the app in Buffer (their API may not allow it: say where to do it). Update the privacy page text from "ask us" to the button.
+- [ ] Tests: create a user with a row in every table, delete, assert nothing is left.
+
 ## 5 Nov: fixes from the live test (code written, typecheck + lint pass; not yet run in a browser)
 
 Migrations: `0014_sent_posts.sql` is applied to both Supabase projects. `0015_post_history.sql` (renames the table to `post_history`, keeps failed attempts too) is applied to DEV only: apply it to the prod project before deploying.
