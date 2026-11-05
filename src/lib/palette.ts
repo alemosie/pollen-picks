@@ -1,5 +1,6 @@
-// The user's slide palette: a handful of hex colors saved in this browser and offered as backgrounds in the slide editor.
-// The chosen hex travels in the slide URL itself, so the renderer (and Buffer) never needs the palette.
+// The user's slide palette: a handful of hex colors offered as backgrounds in the slide editor and used for the Settings preview.
+// The account (the slide_styles table) holds the palette; this browser keeps a copy of it so the colors are there at once, and signed-out
+// visitors (the demo) have the standard one. The chosen hex travels in the slide URL itself, so the renderer (and Buffer) never needs the palette.
 import { DEFAULT_COLORS } from "./brand";
 import { SAVED_EVENT } from "./progress";
 
@@ -59,6 +60,27 @@ export function resetPalette() {
     window.dispatchEvent(new Event(PALETTE_EVENT));
   } catch {}
 }
+/** Writes the palette to this browser's copy only (null = the standard palette) and tells the app. The account is not touched. */
+export function storePaletteLocally(colors: string[] | null) {
+  try {
+    if (colors) localStorage.setItem(KEY, JSON.stringify(colors));
+    else localStorage.removeItem(KEY);
+    window.dispatchEvent(new Event(PALETTE_EVENT));
+  } catch {}
+}
+
+/** Sends the palette to the account. True when it was saved. (null clears it to "never saved"; a reset should send DEFAULT_PALETTE instead.) */
+export async function pushPalette(colors: string[] | null): Promise<boolean> {
+  try {
+    const res = colors
+      ? await fetch("/api/settings/palette", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ colors }) })
+      : await fetch("/api/settings/palette", { method: "DELETE" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Parse a raw snapshot into a palette (default when empty or invalid). */
 export function paletteFrom(raw: string | null): string[] {
   try {
