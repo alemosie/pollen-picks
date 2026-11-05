@@ -1,3 +1,7 @@
+"use client";
+
+import { useLayoutEffect, useRef } from "react";
+
 // Shown while a step loads. A gust of pollen blows in from the left, loops once and drifts out to the right, then comes round again.
 // Pure SVG (SMIL), so it works as a Suspense fallback. It only appears if a page takes a second or more, so quick loads never flash it.
 
@@ -16,16 +20,26 @@ const GRAINS = Array.from({ length: COUNT }, (_, i) => ({
   begin: -((i * SECS) / COUNT) * 0.5,
 }));
 
-export function FlowLoader({ label = "One moment…", instant = false }: { label?: string; /** Show at once. By default it waits a moment, so quick loads never flash it. */ instant?: boolean }) {
+export function FlowLoader({ label = "One moment…", instant = false }: { label?: string; /** Show at once, with no fade. By default it waits a moment, so quick loads never flash it. */ instant?: boolean }) {
+  const svg = useRef<SVGSVGElement>(null);
+  // A step can show this twice in a row (the page's Suspense fallback, then the loader that waits for the slide previews). A new SVG
+  // would start its loop from the beginning, so the pollen would jump back. Setting every instance to the same point of the loop,
+  // taken from the clock, makes the second one carry on exactly where the first left off.
+  useLayoutEffect(() => {
+    try {
+      svg.current?.setCurrentTime((Date.now() % (SECS * 1000)) / 1000);
+    } catch {}
+  }, []);
   return (
     <div
       role="status"
       aria-live="polite"
       className="pp-flow-stage fixed inset-0 z-50 grid place-items-center bg-page"
-      style={instant ? { animationDelay: "0s" } : undefined}
+      style={instant ? { animation: "none" } : undefined}
     >
       <div className="grid justify-items-center gap-6">
         <svg
+          ref={svg}
           viewBox="0 -30 800 230"
           width="800"
           height="230"
