@@ -241,16 +241,13 @@ export default function Home() {
                 Tag them <Squiggle>in</Squiggle>
               </h2>
               <p className="mb-4 max-w-2xl text-lg leading-relaxed">
-                Every link has people behind it. Soon, Pollen Picks will pull
-                their Instagram handles from picked links and tag them in your
+                Every link has people behind it. Pollen Picks pulls
+                profile handles from picked Instagram links and tags them in your
                 caption, so they see the post, share it, and send new readers
                 back to you. Sharing helps your whole network grow &mdash; a
                 win-win-win for <b>your audience</b>, <b>the organizers</b>, and{" "}
                 <b>your own reach</b>.
               </p>
-              <span className="mb-8 inline-block rounded-full bg-honey/80 px-3.5 py-1 text-sm font-bold text-ink-deep">
-                Coming soon
-              </span>
             </Reveal>
             <Reveal delay={0.1}>
               <TagDemo event={demoEvent} />
