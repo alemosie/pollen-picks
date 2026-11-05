@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { setNextStep, type NextStep } from "@/lib/nextStep";
 
 /** The one place to move through the flow: Back on the left, what's selected in the middle, the main action on the right. */
@@ -25,8 +25,23 @@ export function FlowBar({
     // onNavigate is a stable module function at every call site.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nextHref]);
+  // Anything else docked to the bottom of the screen (the Pick button on a phone) sits above this bar, whatever height it has.
+  const bar = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = bar.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const set = () => root.style.setProperty("--flowbar-h", `${el.offsetHeight}px`);
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--flowbar-h");
+    };
+  }, []);
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 bg-ink text-cream shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
+    <div ref={bar} className="fixed inset-x-0 bottom-0 z-30 bg-ink text-cream pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
       <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
         {back && (
           <Link href={back.href} className="shrink-0 rounded-xl px-4 py-3 font-bold ring-1 ring-cream/40 hover:bg-cream/15">

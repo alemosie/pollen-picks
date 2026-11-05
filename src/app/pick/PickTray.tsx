@@ -57,11 +57,15 @@ export function PickTray({
     <>Your picks</>
   );
   const visible = choice === null ? "hidden sm:block" : choice ? "block" : "hidden";
+  // Open, the panel runs down behind the flow bar. Closed, only its tab is left, and at the very bottom the bar would cover it, with no way to
+  // open the list again: so a closed tab sits just above the bar instead (the bar's height is published by FlowBar).
+  const lift = "bottom-[var(--flowbar-h,4.75rem)]";
+  const place = choice === null ? `${lift} sm:bottom-0` : choice ? "bottom-0" : lift;
 
   // The same folder look as the picker: a tab on top, attached to a bordered panel. The panel runs down behind the flow
   // bar (z-20 under its z-30), so its bottom edge is straight and its last item is padded clear of the bar.
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex justify-end px-3 sm:px-6">
+    <div className={`pointer-events-none fixed inset-x-0 z-20 flex justify-end px-3 sm:px-6 ${place}`}>
       <div className="pointer-events-auto w-full sm:w-[26rem]">
         <p role="status" className="sr-only">
           {saved ? `Highlight saved: ${clip(saved, 80)}` : ""}

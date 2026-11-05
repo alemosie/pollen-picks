@@ -19,9 +19,21 @@ export function sanitize(el: HTMLElement) {
   }
 }
 
+/**
+ * The document is shown in an iframe that is resized to fit its content. Heights in viewport units ("min-height: 100vh") are
+ * measured against that same iframe, so each resize makes the content taller, and the frame grows without end. A minimum
+ * height in vh is dropped and any other height in vh becomes a fixed size, in the page's styles and in inline styles alike.
+ */
+export function fixViewportUnits(css: string): string {
+  return css
+    .replace(/min-height\s*:\s*[\d.]+\s*(?:vh|svh|dvh|lvh)\b/gi, "min-height:0")
+    .replace(/([\d.]+)\s*(?:vh|svh|dvh|lvh)\b/gi, (_, n: string) => `${Math.min(Number(n), 100) * 6}px`);
+}
+
 const OUR_CSS = `
 html{overflow-y:hidden}
-body{margin:0;padding:16px}
+html,body{height:auto!important;min-height:0!important}
+body{margin:0;padding:16px 48px 16px 16px}
 img,video{max-width:100%;height:auto}
 a{cursor:text}
 ::selection{background:#f6bd60;color:#1f2a27}
@@ -61,10 +73,10 @@ export function renderableDocument(html: string): string | null {
     "<!doctype html><html><head>",
     '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
     `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline' https:; font-src https: data:; media-src https:">`,
-    styles,
+    fixViewportUnits(styles),
     `<style>${OUR_CSS}</style>`,
     "</head>",
-    el.outerHTML,
+    fixViewportUnits(el.outerHTML),
     "</html>",
   ].join("\n");
 }
@@ -77,7 +89,7 @@ const CONTAINERS = ["#content-blocks", ".available-content", ".post-content", ".
 
 const PAGE_CSS = `
 html{overflow-y:hidden}
-body{margin:0;padding:16px;font:17px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;color:#2b3a36;background:#fffaf3}
+body{margin:0;padding:16px 48px 16px 16px;font:17px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif;color:#2b3a36;background:#fffaf3}
 .pp-page{max-width:42rem;margin:0 auto}
 h1,h2,h3,h4{line-height:1.25;margin:1.4em 0 .5em}
 img,video{max-width:100%;height:auto;border-radius:8px}
@@ -198,7 +210,7 @@ export function renderablePublicPage(html: string, pageUrl: string): PublicPage 
       `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; font-src data:; media-src https:">`,
       `<style>${PAGE_CSS}</style>`,
       "</head><body>",
-      el.outerHTML,
+      fixViewportUnits(el.outerHTML),
       "</body></html>",
     ].join("\n"),
   };
