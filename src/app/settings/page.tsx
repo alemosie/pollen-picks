@@ -1,17 +1,20 @@
-import { ArrowLeft, Building2, LayoutTemplate, Newspaper, Palette, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, LayoutTemplate, LogOut, Newspaper, Palette, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { ApifyConnect } from "@/components/ApifyConnect";
 import { BeehiivConnect } from "@/components/BeehiivConnect";
 import { BeehiivLogo } from "@/components/BeehiivLogo";
+import { AccountLinks } from "@/components/AccountLinks";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import { FlowLoader } from "@/components/FlowLoader";
 import { Logo } from "@/components/Logo";
 import { SavedFlash } from "@/components/SavedFlash";
 import { StepWord } from "@/components/StepWord";
 import { requireSession } from "@/lib/auth";
-import { getApifyConnection, getBeehiivConnection } from "@/lib/connections";
+import { gql } from "@/lib/buffer";
+import { db } from "@/lib/db";
+import { getApifyConnection, getBeehiivConnection, withOrganization } from "@/lib/connections";
 import { lookupAllowance } from "@/lib/instagramHandles";
 import { PaletteSync } from "@/components/PaletteSync";
 import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
@@ -30,6 +33,7 @@ const SECTIONS: { id: string; label: string; hint: string; icon?: LucideIcon }[]
   { id: "instagram", label: "Instagram tagging", hint: "Account lookups" },
   { id: "style", label: "Slide style", hint: "Header, footer and font", icon: LayoutTemplate },
   { id: "colors", label: "Slide colors", hint: "Your palette", icon: Palette },
+  { id: "account", label: "Account", hint: "Log out", icon: LogOut },
 ];
 const parseSection = (v: string | string[] | undefined) => SECTIONS.find((s) => s.id === (Array.isArray(v) ? v[0] : v))?.id ?? SECTIONS[0].id;
 
@@ -52,9 +56,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
       <PaletteSync palette={palette} />
       <header className="mb-10 flex items-center justify-between gap-6 sm:mb-14">
         <Logo height={48} href="/" />
-        <a href="/api/auth/buffer/logout" className="text-sm font-semibold underline underline-offset-4">
-          Log out
-        </a>
+        <AccountLinks current="settings" />
       </header>
       <div className="mb-8">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
@@ -109,6 +111,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
           {section === "organization" && <OrganizationSection userId={session.userId} />}
           {section === "style" && <StyleSection userId={session.userId} />}
           {section === "colors" && <PaletteEditor />}
+          {section === "account" && <AccountSection userId={session.userId} token={session.accessToken} />}
         </div>
       </div>
 
@@ -186,7 +189,7 @@ async function InstagramSection({ userId }: { userId: string }) {
 }
 
 async function StyleSection({ userId }: { userId: string }) {
-  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).catch(() => null)]);
+  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).then((c) => withOrganization(userId, c)).catch(() => null)]);
   return (
     <SlideStyleEditor
       initial={saved?.style ?? DEFAULT_STYLE}
@@ -196,7 +199,60 @@ async function StyleSection({ userId }: { userId: string }) {
   );
 }
 
+/** The Buffer account behind this login: asked from Buffer now, with the email saved at login as the fallback. */
+async function AccountSection({ userId, token }: { userId: string; token: string }) {
+  // The name is asked on its own: Buffer's docs don't list a name on the account, so if it isn't there, only this request fails and the email still shows.
+  const [live, named] = await Promise.all([
+    gql<{ account: { email?: string | null; organizations?: { id: string; name: string }[] } | null }>(
+      token,
+      "{ account { email organizations { id name } } }",
+      { timeoutMs: 8_000 },
+    ).catch(() => null),
+    gql<{ account: { name?: string | null } | null }>(token, "{ account { name } }", { timeoutMs: 8_000 }).catch(() => null),
+  ]);
+  const name = typeof named?.data?.account?.name === "string" ? named.data.account.name.trim() : "";
+  const saved = live?.data?.account?.email
+    ? null
+    : await db().from("users").select("email").eq("id", userId).maybeSingle().then((r) => (typeof r.data?.email === "string" ? r.data.email : null), () => null);
+  const email = live?.data?.account?.email ?? saved;
+  const orgs = (live?.data?.account?.organizations ?? []).map((o) => o.name).filter(Boolean);
+  return (
+    <section aria-labelledby="account" className="rounded-2xl bg-card p-6">
+      <h2 id="account" className="mb-1 text-2xl">
+        Account
+      </h2>
+      <dl className="mb-5 mt-4 grid max-w-xl grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 text-sm">
+        {name && (
+          <>
+            <dt className="font-bold">Name</dt>
+            <dd className="m-0 min-w-0 break-words">{name}</dd>
+          </>
+        )}
+        <dt className="font-bold">Buffer email</dt>
+        <dd className="m-0 min-w-0 break-words">{email ?? "Not available"}</dd>
+        {orgs.length > 0 && (
+          <>
+            <dt className="font-bold">{orgs.length === 1 ? "Organization" : "Organizations"}</dt>
+            <dd className="m-0 min-w-0 break-words">{orgs.join(", ")}</dd>
+          </>
+        )}
+      </dl>
+      <p className="mb-5 mt-0 text-sm">
+        You&rsquo;re logged in through Buffer. Logging out ends your session in this browser. It doesn&rsquo;t delete anything: your settings, your beehiiv key and
+        your history are still here when you log back in.
+      </p>
+      <a
+        href="/api/auth/buffer/logout"
+        className="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-2.5 font-bold text-cream hover:brightness-110"
+      >
+        <LogOut aria-hidden className="size-4" strokeWidth={2.25} />
+        Log out
+      </a>
+    </section>
+  );
+}
+
 async function OrganizationSection({ userId }: { userId: string }) {
-  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).catch(() => null)]);
+  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).then((c) => withOrganization(userId, c)).catch(() => null)]);
   return <OrganizationEditor initialName={saved?.style.orgName ?? ""} initialLogo={saved?.style.orgLogo ?? null} orgFallback={conn?.publications[0]?.organization} />;
 }
