@@ -13,7 +13,7 @@ function Strip() {
   if (!APP_PAGES.test(path)) return null;
   return (
     <div role="region" aria-label="Project status" className="bg-ink px-6 py-2.5 text-center text-sm font-semibold text-cream">
-      Built for Buffer Commit 🏗️ Tried it?{" "}
+      Building for Buffer Commit 🏗️{" "}
       <Link
         href="/feedback"
         onClick={() => track("feedback_clicked")}
