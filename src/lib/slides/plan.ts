@@ -143,6 +143,7 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
       when: e.when !== undefined ? e.when.trim() || null : base.when,
       place: e.place !== undefined ? e.place.trim() || null : base.place,
       blurb: e.blurb !== undefined ? e.blurb.trim() || undefined : base.blurb,
+      group: e.group !== undefined ? e.group.trim() || undefined : base.group,
       bg: e.bg || undefined,
     };
   };

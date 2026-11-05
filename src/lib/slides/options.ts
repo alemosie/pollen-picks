@@ -18,6 +18,8 @@ export type PickEdit = {
   when?: string;
   place?: string;
   blurb?: string;
+  /** Category label shown as a pill on the card (and in the header when a whole slide shares it). An empty string removes it. */
+  group?: string;
   /** Card color, e.g. "#f6bd60". */ bg?: string;
 };
 
@@ -44,6 +46,7 @@ export const SPEC_LIMITS = {
   when: 80,
   place: 60,
   blurb: 400,
+  group: 40,
   coverTitle: 60,
   coverSubtitle: 80,
   closingTitle: 60,
@@ -100,7 +103,7 @@ export function encodeSpec(spec: CustomSpec): string {
       Object.fromEntries(
         Object.entries(spec.edits).map(([id, e]) => [
           id,
-          { t: e.title, w: e.when, p: e.place, b: e.blurb, g: hex6(e.bg) },
+          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg) },
         ]),
       ),
   };
@@ -141,6 +144,7 @@ export function decodeSpec(
         when: str(e.w, SPEC_LIMITS.when),
         place: str(e.p, SPEC_LIMITS.place),
         blurb: str(e.b, SPEC_LIMITS.blurb),
+        group: str(e.c, SPEC_LIMITS.group),
         bg: withHash(e.g),
       };
       (Object.keys(edit) as (keyof PickEdit)[]).forEach(

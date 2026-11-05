@@ -64,7 +64,11 @@ export function TemplateEditor({
     setMine(t);
     saveTemplate({ ...t, scope: mode });
   };
-  const setCustom = (c: boolean) => update({ custom: c, spec });
+  // Turning Customize on with nothing placed starts with the first pick on the first slide, so there is something to build from.
+  const setCustom = (c: boolean) => {
+    const nothingPlaced = spec.slides.every((g) => !g.some((id) => picks.includes(id)));
+    update({ custom: c, spec: c && nothingPlaced && picks.length > 0 ? { ...spec, slides: [[picks[0]]] } : spec });
+  };
   const setSpec = (sp: CustomSpec) => update({ custom, spec: sp });
 
   const poolIds = new Set(picks);

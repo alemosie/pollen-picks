@@ -377,6 +377,16 @@ export function EditSlideModal({
                       className={input}
                     />
                   </label>
+                  <label className="grid gap-1 text-sm font-semibold">
+                    Category label
+                    <input
+                      value={value(id, "group")}
+                      maxLength={SPEC_LIMITS.group}
+                      placeholder="None"
+                      onChange={(e) => setEdit(id, "group", e.target.value)}
+                      className={input}
+                    />
+                  </label>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span className="text-sm font-semibold">Card color</span>
                     <Swatches

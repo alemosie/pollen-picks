@@ -1,7 +1,7 @@
 import { stripEmoji } from "./slides/plan";
 
 /** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
-export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null };
+export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string };
 export type CaptionOrder = "clicks" | "alpha" | "date";
 /** `bullet` starts every line of that ordering's caption; change them here. */
 export const CAPTION_ORDERS: { id: CaptionOrder; label: string; bullet: string; hint: string }[] = [
@@ -46,10 +46,11 @@ function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): str
   const place = i.place ? ` (${cleanText(i.place)})` : "";
   const from = fromTag(i.tag, variant);
   const bullet = bulletFor(order);
+  const cat = i.group ? ` · ${cleanText(i.group)}` : "";
   // By date: a pick without a date has no day to show, so it gets a plain bullet instead.
-  if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}${from}` : `• ${title}${place}${from}`;
+  if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}${cat}${from}` : `• ${title}${place}${cat}${from}`;
   const when = i.when ? cleanWhen(i.when) : "";
-  return `${bullet} ${title}${when ? ` — ${when}` : ""}${place}${from}`;
+  return `${bullet} ${title}${when ? ` — ${when}` : ""}${place}${cat}${from}`;
 }
 
 export const isInstagram = (service: string) => service.toLowerCase().replace(/[^a-z]/g, "") === "instagram";
