@@ -76,7 +76,7 @@ export function TemplateEditor({
   const placed = clean.slides.flat().length;
   const slideCount = clean.slides.filter((g) => g.length).length;
 
-  const applied: TemplateOptions = custom ? { spec: clean } : {};
+  const applied: TemplateOptions = { ...(custom ? { spec: clean } : {}), sv: initial.sv };
   const extra = templateParams(applied).toString();
   const q = picks.join(",");
   const query = `picks=${q}${extra ? `&${extra}` : ""}`;
@@ -149,6 +149,7 @@ export function TemplateEditor({
             picks={q}
             mode={mode}
             spec={clean}
+            styleVersion={initial.sv}
             onChange={setSpec}
           />
         ) : (
@@ -157,7 +158,7 @@ export function TemplateEditor({
               <li key={i} className="flex flex-col gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/api/slide/preview?picks=${q}&n=${i}${previewMode(mode)}`}
+                  src={`/api/slide/preview?picks=${q}&n=${i}${initial.sv ? `&sv=${initial.sv}` : ""}${previewMode(mode)}`}
                   alt={`Slide ${i + 1} of ${standard.length}`}
                   width={540}
                   height={675}

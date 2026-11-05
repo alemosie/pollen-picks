@@ -10,6 +10,8 @@ import { demoUrlFrom, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
+import { PaletteSync } from "@/components/PaletteSync";
+import { currentSlideSettings } from "@/lib/slideStyleStore";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { TemplateEditor } from "./TemplateEditor";
 
@@ -51,18 +53,20 @@ async function DesignContent({
   const issue = await loadAppIssue(mode);
   if (!issue) redirect("/source");
   const items = slideItemsFor(issue.chunks, ids, await knownForPicks(issue.chunks, ids));
+  const { version, palette } = await currentSlideSettings();
 
   return (
     <main className="mx-auto max-w-6xl px-6 pb-32 pt-6">
       <SaveStep step={3} />
       <Track event="design_reached" />
       <PageHeader current={3} hrefs={{ 1: "/source", 2: stepUrl(mode, "pick") }} />
+      <PaletteSync palette={palette} />
       <TemplateEditor
         mode={mode}
         newsletter={issue.newsletter}
         items={items}
         picks={ids}
-        initial={parseTemplateFromPage(sp)}
+        initial={{ ...parseTemplateFromPage(sp), sv: version }}
       />
     </main>
   );

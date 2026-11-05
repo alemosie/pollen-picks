@@ -11,6 +11,7 @@ import { demoUrlFrom, parseLinkMode, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
+import { currentStyleVersion } from "@/lib/slideStyleStore";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import { SendConfirm } from "./SendConfirm";
@@ -37,7 +38,7 @@ async function SendContent({
   const mode = String(sp.mode ?? "");
   // The sample issue is the public demo: old demo links go to /demo/send, and need no login.
   if (mode === "demo") redirect(demoUrlFrom("send", sp));
-  const tpl = parseTemplateFromPage(sp);
+  const tpl = { ...parseTemplateFromPage(sp), sv: await currentStyleVersion() };
   const extra = templateParams(tpl).toString();
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(sp.picks ?? "")

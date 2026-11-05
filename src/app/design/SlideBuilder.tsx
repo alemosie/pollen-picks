@@ -5,12 +5,15 @@ import {
   ChevronDown,
   ChevronUp,
   GripVertical,
+  Palette,
   Pencil,
   Plus,
   Trash2,
   X,
 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
+import { usePalette } from "@/components/usePalette";
+import { DEFAULT_COLORS } from "@/lib/brand";
 import {
   MAX_CUSTOM_SLIDES,
   MAX_PER_SLIDE,
@@ -19,7 +22,8 @@ import {
 import { planSlides } from "@/lib/slides/plan";
 import type { SlideItem } from "@/lib/slides/types";
 import { PickSelectModal } from "./PickSelectModal";
-import { EditSlideModal, previewSrc, type Target } from "./EditSlideModal";
+import { EditSlideModal, Swatches, previewSrc, type Target } from "./EditSlideModal";
+import { textOn } from "../settings/PaletteEditor";
 import { useSettled } from "./useSettled";
 
 /** Lay out the carousel by hand: drag picks onto slides (up to 4 each), reorder, and click any slide to edit its text. */
@@ -29,6 +33,7 @@ export function SlideBuilder({
   picks,
   mode,
   spec,
+  styleVersion,
   onChange,
 }: {
   newsletter: string;
@@ -36,6 +41,8 @@ export function SlideBuilder({
   picks: string;
   mode?: string;
   spec: CustomSpec;
+  /** Version of the user's slide style (Settings). Part of every preview address, so a changed style is never served from a cache. */
+  styleVersion?: string;
   onChange: (s: CustomSpec) => void;
 }) {
   const [editing, setEditing] = useState<Target | null>(null);
@@ -50,6 +57,22 @@ export function SlideBuilder({
   const [anchor, setAnchor] = useState<{ si: number; pi: number } | null>(null);
   const [selecting, setSelecting] = useState<number | null>(null);
   const settled = useSettled(spec, 500);
+  const palette = usePalette();
+  // Which thumbnail's background-color popover is open ("cover", "closing" or "slide-<n>"), closed by a click anywhere else or Escape.
+  const [swatchOpen, setSwatchOpen] = useState<string | null>(null);
+  useEffect(() => {
+    if (!swatchOpen) return;
+    const away = (e: MouseEvent) => {
+      if (!(e.target as Element | null)?.closest?.("[data-swatch-pop]")) setSwatchOpen(null);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setSwatchOpen(null);
+    document.addEventListener("mousedown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [swatchOpen]);
 
   const byId = new Map(items.map((i) => [i.id!, i]));
   const placedAt = new Map<number, number>();
@@ -68,6 +91,19 @@ export function SlideBuilder({
       ...(bgs ? { bgs: slides.length ? bgs : [] } : {}),
       ...(hideTags ? { hideTags: slides.length ? hideTags : [] } : {}),
     });
+
+  /** The background chosen for a slide ("" = the template's own), and what the template uses when none is chosen. */
+  const bgOf = (t: Target) => (t.kind === "cover" ? spec.cover?.bg : t.kind === "closing" ? spec.closing?.bg : spec.bgs?.[t.index]) ?? "";
+  const defaultBgOf = (t: Target) => (t.kind === "cover" ? DEFAULT_COLORS.accent : t.kind === "closing" ? DEFAULT_COLORS.card : DEFAULT_COLORS.background);
+  const setBgOf = (t: Target, v: string) => {
+    const clean = <T extends object>(o: T): T | undefined => (Object.values(o).some((x) => x !== undefined && x !== "") ? o : undefined);
+    if (t.kind === "cover") return onChange({ ...spec, cover: clean({ ...spec.cover, bg: v || undefined }) });
+    if (t.kind === "closing") return onChange({ ...spec, closing: clean({ ...spec.closing, bg: v || undefined }) });
+    const bgs = [...(spec.bgs ?? [])];
+    while (bgs.length <= t.index) bgs.push("");
+    bgs[t.index] = v;
+    onChange({ ...spec, bgs });
+  };
 
   /** Put pick `id` on slide `to` (before position `at`, default the end), taking it off wherever it was. */
   function place(id: number, to: number, at?: number) {
@@ -214,7 +250,7 @@ export function SlideBuilder({
       onClick={() => !empty && setEditing(t)}
       disabled={empty}
       aria-label={empty ? undefined : `Edit ${label}`}
-      className="group relative aspect-[4/5] w-32 shrink-0 overflow-hidden rounded-xl bg-surface ring-1 ring-ink/10 enabled:cursor-pointer enabled:hover:ring-2 enabled:hover:ring-ink sm:w-36"
+      className="group relative aspect-[4/5] w-32 shrink-0 self-start overflow-hidden rounded-xl bg-surface ring-1 ring-ink/10 enabled:cursor-pointer enabled:hover:ring-2 enabled:hover:ring-ink sm:w-36"
     >
       {empty ? (
         <span className="grid h-full place-items-center border-2 border-dashed border-ink/20 p-3 text-center text-xs font-semibold text-ink/50">
@@ -224,26 +260,75 @@ export function SlideBuilder({
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={previewSrc(picks, settled, t, mode)}
+            src={previewSrc(picks, settled, t, mode, styleVersion)}
             alt=""
             loading="lazy"
             className="size-full object-cover"
           />
           <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-ink/80 py-1 text-xs font-bold text-cream opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
-            <Pencil aria-hidden className="size-3" /> Edit text
+            <Pencil aria-hidden className="size-3" /> Edit slide
           </span>
         </>
       )}
     </button>
   );
 
+  /** The edit pencil, top right of a slide's container. In a slide's row of buttons it always comes last. */
+  const editButton = (t: Target, label: string) => (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setEditing(t);
+      }}
+      aria-label={`Edit ${label}`}
+      title="Edit"
+      className="grid size-8 place-items-center rounded-full hover:bg-ink/10"
+    >
+      <Pencil aria-hidden className="size-4" />
+    </button>
+  );
+
+  /** A circle in the slide's current background color, bottom right of its container: opens the palette without opening the editor. */
+  const colorPicker = (t: Target, label: string) => {
+    const key = t.kind === "slide" ? `slide-${t.index}` : t.kind;
+    const bg = bgOf(t);
+    const shown = bg || defaultBgOf(t);
+    return (
+      <div data-swatch-pop className="relative">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSwatchOpen((k) => (k === key ? null : key));
+          }}
+          aria-label={`Change the background color of ${label}`}
+          aria-expanded={swatchOpen === key}
+          title="Background color"
+          style={{ background: shown, color: textOn(shown) }}
+          className="grid size-8 place-items-center rounded-full ring-1 ring-ink/25 hover:ring-2 hover:ring-ink"
+        >
+          <Palette aria-hidden className="size-4" />
+        </button>
+        {swatchOpen === key && (
+          <div onClick={(e) => e.stopPropagation()} className="absolute bottom-full right-0 z-30 mb-2 w-max max-w-[16rem] rounded-xl bg-surface p-3 shadow-lg ring-1 ring-ink/15">
+            <p className="m-0 mb-2 text-xs font-bold">Background color</p>
+            <Swatches palette={palette} value={bg} fallback={defaultBgOf(t)} onPick={(hex) => setBgOf(t, hex)} label={`Background of ${label}`} size="sm" />
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const fixed = (t: Target, name: string, hint: string) => (
-    <div className="flex items-center gap-4 rounded-2xl bg-surface p-3 ring-1 ring-ink/10">
+    <div className="relative flex items-center gap-4 rounded-2xl bg-surface p-3 ring-1 ring-ink/10">
       {thumb(t, name)}
-      <div className="min-w-0">
+      <div className="min-w-0 pr-10">
         <p className="m-0 font-bold">{name}</p>
         <p className="m-0 text-sm">{hint}</p>
       </div>
+      <div className="absolute right-3 top-3">{editButton(t, name)}</div>
+      <div className="absolute bottom-3 right-3">{colorPicker(t, name)}</div>
     </div>
   );
 
@@ -307,7 +392,7 @@ export function SlideBuilder({
         {fixed(
           { kind: "cover" },
           "Cover",
-          "Click to edit the title and subtitle.",
+          "Click the thumbnail to edit the title and subtitle.",
         )}
 
         {spec.slides.map((ids, si) => {
@@ -335,7 +420,7 @@ export function SlideBuilder({
                 `slide ${si + 1}`,
                 ids.length === 0,
               )}
-              <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="m-0 font-bold">
                     Slide {si + 1}{" "}
@@ -343,8 +428,9 @@ export function SlideBuilder({
                       · {ids.length} of {MAX_PER_SLIDE}
                     </span>
                   </p>
-                  {spec.slides.length > 1 && (
-                    <div className="flex items-center">
+                  <div className="flex items-center">
+                    {spec.slides.length > 1 && (
+                      <>
                       {([-1, 1] as const).map((by) => (
                         <button
                           key={by}
@@ -374,8 +460,10 @@ export function SlideBuilder({
                       >
                         <Trash2 aria-hidden className="size-4" />
                       </button>
-                    </div>
-                  )}
+                      </>
+                    )}
+                    {ids.length > 0 && editButton({ kind: "slide", index: si }, `slide ${si + 1}`)}
+                  </div>
                 </div>
                 {full === si && (
                   <p className="m-0 mb-2 text-sm font-semibold text-coral">
@@ -476,6 +564,7 @@ export function SlideBuilder({
                     ))}
                   </ul>
                 )}
+                {ids.length > 0 && <div className="mt-auto flex justify-end pt-2">{colorPicker({ kind: "slide", index: si }, `slide ${si + 1}`)}</div>}
               </div>
             </div>
           );
@@ -647,6 +736,7 @@ export function SlideBuilder({
           items={items}
           picks={picks}
           mode={mode}
+          styleVersion={styleVersion}
           placed={placed}
           onSave={onChange}
           onClose={() => setEditing(null)}

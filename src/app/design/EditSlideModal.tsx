@@ -38,8 +38,9 @@ export function previewSrc(
   spec: CustomSpec,
   target: Target,
   mode?: string,
+  sv?: string,
 ): string {
-  const p = templateParams({ spec });
+  const p = templateParams({ spec, sv });
   return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}${previewMode(mode)}`;
 }
 
@@ -54,6 +55,7 @@ export function EditSlideModal({
   items,
   picks,
   mode,
+  styleVersion,
   placed,
   onSave,
   onClose,
@@ -64,6 +66,7 @@ export function EditSlideModal({
   items: SlideItem[];
   picks: string;
   mode?: string;
+  styleVersion?: string;
   placed: number;
   onSave: (s: CustomSpec) => void;
   onClose: () => void;
@@ -240,7 +243,7 @@ export function EditSlideModal({
           <div className="grid content-start gap-3 md:sticky md:top-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={previewSrc(picks, normalize(settled), target, mode)}
+              src={previewSrc(picks, normalize(settled), target, mode, styleVersion)}
               alt="Slide preview"
               width={540}
               height={675}
@@ -476,7 +479,7 @@ export function EditSlideModal({
 }
 
 /** Default swatch plus the palette. `value` "" / undefined means default. */
-function Swatches({
+export function Swatches({
   palette,
   value,
   fallback,
