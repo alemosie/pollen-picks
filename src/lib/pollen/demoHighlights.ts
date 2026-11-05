@@ -1,6 +1,7 @@
 import {
   cleanHighlight,
   cleanHighlightUrl,
+  cleanLinkText,
   customChunk,
   type CustomRow,
 } from "./custom";
@@ -65,13 +66,14 @@ export function decodeDemoRows(raw: string | null | undefined): CustomRow[] {
     )
       continue;
     seen.add(id);
-    rows.push({ id, text, url: cleanHighlightUrl(r?.u) });
+    const url = cleanHighlightUrl(r?.u);
+    rows.push({ id, text, url, linkText: cleanLinkText(r?.l, text, url) });
   }
   return rows;
 }
 
 export const encodeDemoRows = (rows: CustomRow[]) =>
-  toValue(JSON.stringify(rows.map((r) => ({ i: r.id, t: r.text, u: r.url }))));
+  toValue(JSON.stringify(rows.map((r) => ({ i: r.id, t: r.text, u: r.url, ...(r.linkText ? { l: r.linkText } : {}) }))));
 
 export const demoHighlightChunks = (rows: CustomRow[]) => rows.map(customChunk);
 
