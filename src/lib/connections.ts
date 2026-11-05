@@ -22,7 +22,16 @@ export async function upsertUser(bufferUserId: string, email?: string | null): P
   return id;
 }
 
+// Every page checks the session, and each check is a trip to the database. A warm server instance keeps the answer for a short while, in memory only
+// (nothing extra is stored anywhere), so moving through the flow doesn't repeat it. It never outlives the token's own expiry, is skipped when a caller
+// forces a refresh (Buffer said 401), and is dropped on login. Another instance may still have the old answer for up to SESSION_TTL_MS, which only
+// matters if Buffer access is revoked in that moment.
+const SESSION_TTL_MS = 30_000;
+const SESSION_CACHE_MAX = 200;
+const sessionCache = new Map<string, { at: number; session: BufferSession }>();
+
 export async function saveBufferSession(userId: string, session: BufferSession): Promise<void> {
+  sessionCache.delete(userId);
   const { error } = await db().rpc("set_connection_secret", { p_user_id: userId, p_provider: PROVIDER, p_secret: JSON.stringify(session) });
   if (error) throw new Error(`Could not store the Buffer connection: ${error.message}`);
 }
@@ -45,6 +54,20 @@ export async function loadBufferSession(userId: string): Promise<BufferSession |
  * `force` refreshes even if the clock says the token is still valid (Buffer answered 401).
  */
 export async function getValidSession(userId: string, opts: { force?: boolean } = {}): Promise<BufferSession | null> {
+  if (!opts.force) {
+    const hit = sessionCache.get(userId);
+    if (hit && Date.now() - hit.at < SESSION_TTL_MS && !isExpired(hit.session)) return hit.session;
+  }
+  const session = await loadValidSession(userId, opts);
+  if (!session) sessionCache.delete(userId);
+  else {
+    if (sessionCache.size >= SESSION_CACHE_MAX) sessionCache.delete(sessionCache.keys().next().value as string);
+    sessionCache.set(userId, { at: Date.now(), session });
+  }
+  return session;
+}
+
+async function loadValidSession(userId: string, opts: { force?: boolean } = {}): Promise<BufferSession | null> {
   const first = await loadBufferSession(userId);
   if (!first) return null;
   if (!opts.force && !isExpired(first)) return first;

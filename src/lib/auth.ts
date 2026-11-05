@@ -16,10 +16,20 @@ const uidFromCookie = async () => readUid((await cookies()).get(SESSION_COOKIE)?
  * (no cookie rewrite is needed anymore, so this works in any server component).
  */
 export async function requireSession(next: string): Promise<AuthedSession> {
+  const s = await currentSession();
+  if (s) return s;
+  return toLogin(next);
+}
+
+/** The signed-in user's usable session, or null (no redirect). For pages that load other things at the same time and only then decide. */
+export async function currentSession(): Promise<AuthedSession | null> {
   const uid = await uidFromCookie();
   const s = uid ? await getValidSession(uid) : null;
-  if (uid && s) return { ...s, userId: uid };
-  // Not logged in, or Buffer access was revoked: show the login intro, which continues to Buffer and comes back to `next` (a shared link keeps working).
+  return uid && s ? { ...s, userId: uid } : null;
+}
+
+/** Not logged in, or Buffer access was revoked: show the login intro, which continues to Buffer and comes back to `next` (a shared link keeps working). */
+export function toLogin(next: string): never {
   redirect(`/login?next=${encodeURIComponent(next)}`);
 }
 
