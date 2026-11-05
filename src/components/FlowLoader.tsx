@@ -20,6 +20,18 @@ const GRAINS = Array.from({ length: COUNT }, (_, i) => ({
   begin: -((i * SECS) / COUNT) * 0.5,
 }));
 
+// Loaders that follow each other (the page's Suspense fallback, then the editor's wait for its slide previews) are one wait to
+// the person, so the second must not restart the clock: it would leave the screen empty for a moment between the two. This
+// remembers when the current run of loaders began, for useLoaderVisible.
+const CHAIN_GAP_MS = 1500;
+let chainStart = 0;
+let chainEnd = 0;
+
+/** When the loader run that is on screen (or just left it) began, or null when there is none. */
+export function loaderChainStart(): number | null {
+  return chainStart && Date.now() - chainEnd < CHAIN_GAP_MS ? chainStart : null;
+}
+
 export function FlowLoader({ label = "One moment…", instant = false }: { label?: string; /** Show at once, with no fade. By default it waits a moment, so quick loads never flash it. */ instant?: boolean }) {
   const svg = useRef<SVGSVGElement>(null);
   // A step can show this twice in a row (the page's Suspense fallback, then the loader that waits for the slide previews). A new SVG
@@ -29,6 +41,12 @@ export function FlowLoader({ label = "One moment…", instant = false }: { label
     try {
       svg.current?.setCurrentTime((Date.now() % (SECS * 1000)) / 1000);
     } catch {}
+    const now = Date.now();
+    if (!chainStart || now - chainEnd >= CHAIN_GAP_MS) chainStart = now;
+    chainEnd = Number.MAX_SAFE_INTEGER; // still on screen
+    return () => {
+      chainEnd = Date.now();
+    };
   }, []);
   return (
     <div
