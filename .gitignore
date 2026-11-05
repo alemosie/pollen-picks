@@ -43,3 +43,6 @@ next-env.d.ts
 !.env.example
 
 certificates
+
+# dev settings page (/dev) choices
+.dev-fake.json

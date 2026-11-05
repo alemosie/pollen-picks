@@ -2,7 +2,7 @@
 // again afterwards. Both /api/draft and /api/post-status go through here, so the two paths can't drift apart.
 
 import { gql } from "./buffer";
-import { fakeList, fakeMode } from "./fake";
+import { fakeBehaviour, fakeMode, takeFakeRateLimit } from "./fake";
 
 /** "draft" saves to Buffer without publishing. "now" publishes immediately and can't be undone from here. */
 export type PostIntent = "draft" | "now";
@@ -18,8 +18,8 @@ const CREATE_TIMEOUT_MS = 25_000;
 export type ChannelPostInput = { channelId: string; service: string; text: string; images: string[]; intent: PostIntent };
 export type ChannelPostOutcome =
   | { ok: true; postId: string }
-  /** `unknown`: the request died or Buffer errored mid-way, so the post may or may not exist. Never retry these blindly. */
-  | { ok: false; error: string; unknown?: boolean };
+  /** `unknown`: the request died or Buffer errored mid-way, so the post may or may not exist. Never retry these blindly. `rateLimited`: Buffer answered 429, so nothing was created and it is safe to try again later. */
+  | { ok: false; error: string; unknown?: boolean; rateLimited?: boolean };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -48,7 +48,7 @@ export async function createChannelPost(token: string, p: ChannelPostInput): Pro
     if (!r.errors?.length && cp?.post) return { ok: true, postId: cp.post.id };
     // Buffer limits requests per app, shared by everyone using it, so a big send can run into it. It is a clean failure
     // (nothing was created), but retrying straight away won't help.
-    if (r.status === 429) return { ok: false, error: "Buffer is limiting requests from this app right now. Try again in a few minutes." };
+    if (r.status === 429) return { ok: false, error: "Buffer is limiting requests from this app right now. Try again in a few minutes.", rateLimited: true };
     const error = cp?.message ?? r.errors?.[0]?.message ?? `Buffer returned ${r.status}`;
     // A 5xx on a publish may have gone through on Buffer's side: don't call it a clean failure.
     return { ok: false, error, unknown: p.intent === "now" && r.status >= 500 };
@@ -114,10 +114,12 @@ export async function getPostStates(token: string, ids: string[]): Promise<Recor
 // ---- fake mode ----------------------------------------------------------------------------------------------------
 
 async function fakeCreate(p: ChannelPostInput): Promise<ChannelPostOutcome> {
+  if (takeFakeRateLimit()) return { ok: false, error: "Fake mode: Buffer says too many requests.", rateLimited: true };
   await sleep(500 + Math.random() * 1200);
   const svc = p.service.toLowerCase();
-  if (fakeList("BUFFER_FAKE_FAIL").includes(svc)) return { ok: false, error: "Fake mode: Buffer rejected this post." };
-  if (fakeList("BUFFER_FAKE_UNKNOWN").includes(svc))
+  const behaviour = fakeBehaviour(svc);
+  if (behaviour === "fail") return { ok: false, error: "Fake mode: Buffer rejected this post." };
+  if (behaviour === "unknown")
     return { ok: false, error: "Fake mode: the request timed out.", unknown: p.intent === "now" };
   return { ok: true, postId: `fake-${p.intent}-${Date.now()}-${svc}` };
 }
@@ -128,6 +130,6 @@ function fakeState(id: string): PostState | { error: string } {
   const [, intent, ts, svc] = m;
   if (intent === "draft") return { status: "draft" };
   if (Date.now() - Number(ts) < FAKE_PUBLISH_MS) return { status: "sending" };
-  if (fakeList("BUFFER_FAKE_PUBLISH_FAIL").includes(svc)) return { status: "error" };
+  if (fakeBehaviour(svc) === "publish_fail") return { status: "error" };
   return { status: "sent", sentAt: new Date().toISOString(), externalLink: `https://example.com/fake-post/${svc}/${ts}` };
 }
