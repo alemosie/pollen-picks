@@ -29,7 +29,8 @@ type Ctx = {
   check: () => void;
   retrying: boolean;
   /** Put failed entries back in the queue. */
-  retry: (ids: number[]) => void;
+  /** `confirmed`: the person said yes to publishing live posts among them (the server asks for it). */
+  retry: (ids: number[], confirmed?: boolean, sendAgain?: boolean) => void;
 };
 const HistoryContext = createContext<Ctx | null>(null);
 
@@ -106,7 +107,7 @@ export function HistoryProvider({ initial, filterQuery, children }: { initial: H
   }, [refresh]);
 
   const retry = useCallback(
-    (ids: number[]) => {
+    (ids: number[], confirmed = false, sendAgain = false) => {
       if (ids.length === 0) return;
       setRetrying(true);
       setError("");
@@ -115,10 +116,11 @@ export function HistoryProvider({ initial, filterQuery, children }: { initial: H
           const res = await fetch("/api/history/retry", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ids }),
+            body: JSON.stringify({ ids, confirmed, sendAgain }),
           });
           const j = (await res.json().catch(() => ({}))) as { requeued?: number; error?: string };
           if (res.status === 401) setError("Your Buffer login has expired. Log in again to retry these.");
+          else if (res.status === 409) setError("Check those posts and try again.");
           else if (!res.ok) setError(j.error ?? "Couldn't retry right now. Try again in a moment.");
           else {
             if (!j.requeued) setError("Those can't be retried any more. Send them again from the send page.");

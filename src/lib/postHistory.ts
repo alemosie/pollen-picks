@@ -30,6 +30,10 @@ export type HistoryEntry = {
   heldUp: boolean;
   /** Failed, and its caption is still kept, so it can be put back in the queue. */
   retryable: boolean;
+  /** Unknown (it may already be in Buffer), and its caption is still kept: it can be sent again, but only after a warning. */
+  resendable: boolean;
+  /** When the caption is erased and retrying stops (ISO time), for an entry that can still be retried or sent again. */
+  retryUntil: string | null;
 };
 
 type Row = {
@@ -70,6 +74,8 @@ const toEntry = (r: Row): HistoryEntry => ({
   heldUp: r.status === "queued" && r.attempts > 0,
   // The caption itself never leaves the server: only whether there is one.
   retryable: r.status === "failed" && Boolean(r.caption),
+  resendable: r.status === "unknown" && Boolean(r.caption),
+  retryUntil: (r.status === "failed" || r.status === "unknown") && r.caption ? new Date(new Date(r.created_at).getTime() + CAPTION_KEEP_HOURS * 3_600_000).toISOString() : null,
 });
 
 /** Statuses that won't change again, so those rows are never asked about. ('queued' and 'working' are ours and are moved on by the send queue.) */
@@ -86,23 +92,42 @@ export const CAPTION_KEEP_HOURS = 24;
 /** Erases captions kept for retries once they are too old. No background job: it happens whenever this account's history is read. */
 async function purgeStaleCaptions(userId: string) {
   const before = new Date(Date.now() - CAPTION_KEEP_HOURS * 3_600_000).toISOString();
-  const { error } = await db().from("post_history").update({ caption: null }).eq("user_id", userId).eq("status", "failed").not("caption", "is", null).lt("created_at", before);
+  const { error } = await db().from("post_history").update({ caption: null }).eq("user_id", userId).in("status", ["failed", "unknown"]).not("caption", "is", null).lt("created_at", before);
   if (error) console.error("erasing old captions failed:", error.message);
 }
 
-/** Puts this user's failed entries (that still have their caption) back in the queue. Returns how many went back. Never touches 'unknown' ones. */
-export async function requeueFailed(userId: string, ids: number[]): Promise<number> {
+/**
+ * Puts this user's failed entries (that still have their caption) back in the queue. Returns how many went back, and how many are waiting for a yes.
+ * - A failed "publish now" entry goes live when it is retried.
+ * - An 'unknown' entry (only with `includeUnknown`) may already be in Buffer, so sending it again can post it twice.
+ * Both only go back with `confirmed`: without it, if any entry is one of those, nothing is changed and `needsConfirm` counts them.
+ * Unknown entries are never picked up by a plain retry.
+ */
+export async function requeueFailed(userId: string, ids: number[], confirmed = false, includeUnknown = false): Promise<{ requeued: number; needsConfirm: number }> {
   await purgeStaleCaptions(userId);
+  const statuses = includeUnknown ? ["failed", "unknown"] : ["failed"];
+  if (!confirmed) {
+    const risky = await db()
+      .from("post_history")
+      .select("id")
+      .in("id", ids)
+      .eq("user_id", userId)
+      .in("status", statuses)
+      .or("mode.eq.now,status.eq.unknown")
+      .not("caption", "is", null);
+    if (risky.error) throw new Error(`Could not retry: ${risky.error.message}`);
+    if ((risky.data ?? []).length > 0) return { requeued: 0, needsConfirm: risky.data!.length };
+  }
   const { data, error } = await db()
     .from("post_history")
     .update({ status: "queued", error: null, attempts: 0, not_before: null, lease_until: null })
     .in("id", ids)
     .eq("user_id", userId)
-    .eq("status", "failed")
+    .in("status", statuses)
     .not("caption", "is", null)
     .select("id");
   if (error) throw new Error(`Could not retry: ${error.message}`);
-  return (data ?? []).length;
+  return { requeued: (data ?? []).length, needsConfirm: 0 };
 }
 
 export async function listHistory(userId: string, opts: { limit?: number; batchId?: string; filters?: HistoryFilters } = {}): Promise<HistoryEntry[]> {

@@ -135,9 +135,9 @@ async function buildContext(row: Claimed): Promise<Context> {
 }
 
 async function finish(row: Claimed, patch: Record<string, unknown>) {
-  // The caption is only needed until the post exists, so it is erased when the row is done (created, unknown). A failed row keeps it for
-  // CAPTION_KEEP_HOURS so "Retry" has something to send; see purgeStaleCaptions in postHistory.ts.
-  const keep = patch.status === "failed";
+  // The caption is only needed until the post exists, so it is erased when the row is done (created). A failed or unknown row keeps it for
+  // CAPTION_KEEP_HOURS so "Retry" / "Send again" has something to send; see purgeStaleCaptions in postHistory.ts.
+  const keep = patch.status === "failed" || patch.status === "unknown";
   const { error } = await db().from("post_history").update({ ...(keep ? {} : { caption: null }), lease_until: null, ...patch }).eq("id", row.id).eq("status", "working");
   if (error) console.error("updating the send queue failed:", error.message);
 }
