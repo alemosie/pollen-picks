@@ -137,3 +137,35 @@ export async function setPublicationLogo(userId: string, publicationId: string, 
   if (error) throw new Error(`Could not save the logo: ${error.message}`);
   return publications;
 }
+
+// ---- Apify: the user's own token, for Instagram lookups once the free ones are used ----
+// Same storage as the beehiiv key: the token is in Supabase Vault, `connections` keeps a pointer and the last four characters.
+// The token itself is never returned to the browser.
+
+const APIFY = "apify";
+
+export async function saveApifyKey(userId: string, key: string): Promise<{ last4: string }> {
+  const last4 = key.slice(-4);
+  const { error } = await db().rpc("set_connection_secret", { p_user_id: userId, p_provider: APIFY, p_secret: key, p_last4: last4, p_meta: {} });
+  if (error) throw new Error(`Could not store the Apify token: ${error.message}`);
+  return { last4 };
+}
+
+/** The saved Apify connection (no token), or null. */
+export async function getApifyConnection(userId: string): Promise<{ last4: string } | null> {
+  const { data, error } = await db().from("connections").select("last4, status").eq("user_id", userId).eq("provider", APIFY).maybeSingle();
+  if (error) throw new Error(`Could not read the Apify connection: ${error.message}`);
+  return data && data.status === "active" ? { last4: typeof data.last4 === "string" ? data.last4 : "" } : null;
+}
+
+/** The saved token itself, for server-side calls to Apify only. Never send this to the browser. */
+export async function loadApifyKey(userId: string): Promise<string | null> {
+  const { data, error } = await db().rpc("get_connection_secret", { p_user_id: userId, p_provider: APIFY });
+  if (error) throw new Error(`Could not read the Apify token: ${error.message}`);
+  return typeof data === "string" && data ? data : null;
+}
+
+export async function deleteApifyConnection(userId: string): Promise<void> {
+  const { error } = await db().rpc("delete_connection", { p_user_id: userId, p_provider: APIFY });
+  if (error) throw new Error(`Could not remove the Apify token: ${error.message}`);
+}

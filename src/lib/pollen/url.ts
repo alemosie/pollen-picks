@@ -41,3 +41,48 @@ export function hostOf(raw: string): string | null {
   if (!k) return null;
   return new URL(k).hostname;
 }
+
+/** First path segments on instagram.com that are pages, not accounts. */
+const IG_NOT_ACCOUNTS = new Set([
+  "p", "reel", "reels", "tv", "stories", "explore", "accounts", "direct", "about", "developer", "legal", "web", "tags",
+  "locations", "s", "share", "privacy", "challenge", "emails", "nametag", "oauth", "directory", "lite", "press", "ar",
+]);
+
+/**
+ * The Instagram account a link points to, lowercase and without the "@", or null when the link is not about an account
+ * (a post, a reel, a hashtag page, another site). A post link of the form instagram.com/<handle>/p/<code> counts: it is the account's.
+ */
+export function instagramHandle(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const key = normalizeUrl(raw);
+  if (!key) return null;
+  const u = new URL(key);
+  if (u.hostname !== "instagram.com") return null;
+  const handle = u.pathname.split("/").filter(Boolean)[0];
+  if (!handle || IG_NOT_ACCOUNTS.has(handle) || !/^[a-z0-9._]{1,30}$/.test(handle)) return null;
+  return handle;
+}
+
+/** Handles resolved from post links, keyed by `instagramPostKey` (the cached post -> account answers). */
+export type KnownHandles = Record<string, string>;
+
+/** Normalized key of a link to an Instagram post or reel (https://instagram.com/p/<code>), or null for anything else. */
+export function instagramPostKey(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const key = normalizeUrl(raw);
+  return key && /^https:\/\/instagram\.com\/(p|reel|tv)\/[A-Za-z0-9_-]+$/.test(key) ? key : null;
+}
+
+/** The post's shortcode ("DemVpYZoY-v"), or null. */
+export const instagramPostCode = (raw: string | null | undefined): string | null => instagramPostKey(raw)?.split("/").pop() ?? null;
+
+/**
+ * The account to tag for a pick's link: read straight from an account link, or from `known` (the looked-up owner) for a post link.
+ * Null when the link is neither, or the post has not been looked up.
+ */
+export function instagramTag(raw: string | null | undefined, known?: KnownHandles): string | null {
+  const direct = instagramHandle(raw);
+  if (direct) return direct;
+  const key = instagramPostKey(raw);
+  return (key && known?.[key]) || null;
+}
