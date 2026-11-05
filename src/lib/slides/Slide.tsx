@@ -2,6 +2,7 @@ import type { CSSProperties, ReactElement } from "react";
 import { BRAND_NAME, contrast, sameColor } from "@/lib/brand";
 import { MARK_SVG } from "./mark";
 import { TAG_SHRINK, shortBlurb } from "./plan";
+import type { Slot } from "./style";
 import { SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types";
 
 // Satori (next/og) renders this: flexbox only, inline styles, no Tailwind.
@@ -47,6 +48,42 @@ function Credit({ kit, size = 26, color: fill }: { kit: Kit; size?: number; colo
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={mark} width={Math.round((h * 404) / 608)} height={h} alt="" />
       {`Created with ${BRAND_NAME}`}
+    </div>
+  );
+}
+
+/**
+ * One corner of a pick slide's header or footer, as chosen in Settings (kit.slots): the publication or the organization (name + logo),
+ * the issue's title or date, or nothing. `maxWidth` keeps it clear of the page number (header) or the credit (footer).
+ */
+function CornerSlot({ kind, kit, logoSize, fontSize, color, maxWidth, lines = 1 }: { kind: Slot; kit: Kit; logoSize: number; fontSize: number; color?: string; maxWidth: number; /** A long name or title may wrap onto this many lines before it is cut off with "…". */ lines?: number }) {
+  const id = kit.identity;
+  const empty = <div style={{ display: "flex" }} />;
+  if (!id || kind === "none") return empty;
+  if (kind === "title" || kind === "date") {
+    const text = kind === "title" ? id.title : id.date;
+    return text ? (
+      <div style={{ display: "flex", maxWidth, fontSize, fontWeight: 700, color }}>
+        <div style={{ lineHeight: 1.1, ...clamp(lines) }}>{text}</div>
+      </div>
+    ) : (
+      empty
+    );
+  }
+  const who = kind === "publication" ? id.publication : id.organization;
+  if (!who.name && !who.logo) return empty;
+  // A wide logo is capped at half the room so the name still fits beside it.
+  const aspect = who.logoAspect ?? 1;
+  const cap = Math.round(maxWidth * (who.name ? 0.5 : 1));
+  const w = Math.min(Math.round(logoSize * aspect), cap);
+  const h = Math.round(w / aspect);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 16, maxWidth, fontSize, fontWeight: 700, color }}>
+      {who.logo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={who.logo} width={w} height={h} alt="" />
+      )}
+      {who.name && <div style={{ lineHeight: 1.1, ...clamp(lines) }}>{who.name}</div>}
     </div>
   );
 }
@@ -121,7 +158,12 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
     <div style={{ ...base, background: custom ?? c.background, padding: P, gap: 28, color: kit.onBackground ?? c.text }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
         <div style={{ display: "flex", background: slide.group ? c.chip : "transparent", borderRadius: 999, padding: slide.group ? "8px 26px" : 0, fontSize: 32, fontWeight: 700, color: c.text }}>
-          {slide.group ?? <Brand kit={kit} size={64} logo={kit.logoOnBackground ?? kit.logo} fontSize={32} color={kit.nameOnBackground} />}
+          {slide.group ??
+            (kit.slots ? (
+              <CornerSlot kind={kit.slots.top} kit={kit} logoSize={64} fontSize={32} color={kit.nameOnBackground} maxWidth={720} />
+            ) : (
+              <Brand kit={kit} size={64} logo={kit.logoOnBackground ?? kit.logo} fontSize={32} color={kit.nameOnBackground} />
+            ))}
         </div>
         <div style={{ display: "flex", fontSize: 30, fontWeight: 700 }}>
           {slide.page} / {slide.pages}
@@ -133,7 +175,16 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
         ))}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: slide.items.length === 1 && slide.items[0].image ? 104 : 64 }}>
-        {kit.swipe ? <Swipe color={kit.onBackground ?? c.text} /> : kit.logo ? <div style={{ display: "flex" }} /> : <Brand kit={kit} size={56} logo={undefined} fontSize={28} />}
+        {kit.slots ? (
+          // The credit (and a single pick's picture) sit on the right, so this is all the room the left corner has. Two lines of 28px still fit the 64px footer.
+          <CornerSlot kind={kit.slots.bottom} kit={kit} logoSize={56} fontSize={28} color={kit.onBackground} maxWidth={slide.items.length === 1 && slide.items[0].image ? 470 : 560} lines={2} />
+        ) : kit.swipe ? (
+          <Swipe color={kit.onBackground ?? c.text} />
+        ) : kit.logo ? (
+          <div style={{ display: "flex" }} />
+        ) : (
+          <Brand kit={kit} size={56} logo={undefined} fontSize={28} />
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <Credit kit={kit} size={24} color={fg} />
           {slide.items.length === 1 && slide.items[0].image ? (

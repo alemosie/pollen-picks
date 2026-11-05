@@ -25,7 +25,7 @@ import { SESSION_COOKIE, readUid } from "./session";
 export type IssueResult = { issue: IssueData } | { error: string };
 
 /** The user's raw issue (from beehiiv, cached a few minutes) and who/what it belongs to, or an error to show. */
-type Loaded = { uid: string; issue: string; raw: BeehiivIssueContent; postId: string; newsletter: string };
+type Loaded = { uid: string; issue: string; raw: BeehiivIssueContent; postId: string; newsletter: string; publication?: { logo?: string; organization?: string } };
 
 /** `asUid`: the user is already known (a signed slide-preview URL), so the session cookie is not read. */
 async function loadRaw(mode: string | undefined, asUid?: string): Promise<Loaded | { error: string } | null> {
@@ -44,8 +44,9 @@ async function loadRaw(mode: string | undefined, asUid?: string): Promise<Loaded
     const postId = own.postId ?? (await listIssues(key, publicationId, { limit: 1 })).issues[0]?.id;
     if (!postId) return { error: "This publication has no sent issues yet." };
     const raw = await cachedIssue(`${uid}:${postId}`, () => fetchIssue(key, publicationId, postId));
-    const newsletter = conn.publications.find((p) => p.id === publicationId)?.name?.trim() || "this newsletter";
-    return { uid, issue: issueKey(publicationId, postId), raw, postId, newsletter };
+    const pub = conn.publications.find((p) => p.id === publicationId);
+    const newsletter = pub?.name?.trim() || "this newsletter";
+    return { uid, issue: issueKey(publicationId, postId), raw, postId, newsletter, publication: { logo: pub?.logo, organization: pub?.organization } };
   } catch (e) {
     if (e instanceof BeehiivKeyError) return { error: e.message };
     console.error("loading the issue failed:", (e as Error).message);
@@ -95,6 +96,7 @@ export async function loadAppIssueResult(mode: string | undefined, asUid?: strin
   if ("error" in loaded) return loaded;
   try {
     const issue = buildIssue(loaded.raw, loaded.newsletter);
+    issue.publication = loaded.publication;
     await dumpForDebugging(loaded.postId, loaded.raw, issue);
     // The user's highlights from the Manual tab are extra chunks of this issue, so every later step finds them by id.
     issue.chunks.push(...(await listCustomChunks(loaded.uid, loaded.issue)));

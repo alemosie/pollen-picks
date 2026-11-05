@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessionUserId } from "@/lib/auth";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
 import { isDemo } from "@/lib/flow";
 import { verifyPreview } from "@/lib/previewSig";
 import { loadAppIssue } from "@/lib/sources";
 import { DEFAULT_COLORS } from "@/lib/brand";
+import { loadSlideStyle } from "@/lib/slideStyleStore";
+import { styleKit } from "@/lib/slides/kit";
 import { planSlides } from "@/lib/slides/plan";
 import { renderSlide } from "@/lib/slides/render";
 import { knownForPicks } from "@/lib/instagramHandles";
@@ -27,5 +30,10 @@ export async function GET(req: NextRequest) {
   const slides = planSlides(items, { newsletter: issue.newsletter, ...parseTemplateFrom(q) });
   const n = Number(q.get("n") ?? 0);
   if (!(n >= 0 && n < slides.length)) return NextResponse.json({ error: `n must be 0-${slides.length - 1}` }, { status: 400 });
-  return renderSlide(slides[n], { name: issue.newsletter, colors: DEFAULT_COLORS });
+  // The user's slide style (Settings) applies where the address belongs to them alone: a signed link, or one of their own issues. The shared
+  // demo addresses never use it, or a CDN could hand one person's organization name and logo to everyone.
+  const uid = signedUid ?? (mode && !isDemo(mode) ? await sessionUserId() : null);
+  const saved = uid ? await loadSlideStyle(uid) : null;
+  // A row that only holds a palette is not a saved slide style: those slides keep the standard look.
+  return renderSlide(slides[n], { name: issue.newsletter, colors: DEFAULT_COLORS, ...(saved?.styled ? await styleKit(saved.style, issue) : {}) });
 }

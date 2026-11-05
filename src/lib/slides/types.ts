@@ -1,4 +1,5 @@
 import type { KitColors } from "@/lib/brand";
+import type { Slot } from "./style";
 
 /** What a slide shows for one pick. */
 export type SlideItem = {
@@ -50,6 +51,15 @@ export type Kit = {
   nameLines?: [string, string];
   /** Cover headline size in px (default 168). */
   coverTitleSize?: number;
+  /** What goes in the left corner of the header and the footer of pick slides (Settings > Slide style). Without it the slides keep their built-in header and footer. */
+  slots?: { top: Slot; bottom: Slot };
+  /** The facts those slots can show. A logo is a data URI; its aspect is width / height. */
+  identity?: {
+    publication: { name: string; logo?: string; logoAspect?: number };
+    organization: { name: string; logo?: string; logoAspect?: number };
+    title: string;
+    date: string;
+  };
 };
 
 export const SLIDE_W = 1080;

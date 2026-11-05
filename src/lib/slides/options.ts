@@ -8,6 +8,8 @@ export type TemplateOptions = {
   cta?: string;
   /** A hand-built carousel (Customize): which picks go on which slide, plus text edits. Overrides perSlide. */
   spec?: CustomSpec;
+  /** Version (a number) of the signed-in user's slide style from Settings. Only there so a changed style is a new address, never a cached image. */
+  sv?: string;
 };
 
 /** Text changes a user made to one pick. A key that is present replaces the original (an empty string clears it). */
@@ -194,6 +196,7 @@ export function parseTemplate(get: Getter): TemplateOptions {
     closingLine: text("closingLine"),
     cta: text("cta"),
     spec: decodeSpec(get("spec")),
+    sv: /^\d{1,13}$/.test(get("sv") ?? "") ? get("sv")! : undefined,
   };
 }
 
@@ -212,5 +215,6 @@ export function templateParams(o: TemplateOptions): URLSearchParams {
   for (const k of ["heading", "closingTitle", "closingLine", "cta"] as const)
     if (o[k]) p.set(k, o[k]!);
   if (o.spec) p.set("spec", encodeSpec(o.spec));
+  if (o.sv) p.set("sv", o.sv);
   return p;
 }
