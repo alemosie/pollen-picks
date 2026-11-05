@@ -173,3 +173,20 @@
 @keyframes pp-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 .pp-rise { animation: pp-rise 0.4s ease-out both; }
 @media (prefers-reduced-motion: reduce) { .pp-rise { animation: none; } }
+
+/* A label that settles in (the splash button turning into "Open app"). Skipped for people who ask for less motion. */
+@keyframes pp-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+}
+.pp-fade-in {
+  display: inline-block;
+  animation: pp-fade-in 220ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pp-fade-in {
+    animation: none;
+  }
+}

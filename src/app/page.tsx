@@ -81,7 +81,7 @@ export default function Home() {
         aria-label="Project status"
         className="bg-ink px-6 py-3 text-center text-sm font-semibold text-cream"
       >
-        <span className="sm:hidden">We need you: </span>
+        <span className="sm:hidden">Before 11 Nov: </span>
         <span className="hidden sm:inline">
           In build mode 🏗️ for Buffer Commit.{" "}
         </span>

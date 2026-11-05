@@ -31,7 +31,7 @@ const sections: Section[] = [
             caption or the posts.
           </li>
           <li>
-            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, its caption is kept for 24 hours so you can retry it, then deleted. The slide images are never stored.
+            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. The slide images are never stored.
           </li>
         </ul>
         <p>If you connect your newsletter, Pollen Picks also stores:</p>
@@ -86,12 +86,22 @@ const sections: Section[] = [
             account, nothing else. Logging out removes it.
           </li>
           <li>
+            <b>Signed-in marker.</b> A second cookie, for the same 30 days, only says &ldquo;someone is signed in on this
+            browser&rdquo;. It lets the home page show &ldquo;Open app&rdquo; at once instead of &ldquo;Log in to create&rdquo;.
+            It holds no account details. Logging out removes it.
+          </li>
+          <li>
             <b>Short-lived login cookie.</b> While you are on your way to Buffer and back, a second cookie (10 minutes)
             protects the login from being hijacked.
           </li>
           <li>
             <b>Saved progress.</b> Where you got to in the flow, your picks and your slide colors are kept in your
             browser&rsquo;s own storage, so a closed tab doesn&rsquo;t lose them. That stays on your device.
+          </li>
+          <li>
+            <b>New-run marker.</b> When you choose a source and continue, a cookie lasting two minutes tells the next
+            page to start with a clean slate instead of the previous run&rsquo;s picks. It holds no personal data and
+            is removed as soon as that page has loaded.
           </li>
           <li>
             <b>Demo cookie.</b> In the demo, the text you highlight is kept in a cookie for a day, so the next steps and

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCode, gql, siteUrl } from "@/lib/buffer";
 import { saveBufferSession, upsertUser } from "@/lib/connections";
-import { LEGACY_SESSION_COOKIE, PKCE_COOKIE, SESSION_COOKIE, cookieOpts, seal, unseal } from "@/lib/session";
+import { HINT_COOKIE, LEGACY_SESSION_COOKIE, PKCE_COOKIE, SESSION_COOKIE, cookieOpts, hintCookieOpts, seal, unseal } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -27,6 +27,7 @@ export async function GET(req: NextRequest) {
 
     const res = NextResponse.redirect(siteUrl(pkce.next && pkce.next.startsWith("/") && !pkce.next.startsWith("//") ? pkce.next : "/source"));
     res.cookies.set(SESSION_COOKIE, seal({ uid: userId }), { ...cookieOpts, maxAge: 60 * 60 * 24 * 30 });
+    res.cookies.set(HINT_COOKIE, "1", { ...hintCookieOpts, maxAge: 60 * 60 * 24 * 30 });
     res.cookies.delete(LEGACY_SESSION_COOKIE);
     res.cookies.delete(PKCE_COOKIE);
     return res;

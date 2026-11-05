@@ -38,6 +38,12 @@ export const cookieOpts = {
 export type BufferSession = { accessToken: string; refreshToken?: string; expiresAt: number };
 export type AppSession = { uid: string };
 export const SESSION_COOKIE = "pp_session";
+/**
+ * A plain "someone is signed in here" marker (value "1", no identity), readable by a script. The splash page is static, so it can't know who is
+ * looking; a tiny script reads this before the first paint to show "Open app" straight away. It grants nothing: the real session cookie stays httpOnly.
+ */
+export const HINT_COOKIE = "pp_in";
+export const hintCookieOpts = { ...cookieOpts, httpOnly: false };
 /** The old spike cookie that held the Buffer tokens themselves. Cleared on login and logout. */
 export const LEGACY_SESSION_COOKIE = "b2b_session";
 export const PKCE_COOKIE = "b2b_pkce";
