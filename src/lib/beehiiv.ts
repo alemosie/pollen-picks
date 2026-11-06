@@ -2,6 +2,7 @@
 // The key is checked once when it is saved. Pollen Picks only ever READS from beehiiv: it never edits, sends or deletes.
 
 import { isPublicationId } from "./flow";
+import { fakeIssue, fakeIssuePage, fakePublications, isFakeKey } from "./fakeBeehiiv";
 import type { ClickRow } from "./pollen/types";
 
 const API = "https://api.beehiiv.com/v2";
@@ -96,6 +97,8 @@ async function listPublications(key: string, withStats: boolean): Promise<Respon
  * Throws BeehiivKeyError with a message that is safe to show to the user. The key is never included in errors or logs.
  */
 export async function checkKey(key: string): Promise<BeehiivPublication[]> {
+  // Development only: the pretend publications in ./fakeBeehiiv (FAKE_KEY), so no real key or real data is needed.
+  if (isFakeKey(key)) return fakePublications();
   let res: Response;
   try {
     res = await listPublications(key, true);
@@ -236,6 +239,11 @@ export async function listIssues(key: string, publicationId: string, opts: { pag
   if (!isPublicationId(publicationId)) throw new BeehiivKeyError("not-found", "That publication isn't valid.");
   const page = Math.max(1, Math.floor(opts.page ?? 1));
   const limit = Math.min(100, Math.max(1, Math.floor(opts.limit ?? ISSUES_PER_PAGE)));
+  if (isFakeKey(key)) {
+    const fake = fakeIssuePage(publicationId, page, limit);
+    if (!fake) throw new BeehiivKeyError("not-found", "That publication isn't valid.");
+    return fake;
+  }
   const q = new URLSearchParams({ status: "confirmed", order_by: "publish_date", direction: "desc", limit: String(limit), page: String(page) });
   // Ask for the web HTML too so each issue can show its own first image; if beehiiv refuses the expansion, list without it.
   const withHtml = new URLSearchParams(q);
@@ -269,6 +277,11 @@ const toClickRow = (c: unknown): ClickRow | null => {
  */
 export async function fetchIssue(key: string, publicationId: string, postId: string): Promise<BeehiivIssueContent> {
   if (!isPublicationId(publicationId) || !isPostId(postId)) throw new BeehiivKeyError("not-found", "That issue isn't valid.");
+  if (isFakeKey(key)) {
+    const fake = fakeIssue(publicationId, postId);
+    if (!fake) throw new BeehiivKeyError("not-found", "beehiiv can't find that issue. It may have been deleted, or your key may not cover it.");
+    return fake;
+  }
   const q = new URLSearchParams();
   q.append("expand[]", "free_web_content");
   q.append("expand[]", "stats");

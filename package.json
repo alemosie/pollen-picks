@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start -p 3003",
     "lint": "eslint",
-    "pipeline:fixture": "tsx scripts/rank-fixture.ts"
+    "pipeline:fixture": "tsx scripts/rank-fixture.ts",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "check:fake": "tsx scripts/check-fake-newsletters.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
