@@ -8,9 +8,9 @@ import { readPublicPost } from "./publicPost";
 import { issueKey, listCustomChunks } from "./customPicks";
 import { parseChunks } from "./pollen/chunks";
 import { contentRoot } from "./pollen/content";
-import { parseActivities } from "./pollen/parse";
 import { renderableDocument } from "./pollen/render";
-import { mergeClicks, rankActivities } from "./pollen/rank";
+import { mergeClicks } from "./pollen/rank";
+import { rankChunks, withDates } from "./pollen/rankChunks";
 import { SESSION_COOKIE, readUid } from "./session";
 
 /**
@@ -69,13 +69,14 @@ async function loadLinkIssue(id: string, asUid?: string): Promise<IssueResult> {
     if (!uid) return { error: "Log in again to continue." };
     const source = await loadPublicSource(id);
     if (!source) return { error: "That link isn't available any more. Choose a source again." };
-    const chunks = (await listCustomChunks(uid, linkMode(id))).map((c) => ({ ...c, rank: null, score: null }));
+    const publishedAt = source.publishedAt ?? new Date().toISOString();
+    const chunks = withDates(await listCustomChunks(uid, linkMode(id)), publishedAt.slice(0, 10)).map((c) => ({ ...c, rank: null, score: null }));
     return {
       issue: {
         title: source.title,
         newsletter: source.site || hostOf(source.url),
         author: source.author,
-        publishedAt: source.publishedAt ?? new Date().toISOString(),
+        publishedAt,
         url: source.url,
         thumbnail: source.image ?? undefined,
         chunks,
@@ -99,7 +100,7 @@ export async function loadAppIssueResult(mode: string | undefined, asUid?: strin
     issue.publication = loaded.publication;
     await dumpForDebugging(loaded.postId, loaded.raw, issue);
     // The user's highlights from the Manual tab are extra chunks of this issue, so every later step finds them by id.
-    issue.chunks.push(...(await listCustomChunks(loaded.uid, loaded.issue)));
+    issue.chunks.push(...withDates(await listCustomChunks(loaded.uid, loaded.issue), issue.publishedAt.slice(0, 10)));
     return { issue };
   } catch (e) {
     console.error("preparing the issue failed:", (e as Error).message);
@@ -164,16 +165,13 @@ async function dumpForDebugging(postId: string, raw: BeehiivIssueContent, issue:
   }
 }
 
-/** Same ranking as the demo, against today's date: upcoming activities ordered by unique verified clickers. */
+/** Upcoming items ordered by unique verified clickers, for any layout (see rankChunks), against today's date. */
 function buildIssue(raw: BeehiivIssueContent, newsletter: string): IssueData {
   const html = contentRoot(raw.html);
   const today = new Date().toISOString().slice(0, 10);
-  const ranked = rankActivities(parseActivities(html, { reference: raw.publishedAt.slice(0, 10) }), mergeClicks(raw.clicks), { today, onlyUpcoming: true });
-  const byKey = new Map(ranked.filter((r) => r.rank && r.key).map((r) => [r.key!, r]));
-  const chunks = parseChunks(html).map((c) => {
-    const r = c.key ? byKey.get(c.key) : undefined;
-    return { ...c, rank: r?.rank ?? null, score: r?.stats?.score ?? null };
-  });
+  const parsed = parseChunks(html);
+  const ranks = rankChunks(parsed, mergeClicks(raw.clicks), { today, reference: raw.publishedAt.slice(0, 10) });
+  const chunks = withDates(parsed, raw.publishedAt.slice(0, 10)).map((c) => ({ ...c, rank: ranks.get(c.id)?.rank ?? null, score: ranks.get(c.id)?.score ?? null }));
   return { title: raw.title, newsletter, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: raw.clicks.length > 0 };
 }
 

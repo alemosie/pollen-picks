@@ -1,5 +1,5 @@
 import { dayNumber, isUpcoming } from "./dates";
-import { normalizeUrl } from "./url";
+import { looseKey, normalizeUrl } from "./url";
 import type { Activity, ClickRow, LinkStats, Ranked } from "./types";
 
 /**
@@ -60,4 +60,27 @@ export function rankActivities(activities: Activity[], clicks: Map<string, LinkS
 export function unmatchedClicks(activities: Activity[], clicks: Map<string, LinkStats>): LinkStats[] {
   const keys = new Set(activities.flatMap((a) => (a.key ? [a.key] : [])));
   return [...clicks.values()].filter((s) => !keys.has(s.key)).sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Finds a link's click stats. An exact match on the normalized link comes first. Failing that, a link with no query string
+ * matches a clicked link that only differs by its query string (or the other way round), when that is the only candidate:
+ * email tools add parameters to the link in one place and not the other. Two links that both have query strings never match
+ * loosely, since "event?id=1" and "event?id=2" are different pages.
+ */
+export function clickLookup(clicks: Map<string, LinkStats>): (key: string) => { stats: LinkStats; loose: boolean } | null {
+  const byLoose = new Map<string, LinkStats[]>();
+  for (const s of clicks.values()) {
+    const k = looseKey(s.key);
+    const list = byLoose.get(k);
+    if (list) list.push(s);
+    else byLoose.set(k, [s]);
+  }
+  return (key) => {
+    const exact = clicks.get(key);
+    if (exact) return { stats: exact, loose: false };
+    const group = byLoose.get(looseKey(key));
+    if (group?.length === 1 && (!key.includes("?") || !group[0].key.includes("?"))) return { stats: group[0], loose: true };
+    return null;
+  };
 }

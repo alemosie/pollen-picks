@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseActivities } from "./pollen/parse";
 import { parseChunks, type Chunk } from "./pollen/chunks";
-import { mergeClicks, rankActivities } from "./pollen/rank";
+import { mergeClicks } from "./pollen/rank";
+import { rankChunks, withDates } from "./pollen/rankChunks";
 import type { ClickRow } from "./pollen/types";
 
 /** Demo mode freezes "today" so the ranking is reproducible (Wed 21 Oct 2026). */
@@ -19,11 +19,8 @@ export function loadDemoIssue(): IssueData {
     clicks: ClickRow[];
   };
   const reference = post.publishedAt.slice(0, 10);
-  const ranked = rankActivities(parseActivities(html, { reference }), mergeClicks(clicks), { today: DEMO_TODAY, onlyUpcoming: true });
-  const byKey = new Map(ranked.filter((r) => r.rank && r.key).map((r) => [r.key!, r]));
-  const chunks = parseChunks(html).map((c) => {
-    const r = c.key ? byKey.get(c.key) : undefined;
-    return { ...c, rank: r?.rank ?? null, score: r?.stats?.score ?? null };
-  });
+  const parsed = parseChunks(html);
+  const ranks = rankChunks(parsed, mergeClicks(clicks), { today: DEMO_TODAY, reference });
+  const chunks = withDates(parsed, reference).map((c) => ({ ...c, rank: ranks.get(c.id)?.rank ?? null, score: ranks.get(c.id)?.score ?? null }));
   return { title: post.title, newsletter: "Just a Phase", publishedAt: post.publishedAt, url: post.url, thumbnail: post.thumbnail, author: post.author, chunks, hasClicks: true };
 }

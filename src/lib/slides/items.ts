@@ -1,6 +1,7 @@
 import type { Chunk } from "@/lib/pollen/chunks";
 import { isCustomId } from "@/lib/pollen/custom";
 import { parseWhen } from "@/lib/pollen/dates";
+import { chunkDates } from "@/lib/pollen/rankChunks";
 import { instagramTag, type KnownHandles } from "@/lib/pollen/url";
 import type { CaptionItem } from "@/lib/caption";
 import type { PickEdit } from "./options";
@@ -24,7 +25,8 @@ export function captionItemsFor(chunks: (Chunk & { rank?: number | null })[], id
     .map((c) => {
       const e = edits?.[c.id];
       const when = e?.when !== undefined ? e.when || null : c.when;
-      const p = when ? parseWhen(when, reference) : null;
+      // A pick without a date line (other newsletters write it as plain text, and a highlight has none) sorts by a date at the start or end of its text.
+      const p = when ? parseWhen(when, reference) : chunkDates(c, reference);
       return { title: e?.title?.trim() || c.title, when, place: e?.place !== undefined ? e.place || null : c.place, rank: c.rank ?? null, date: p?.dates[0] ?? null, time: p?.startTime, tag: instagramTag(c.url, known), group: (e?.group !== undefined ? e.group.trim() : c.group?.trim()) || undefined };
     });
 }
