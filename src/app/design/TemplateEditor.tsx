@@ -18,11 +18,10 @@ import {
   type TemplateOptions,
 } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
+import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
-import { FlowLoader } from "@/components/FlowLoader";
-import { useLoaderVisible } from "@/components/useLoaderVisible";
 import { SlideBuilder } from "./SlideBuilder";
-import { useSlidesReady } from "./useSlidesReady";
+import { SlidePreview } from "./SlidePreview";
 
 /** URLs longer than this risk being refused by servers or proxies. */
 const SPEC_WARN = 6000;
@@ -32,6 +31,7 @@ export function TemplateEditor({
   issueKey,
   newsletter,
   items,
+  images,
   picks,
   initial,
 }: {
@@ -42,16 +42,20 @@ export function TemplateEditor({
   /** The newsletter's name, used in slide and caption wording. */
   newsletter: string;
   items: SlideItem[];
+  /** Pictures found in the issue, offered for the picks' cards (undefined: this source has none to offer). */
+  images?: IssueImage[];
   picks: number[];
   initial: TemplateOptions;
 }) {
   const scope = issueKey ? `${mode}|${issueKey}` : mode;
   // The URL only carries a layout once you've moved on; otherwise pick up where you left off (mode and slides) from this browser.
-  const stored = useSyncExternalStore(
+  // undefined = not read yet (the server, and the first client render): the page doesn't know yet whether a saved layout exists.
+  const stored = useSyncExternalStore<string | null | undefined>(
     () => () => {},
-    templateSnapshot,
-    () => null,
+    () => templateSnapshot(),
+    () => undefined,
   );
+  const layoutKnown = stored !== undefined || !!initial.spec;
   const saved = useMemo<TemplateState | null>(() => {
     try {
       const t = stored ? (JSON.parse(stored) as TemplateState) : null;
@@ -68,10 +72,12 @@ export function TemplateEditor({
     setMine(t);
     saveTemplate({ ...t, scope });
   };
-  // Turning Customize on with nothing placed starts with the first pick on the first slide, so there is something to build from.
+  // Turning Customize on with nothing placed fills all slides, the way the standard layout would (the same as "Fill all slides"), so there is something to build from.
   const setCustom = (c: boolean) => {
     const nothingPlaced = spec.slides.every((g) => !g.some((id) => picks.includes(id)));
-    update({ custom: c, spec: c && nothingPlaced && picks.length > 0 ? { ...spec, slides: [[picks[0]]] } : spec });
+    if (!(c && nothingPlaced && picks.length > 0)) return update({ custom: c, spec });
+    const filled = planSlides(items, { newsletter }).flatMap((sl) => (sl.kind === "picks" ? [sl.items.map((x) => x.id!).filter((x) => x != null)] : []));
+    update({ custom: c, spec: { ...spec, slides: filled.length ? filled : [[picks[0]]] } });
   };
   const setSpec = (sp: CustomSpec) => update({ custom, spec: sp });
 
@@ -94,16 +100,9 @@ export function TemplateEditor({
   const shareUrl = () => `${window.location.origin}${stepUrl(mode, "design", query)}`;
 
   const standard = planSlides(items, { newsletter });
-  // Keep the loading animation up until the first previews have arrived, so the page never shows empty slide frames.
-  const slidesReady = useSlidesReady();
-  // The editor stays hidden (not faded: hidden) until then, so nothing of it shows before the loader decides to appear. The
-  // loader itself only comes up if the previews take a moment, so quick loads just show the editor.
-  const showLoader = useLoaderVisible(!slidesReady);
-
   return (
     <>
-      {showLoader && <FlowLoader instant label="Setting up your carousel…" />}
-      <div className={slidesReady ? undefined : "invisible"} aria-busy={!slidesReady}>
+      <div>
         <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
           <h1 className="mb-3 col-span-2 row-start-2 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
               <StepWord>Design</StepWord> your carousel
@@ -152,6 +151,7 @@ export function TemplateEditor({
           <SlideBuilder
             newsletter={newsletter}
             items={items}
+            images={images}
             picks={q}
             mode={mode}
             spec={clean}
@@ -162,14 +162,11 @@ export function TemplateEditor({
           <ol className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {standard.map((s, i) => (
               <li key={i} className="flex flex-col gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/slide/preview?picks=${q}&n=${i}${initial.sv ? `&sv=${initial.sv}` : ""}${previewMode(mode)}`}
+                <SlidePreview
+                  src={`/api/slide/preview?picks=${q}&n=${i}${initial.sv ? `&sv=${initial.sv}` : ""}${previewMode(mode)}&fmt=web&w=540`}
                   alt={`Slide ${i + 1} of ${standard.length}`}
-                  width={540}
-                  height={675}
-                  loading={i < 5 ? "eager" : "lazy"}
-                  className="aspect-[4/5] w-full rounded-2xl bg-surface ring-1 ring-ink/10"
+                  hold={!layoutKnown}
+                  eager={i < 5}
                 />
                 <span className="text-xs font-semibold">
                   {i + 1}.{" "}

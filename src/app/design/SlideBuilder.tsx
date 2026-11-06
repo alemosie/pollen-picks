@@ -21,16 +21,20 @@ import {
   type CustomSpec,
 } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
+import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
 import { PickSelectModal } from "./PickSelectModal";
 import { EditSlideModal, Swatches, previewSrc, type Target } from "./EditSlideModal";
 import { textOn } from "../settings/PaletteEditor";
+import { SlidePreview } from "./SlidePreview";
+import { SourceLink } from "./SourceLink";
 import { useSettled } from "./useSettled";
 
 /** Lay out the carousel by hand: drag picks onto slides (up to 4 each), reorder, and click any slide to edit its text. */
 export function SlideBuilder({
   newsletter,
   items,
+  images,
   picks,
   mode,
   spec,
@@ -39,6 +43,8 @@ export function SlideBuilder({
 }: {
   newsletter: string;
   items: SlideItem[];
+  /** Pictures found in the issue, offered in the edit window. */
+  images?: IssueImage[];
   picks: string;
   mode?: string;
   spec: CustomSpec;
@@ -259,13 +265,7 @@ export function SlideBuilder({
         </span>
       ) : (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={previewSrc(picks, settled, t, mode, styleVersion)}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover"
-          />
+          <SlidePreview fill src={previewSrc(picks, settled, t, mode, styleVersion, 320)} alt="" eager={false} />
           <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-ink/80 py-1 text-xs font-bold text-cream opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
             <Pencil aria-hidden className="size-3" /> Edit slide
           </span>
@@ -538,6 +538,7 @@ export function SlideBuilder({
                         >
                           {edited(id)}
                         </span>
+                        <SourceLink url={byId.get(id)?.url} title={edited(id)} />
                         {ids.length > 1 && (
                           <span className="flex shrink-0">
                             {([-1, 1] as const).map((by) => (
@@ -751,6 +752,7 @@ export function SlideBuilder({
           target={editing}
           spec={spec}
           items={items}
+          images={images}
           picks={picks}
           mode={mode}
           styleVersion={styleVersion}

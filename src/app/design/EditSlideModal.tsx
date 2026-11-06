@@ -1,19 +1,25 @@
 "use client";
 
-import { ArrowUpRight, Check, Palette, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowUpRight, Camera, Check, Flower2, ImagePlus, Link2, Newspaper, Palette, User, X, type LucideIcon } from "lucide-react";
+import { SourceLink } from "./SourceLink";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   SPEC_LIMITS,
   templateParams,
   type CustomSpec,
   type PickEdit,
 } from "@/lib/slides/options";
-import type { SlideItem } from "@/lib/slides/types";
+import { sized } from "@/lib/cdn";
+import type { IssueImage } from "@/lib/pollen/imageIds";
+import { MAX_PHOTO_LINKS, PHOTO_MAX_PICKS, type SlideItem } from "@/lib/slides/types";
 import { oneLineLimit } from "@/lib/slides/plan";
 import { usePalette } from "@/components/usePalette";
 import { DEFAULT_COLORS, sameColor } from "@/lib/brand";
 import { textOn } from "@/app/settings/PaletteEditor";
-import { previewMode } from "@/lib/flow";
+import { isDemo, previewMode } from "@/lib/flow";
+import { STOCK_IMAGES } from "@/lib/slides/stock";
+import { useSavedPhotos, type LinksApi } from "./photoLinks";
+import { SlidePreview } from "./SlidePreview";
 import { useSettled } from "./useSettled";
 
 export type Target =
@@ -39,9 +45,10 @@ export function previewSrc(
   target: Target,
   mode?: string,
   sv?: string,
+  width = 540,
 ): string {
   const p = templateParams({ spec, sv });
-  return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}${previewMode(mode)}`;
+  return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}${previewMode(mode)}&fmt=web&w=${width}`;
 }
 
 const input =
@@ -53,6 +60,7 @@ export function EditSlideModal({
   target,
   spec,
   items,
+  images,
   picks,
   mode,
   styleVersion,
@@ -64,6 +72,8 @@ export function EditSlideModal({
   target: Target;
   spec: CustomSpec;
   items: SlideItem[];
+  /** Pictures found in the issue. Undefined: this source has none to offer (no picker); empty: the issue has none (a note). */
+  images?: IssueImage[];
   picks: string;
   mode?: string;
   styleVersion?: string;
@@ -73,6 +83,8 @@ export function EditSlideModal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState<CustomSpec>(() => structuredClone(spec));
+  // Picks whose photo credit field was opened by hand (it is also shown whenever a credit is set).
+  const [creditOpen, setCreditOpen] = useState<number[]>([]);
   const palette = usePalette();
   const byId = new Map(items.map((i) => [i.id!, i]));
   const settled = useSettled(draft, 500);
@@ -90,8 +102,14 @@ export function EditSlideModal({
       dflt: Record<string, string>,
     ) => {
       const out: Record<string, string> = {};
-      for (const [k, v] of Object.entries(o ?? {}))
-        if (v && v.trim() && v.trim() !== dflt[k]) out[k] = v;
+      for (const [k, v] of Object.entries(o ?? {})) {
+        if (v === undefined) continue;
+        // Text a person emptied on purpose stays empty ("leave it off the slide"); only text equal to the default is dropped.
+        if (k in dflt) {
+          if (v.trim() !== dflt[k]) out[k] = v;
+        } else if (v && v.trim()) out[k] = v;
+      }
+      if (!out.photo) delete out.photoMode;
       return Object.keys(out).length ? out : undefined;
     };
     const edits: Record<number, PickEdit> = {};
@@ -101,18 +119,20 @@ export function EditSlideModal({
       for (const k of Object.keys(e) as (keyof PickEdit)[]) {
         const v = e[k];
         if (v === undefined) continue;
-        const original = k === "title" ? base?.title : (base?.[k] ?? "");
-        if (v === original || (k === "title" && !v.trim())) continue;
+        const original = k === "title" ? base?.title : k === "photoCredit" ? "" : (base?.[k] ?? "");
+        if (v === original) continue;
         out[k] = v;
       }
       if (Object.keys(out).length) edits[Number(key)] = out;
     }
+    const { puff, noPhoto, ...coverText } = d.cover ?? {};
+    const cover = pick(coverText, {
+      title: DEFAULTS.coverTitle,
+      subtitle: coverDefaultSub,
+    });
     return {
       ...d,
-      cover: pick(d.cover, {
-        title: DEFAULTS.coverTitle,
-        subtitle: coverDefaultSub,
-      }),
+      cover: cover || puff || noPhoto ? { ...cover, ...(puff ? { puff: true } : {}), ...(noPhoto && !cover?.photo ? { noPhoto: true } : {}) } : undefined,
       closing: pick(d.closing, {
         title: DEFAULTS.closingTitle,
         line: closingLineDefault,
@@ -136,9 +156,35 @@ export function EditSlideModal({
   }, []);
 
   const ids = target.kind === "slide" ? (draft.slides[target.index] ?? []) : [];
+  // Pictures on the pages the picks link to: only for the user's own issues (`images` is set), and only on slides that have room for one.
+  const link = useLinkImages(mode, ids, !!images && ids.length <= PHOTO_MAX_PICKS);
+  // Picture links the user saved: for anyone signed in on one of their own sources (the public demo can't keep them).
+  const savedOn = !!mode && !isDemo(mode);
+  const saved = useSavedPhotos(savedOn);
+  /** Choosing a picture from a pick's link fills in who to credit (the pick's @handle, else the site's name); any other choice starts without a credit. It can be edited or cleared. */
+  const choosePhoto = (id: number, photoId: string) => {
+    if (photoId === value(id, "photo")) return;
+    setEdit(id, "photo", photoId);
+    const fromLink = !!photoId && (link.images[id] ?? []).some((i) => i.id === photoId) && !(images ?? []).some((i) => i.id === photoId);
+    setEdit(id, "photoCredit", fromLink ? (byId.get(id)?.tag ? `@${byId.get(id)!.tag}` : (link.sites[id] ?? "")) : "");
+  };
 
   const setCover = (k: "title" | "subtitle", v: string) =>
     setDraft((d) => ({ ...d, cover: { ...d.cover, [k]: v } }));
+  // The cover starts with the issue's own preview image as its background (when it has one). Choosing "None" is remembered as noPhoto.
+  const defaultCoverId = images?.find((i) => i.preview)?.id;
+  const coverPhoto = draft.cover?.photo ?? (draft.cover?.noPhoto ? "" : (defaultCoverId ?? ""));
+  const coverMode = draft.cover?.photo ? (draft.cover.photoMode ?? "section") : "background";
+  const setCoverPhoto = (v: string) =>
+    setDraft((d) => {
+      const wasDefault = !d.cover?.photo && !d.cover?.noPhoto && !!defaultCoverId;
+      return {
+        ...d,
+        cover: { ...d.cover, photo: v || undefined, noPhoto: v ? undefined : defaultCoverId ? true : undefined, photoMode: v ? (d.cover?.photo ? (d.cover.photoMode ?? "section") : wasDefault ? "background" : "section") : undefined },
+      };
+    });
+  const setCoverPuff = (on: boolean) => setDraft((d) => ({ ...d, cover: { ...d.cover, puff: on || undefined } }));
+  const setCoverPhotoMode = (m: "section" | "background") => setDraft((d) => ({ ...d, cover: { ...d.cover, photo: coverPhoto || undefined, noPhoto: undefined, photoMode: m } }));
   const setClosing = (k: "title" | "line" | "cta", v: string) =>
     setDraft((d) => ({ ...d, closing: { ...d.closing, [k]: v } }));
   const setEdit = (id: number, key: keyof PickEdit, v: string) =>
@@ -209,7 +255,7 @@ export function EditSlideModal({
 
   const value = (id: number, key: keyof PickEdit) =>
     draft.edits?.[id]?.[key] ??
-    (key === "title" ? byId.get(id)?.title : byId.get(id)?.[key]) ??
+    (key === "title" ? byId.get(id)?.title : key === "photoCredit" ? "" : byId.get(id)?.[key]) ??
     "";
 
   const groups = ids.map((id) => value(id, "group"));
@@ -252,14 +298,7 @@ export function EditSlideModal({
         </div>
         <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-7 py-4 md:grid-cols-[17rem_minmax(0,1fr)]">
           <div className="grid content-start gap-3 md:sticky md:top-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewSrc(picks, normalize(settled), target, mode, styleVersion)}
-              alt="Slide preview"
-              width={540}
-              height={675}
-              className="aspect-[4/5] w-full rounded-2xl bg-surface ring-1 ring-ink/10"
-            />
+            <SlidePreview src={previewSrc(picks, normalize(settled), target, mode, styleVersion)} alt="Slide preview" />
             <div role="group" aria-labelledby="bg-heading" className="grid gap-2">
               <div className="flex items-center gap-1.5">
                 <span id="bg-heading" className="text-sm font-semibold">
@@ -330,7 +369,8 @@ export function EditSlideModal({
           <div className="grid content-start gap-5">
             <p className="m-0 text-sm">
               The header and footer are part of the template. Everything else on
-              the slide is yours to change.
+              the slide is yours to change. Empty a field to leave it off: the
+              rest of the slide uses the room.
             </p>
 
             {target.kind === "cover" && (
@@ -346,13 +386,48 @@ export function EditSlideModal({
                 </label>
                 <label className="grid gap-1 text-sm font-semibold">
                   Subtitle
-                  <input
+                  <textarea
+                    rows={2}
                     value={draft.cover?.subtitle ?? coverDefaultSub}
                     maxLength={SPEC_LIMITS.coverSubtitle}
                     onChange={(e) => setCover("subtitle", e.target.value)}
                     className={input}
                   />
                 </label>
+                <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
+                  <input type="checkbox" checked={!!draft.cover?.puff} onChange={(e) => setCoverPuff(e.target.checked)} className="size-5 shrink-0 accent-ink" />
+                  Dandelion in the top right corner
+                </label>
+                {/* The issue's pictures first, then the built-in ones, which are always there (an issue may have none). */}
+                {(
+                  <>
+                    <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} value={coverPhoto} onPick={setCoverPhoto} label="Cover picture" />
+                    {coverPhoto && (
+                      <div role="radiogroup" aria-label="Where the picture goes" className="flex flex-wrap gap-2">
+                        {(
+                          [
+                            ["section", "As a section"],
+                            ["background", "As the background"],
+                          ] as const
+                        ).map(([m, label]) => (
+                          <label
+                            key={m}
+                            className="cursor-pointer rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 has-[:checked]:bg-ink has-[:checked]:text-cream has-[:checked]:ring-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink"
+                          >
+                            <input
+                              type="radio"
+                              name="cover-photo-mode"
+                              checked={coverMode === m}
+                              onChange={() => setCoverPhotoMode(m)}
+                              className="sr-only"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
               </>
             )}
 
@@ -388,6 +463,18 @@ export function EditSlideModal({
               </>
             )}
 
+            {target.kind === "slide" && (images || savedOn) && ids.length > 0 && (
+              <p className="m-0 text-sm" role="note">
+                {images && images.length === 0 && ids.length <= PHOTO_MAX_PICKS && !link.loading && ids.every((id) => !link.images[id]?.length)
+                  ? "No pictures were found in this issue or on the pages its picks link to. You can add a link to your own."
+                  : ids.length > PHOTO_MAX_PICKS
+                    ? `Pictures fit on slides with up to ${PHOTO_MAX_PICKS} picks. Move a pick to a slide of its own to add one.`
+                    : ids.length === PHOTO_MAX_PICKS
+                      ? "Pictures take room on the card, so a long description may be shortened."
+                      : null}
+              </p>
+            )}
+
             {target.kind === "slide" &&
               ids.map((id, i) => (
                 <fieldset
@@ -400,7 +487,10 @@ export function EditSlideModal({
                 >
                   <legend className="sr-only">Pick {i + 1}</legend>
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="m-0 text-2xl">Pick {i + 1}</h3>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <h3 className="m-0 text-2xl">Pick {i + 1}</h3>
+                      <SourceLink url={byId.get(id)?.url} title={value(id, "title") || `pick ${i + 1}`} size="size-8" />
+                    </div>
                     <CardColor
                       palette={palette}
                       value={draft.edits?.[id]?.bg}
@@ -418,6 +508,37 @@ export function EditSlideModal({
                       className={input}
                     />
                   </label>
+                  {ids.length <= PHOTO_MAX_PICKS && (savedOn || (images && (images.length > 0 || link.loading || !!link.images[id]?.length))) && (
+                    <PhotoPicker
+                      images={images ?? []}
+                      linkImages={link.images[id] ?? []}
+                      saved={savedOn ? saved : undefined}
+                      loadingLink={link.loading}
+                      value={value(id, "photo")}
+                      onPick={(v) => choosePhoto(id, v)}
+                      label={`Picture for pick ${i + 1}`}
+                    />
+                  )}
+                  {value(id, "photo") && ids.length <= PHOTO_MAX_PICKS &&
+                    (value(id, "photoCredit") || creditOpen.includes(id) ? (
+                      <label className="grid gap-1 text-sm font-semibold">
+                        Photo credit
+                        <input
+                          value={value(id, "photoCredit")}
+                          maxLength={SPEC_LIMITS.photoCredit}
+                          placeholder="@handle or site name (empty for no credit)"
+                          autoFocus={creditOpen.includes(id) && !value(id, "photoCredit")}
+                          onChange={(e) => setEdit(id, "photoCredit", e.target.value)}
+                          className={input}
+                        />
+                        <span className="mt-1 text-xs font-normal">Goes in the caption (&ldquo;📷 Photos: …&rdquo;), not on the slide. Short captions for X, Bluesky, Threads and Mastodon leave it out.</span>
+                      </label>
+                    ) : (
+                      <button type="button" onClick={() => setCreditOpen((o) => [...o, id])} className="inline-flex items-center gap-1.5 justify-self-start rounded-lg px-1 py-0.5 text-sm font-bold underline underline-offset-4">
+                        <Camera aria-hidden className="size-4" strokeWidth={2.25} />
+                        Add photo credit
+                      </button>
+                    ))}
                   <label className="grid gap-1 text-sm font-semibold">
                     Category label
                     <input
@@ -513,6 +634,234 @@ export function EditSlideModal({
       </div>
     </dialog>
   );
+}
+
+type Source = "issue" | "link" | "builtin" | "saved";
+/** Where a picture came from: the icon on its tile, the word in the legend, and how a screen reader hears it. */
+const SOURCE: Record<Source, { icon: LucideIcon; short: string; spoken: string }> = {
+  issue: { icon: Newspaper, short: "Issue", spoken: "from the issue" },
+  link: { icon: Link2, short: "Link", spoken: "from this pick's link" },
+  builtin: { icon: Flower2, short: "Built in", spoken: "built in" },
+  saved: { icon: User, short: "Yours", spoken: "a link you saved" },
+};
+
+/** One picture to choose from. A picture the browser can't load (a site that refuses to be shown elsewhere) is left out. */
+function Thumb({ img, on, onPick, n, source, onRemove }: { img: IssueImage; on: boolean; onPick: () => void; n: number; source: Source; /** Saved links can be removed. */ onRemove?: () => void }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  const { icon: Icon, spoken } = SOURCE[source];
+  const name = `${img.alt || `Picture ${n}`}, ${spoken}`;
+  const tile = (
+    <button type="button" onClick={onPick} aria-pressed={on} aria-label={name} title={name} className={`${TILE} ${on ? TILE_ON : ""}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={sized(img.src, 160)} alt="" width={64} height={64} loading="lazy" referrerPolicy="no-referrer" onError={() => setFailed(true)} className="size-full object-cover" />
+      <span aria-hidden className="absolute bottom-1 left-1 grid size-5 place-items-center rounded-full bg-ink/80 text-cream">
+        <Icon className="size-3" strokeWidth={2.5} />
+      </span>
+    </button>
+  );
+  if (!onRemove) return tile;
+  return (
+    <span className="relative shrink-0">
+      {tile}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${img.alt || `picture ${n}`}`}
+        title="Remove this photo"
+        className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-ink text-cream ring-2 ring-page hover:bg-ink-deep"
+      >
+        <X aria-hidden className="size-3" strokeWidth={3} />
+      </button>
+    </span>
+  );
+}
+
+const TILE = "relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg text-xs font-bold ring-1 ring-current/30 hover:ring-current";
+const TILE_ON = "ring-2 ring-current";
+
+/**
+ * The pictures to choose from, in one row: "None", then the issue's own, the ones found on the page the pick links to, and the
+ * built-in ones. A small icon on each tile (and the legend above the row) says which is which. `value` is an image id; "" means none.
+ */
+function PhotoPicker({
+  images,
+  linkImages = [],
+  builtIn = [],
+  saved,
+  loadingLink = false,
+  value,
+  onPick,
+  label,
+}: {
+  /** The issue's own pictures. */
+  images: IssueImage[];
+  /** Pictures found on the page the pick links to (none for the cover). */
+  linkImages?: IssueImage[];
+  /** Pictures that come with the app (the cover offers them). */
+  builtIn?: IssueImage[];
+  /** The user's own saved picture links, with adding and removing. Without it there is no "Add link" button. */
+  saved?: LinksApi;
+  loadingLink?: boolean;
+  value: string;
+  onPick: (id: string) => void;
+  label: string;
+}) {
+  // A picture the issue has is listed once, under the issue.
+  const [adding, setAdding] = useState(false);
+  const [link, setLink] = useState("");
+  const groups = (
+    [
+      ["saved", saved?.images ?? []],
+      ["issue", images],
+      ["link", linkImages.filter((l) => !images.some((i) => i.id === l.id))],
+      ["builtin", builtIn],
+    ] as [Source, IssueImage[]][]
+  ).filter(([, list]) => list.length > 0);
+  return (
+    <div role="group" aria-label={label} className="grid gap-1">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
+        <span className="text-sm font-semibold">Picture</span>
+        <span className="flex items-center gap-3 text-xs font-semibold">
+          {groups.map(([source]) => {
+            const { icon: Icon, short } = SOURCE[source];
+            return (
+              <span key={source} className="inline-flex items-center gap-1">
+                <Icon aria-hidden className="size-3.5" strokeWidth={2.5} />
+                {short}
+              </span>
+            );
+          })}
+          {loadingLink && <span className="font-normal">Checking this pick&rsquo;s link…</span>}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 overflow-x-auto p-1">
+        <button type="button" onClick={() => onPick("")} aria-pressed={!value} className={`${TILE} ${!value ? TILE_ON : ""}`}>
+          None
+        </button>
+        {saved && (
+          <button
+            type="button"
+            onClick={() => setAdding((o) => !o)}
+            aria-expanded={adding}
+            title="Add a link to a public picture"
+            aria-label="Add a link to a public picture"
+            className={`${TILE} border-2 border-dashed border-current/50 ring-0 ${adding ? "bg-current/10" : ""}`}
+          >
+            <ImagePlus aria-hidden className="size-6" strokeWidth={2.25} />
+          </button>
+        )}
+        {groups.map(([source, list]) => (
+          <Fragment key={source}>
+            <span aria-hidden className="h-10 w-px shrink-0 bg-current/25" />
+            {list.map((img, n) => (
+              <Thumb
+                key={img.id}
+                img={img}
+                n={n + 1}
+                source={source}
+                on={value === img.id}
+                onPick={() => onPick(img.id)}
+                onRemove={
+                  source === "saved" && saved
+                    ? () => {
+                        if (value === img.id) onPick("");
+                        void saved.remove(img.id);
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </Fragment>
+        ))}
+        {loadingLink && (
+          <span role="status" aria-label="Looking for pictures on this pick's link" className={`${TILE} animate-pulse bg-current/10`}>
+            <Link2 aria-hidden className="size-4 opacity-60" />
+          </span>
+        )}
+      </div>
+      {saved && adding && (
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!link.trim() || saved.busy) return;
+            const id = await saved.add(link);
+            if (id) {
+              onPick(id);
+              setLink("");
+              setAdding(false);
+            }
+          }}
+        >
+          <input
+            type="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="https://… link to a public picture"
+            aria-label="Link to a public picture"
+            autoFocus
+            className="min-w-0 flex-1 rounded-xl bg-surface px-3 py-2 text-sm font-normal text-ink ring-1 ring-ink/15"
+          />
+          <button type="submit" disabled={saved.busy || !link.trim()} className="rounded-xl bg-ink px-4 py-2 text-sm font-bold text-cream disabled:opacity-50">
+            {saved.busy ? "Checking…" : "Add"}
+          </button>
+        </form>
+      )}
+      {saved && adding && (
+        <p className="m-0 text-xs font-normal">
+          {saved.error && (
+            <strong role="alert" className="block">
+              {saved.error}
+            </strong>
+          )}
+          Images must stay public and online.{" "}
+          {saved.images.length >= MAX_PHOTO_LINKS - 10 && `${saved.images.length}/${MAX_PHOTO_LINKS} added to your account. `}
+          <a href="/settings?section=photos" target="_blank" rel="noreferrer" className="font-bold underline underline-offset-2">
+            {saved.images.length >= MAX_PHOTO_LINKS - 10 ? "Manage in Settings" : "See all linked images in Settings"}
+          </a>
+        </p>
+      )}
+      {saved && !adding && saved.error && (
+        <p role="alert" className="m-0 text-xs font-bold">
+          {saved.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// What the pages the picks link to had, kept for the visit so reopening a slide doesn't read the pages again.
+type LinkData = { images: Record<number, IssueImage[]>; sites: Record<number, string> };
+const linkCache = new Map<string, LinkData>();
+const NO_LINKS: LinkData = { images: {}, sites: {} };
+
+/** The pictures on the pages the given picks link to, and each page's site name (a credit suggestion). Empty while loading, and when nothing could be read. Only reads when `enabled`. */
+function useLinkImages(mode: string | undefined, ids: number[], enabled: boolean): LinkData & { loading: boolean } {
+  const key = `${mode ?? ""}|${ids.join(",")}`;
+  const [got, setGot] = useState<{ key: string; data: LinkData } | null>(null);
+  const active = enabled && !!mode && !isDemo(mode) && ids.length > 0;
+  const cached = active ? linkCache.get(key) : undefined;
+  useEffect(() => {
+    if (!active || linkCache.has(key)) return;
+    const ctrl = new AbortController();
+    const p = new URLSearchParams({ mode: mode!, picks: ids.join(",") });
+    fetch(`/api/pick/images?${p}`, { signal: ctrl.signal })
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((d: Partial<LinkData>) => {
+        const data = { images: d.images ?? {}, sites: d.sites ?? {} };
+        linkCache.set(key, data);
+        setGot({ key, data });
+      })
+      .catch(() => {
+        if (!ctrl.signal.aborted) setGot({ key, data: NO_LINKS });
+      });
+    return () => ctrl.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` already covers mode and ids
+  }, [key, active]);
+  if (!active) return { ...NO_LINKS, loading: false };
+  if (cached) return { ...cached, loading: false };
+  return got?.key === key ? { ...got.data, loading: false } : { ...NO_LINKS, loading: true };
 }
 
 /** Default swatch plus the palette. `value` "" / undefined means default. */

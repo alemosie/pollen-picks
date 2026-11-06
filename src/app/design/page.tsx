@@ -68,10 +68,13 @@ async function DesignContent({
       <PageHeader current={3} hrefs={{ 1: "/source", 2: stepUrl(mode, "pick") }} />
       <PaletteSync palette={palette} />
       <TemplateEditor
+        // A new source or new picks start from a clean editor, not from the state of a page that was visited before.
+        key={`${mode}|${issue.url}|${ids.join(",")}`}
         mode={mode}
         issueKey={issue.url}
         newsletter={issue.newsletter}
         items={items}
+        images={issue.images}
         picks={ids}
         initial={{ ...parseTemplateFromPage(sp), sv: version }}
       />
