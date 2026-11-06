@@ -380,7 +380,7 @@ export function ManualPane({
   return (
     <div>
       <div className="mb-3">
-        <h3 className="m-0 font-display text-lg">To select a pick</h3>
+        <h2 className="m-0 font-display text-lg">To select a pick</h2>
         <ul className="m-0 mt-2 grid list-none gap-1.5 p-0 text-base">
           {touch ? (
             <>
