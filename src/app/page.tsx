@@ -301,15 +301,14 @@ export default function Home() {
                 No repeating posts for multiple channels &mdash; Pollen Picks
                 sends your slides and caption to Buffer for every channel
                 you&rsquo;ve connected: as a draft to review and schedule, or
-                straight to publish. Nothing goes out until you say so. See the full list
-                of supported platforms{" "}
+                straight to publish. Nothing goes out until you say so.{" "}
                 <a
                   href="https://support.buffer.com/article/567-supported-channels"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold underline decoration-[3px] underline-offset-[7px] hover:decoration-coral"
                 >
-                  here
+                  See the full list of supported platforms
                 </a>
                 .
               </p>
@@ -336,6 +335,8 @@ export default function Home() {
                 <img
                   src="/brand/pollen-picks-lockup-light.svg"
                   alt=""
+                  width={1313}
+                  height={608}
                   className="h-10 w-auto max-w-none sm:h-9"
                 />
               </span>
