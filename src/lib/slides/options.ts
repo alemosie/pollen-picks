@@ -144,6 +144,10 @@ export function encodeSpec(spec: CustomSpec): string {
 export const coverTitle = (o: TemplateOptions): string | undefined =>
   o.spec?.cover?.title?.trim() || o.heading;
 
+/** The same object without its undefined keys, so a decoded spec only has the fields it was given. */
+const omitUndefined = <T extends object>(o: T): T =>
+  Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+
 /** Reads and sanitizes a spec from a URL param; anything malformed is dropped, never thrown. */
 export function decodeSpec(
   raw: string | null | undefined,
@@ -184,9 +188,9 @@ export function decodeSpec(
       );
       if (Object.keys(edit).length) edits[Number(id)] = edit;
     }
-    return {
+    return omitUndefined({
       cover: w.c
-        ? {
+        ? omitUndefined({
             title: str(w.c.t, SPEC_LIMITS.coverTitle),
             subtitle: str(w.c.s, SPEC_LIMITS.coverSubtitle),
             bg: withHash(w.c.g),
@@ -194,7 +198,7 @@ export function decodeSpec(
             ...(isImageId(w.c.p) ? { photo: w.c.p, photoMode: w.c.m === "b" ? ("background" as const) : ("section" as const) } : {}),
             ...(w.c.d === 1 ? { puff: true } : {}),
             ...(w.c.n === 1 && !isImageId(w.c.p) ? { noPhoto: true } : {}),
-          }
+          })
         : undefined,
       closing: w.x
         ? {
@@ -210,7 +214,7 @@ export function decodeSpec(
         ? slides.map((_: unknown, i: number) => withHash(w.g[i]) ?? "")
         : undefined,
       edits: Object.keys(edits).length ? edits : undefined,
-    };
+    });
   } catch {
     return undefined;
   }
