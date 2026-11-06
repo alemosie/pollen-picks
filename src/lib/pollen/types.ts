@@ -5,6 +5,16 @@ export type ParsedDate = {
   recurring: boolean;
   /** First time found, "HH:MM". */
   startTime?: string;
+  /** End of a time range ("9-11am" gives "11:00"). */
+  endTime?: string;
+  /** "Until Nov 30", "Through Oct 31": the one date found is when it ends, not when it starts. */
+  ends?: boolean;
+  /** Where in the text the first date was found. */
+  at?: number;
+  /** Found in the middle of running text, where it may be a deadline or an aside: fine for ordering, never a reason to call the item over. */
+  soft?: boolean;
+  /** At least one date was worked out from a bare weekday ("Fri 7:30pm") instead of being written out. */
+  inferred?: boolean;
 };
 
 export type Activity = {

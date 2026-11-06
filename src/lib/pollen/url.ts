@@ -1,7 +1,13 @@
 // Normalizes links so a newsletter body link and the (tracked, re-ordered) link in beehiiv's click data
 // collapse to the same key.
 
-const TRACKING_PARAMS = new Set(["fbclid", "gclid", "igsh", "igshid", "stkn", "xtok", "img_index", "dlrf", "mc_cid", "mc_eid", "ref", "si", "_hsenc", "_hsmi"]);
+const TRACKING_PARAMS = new Set([
+  "fbclid", "gclid", "igsh", "igshid", "stkn", "xtok", "img_index", "dlrf", "mc_cid", "mc_eid", "ref", "si", "_hsenc", "_hsmi",
+  // beehiiv adds its own to links in the web version of an issue (the click data lists the link without them).
+  "_bhlid", "bhcl_id", "last_resource_guid", "_bhiid",
+  // Other email tools' subscriber and campaign ids.
+  "mkt_tok", "oly_enc_id", "oly_anon_id", "vero_id", "vero_conv", "ck_subscriber_id", "s_cid", "mibextid",
+]);
 
 export function normalizeUrl(raw: string): string | null {
   const s = raw.trim();
@@ -86,3 +92,6 @@ export function instagramTag(raw: string | null | undefined, known?: KnownHandle
   const key = instagramPostKey(raw);
   return (key && known?.[key]) || null;
 }
+
+/** The link without its query string: a second chance to match a link whose parameters differ between the body and the click data. */
+export const looseKey = (key: string) => key.split("?")[0];
