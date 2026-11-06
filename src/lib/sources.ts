@@ -8,6 +8,7 @@ import { readPublicPost } from "./publicPost";
 import { issueKey, listCustomChunks } from "./customPicks";
 import { parseChunks } from "./pollen/chunks";
 import { contentRoot } from "./pollen/content";
+import { extractIssueImages } from "./pollen/images";
 import { renderableDocument } from "./pollen/render";
 import { mergeClicks } from "./pollen/rank";
 import { rankChunks, withDates } from "./pollen/rankChunks";
@@ -172,7 +173,7 @@ function buildIssue(raw: BeehiivIssueContent, newsletter: string): IssueData {
   const parsed = parseChunks(html);
   const ranks = rankChunks(parsed, mergeClicks(raw.clicks), { today, reference: raw.publishedAt.slice(0, 10) });
   const chunks = withDates(parsed, raw.publishedAt.slice(0, 10)).map((c) => ({ ...c, rank: ranks.get(c.id)?.rank ?? null, score: ranks.get(c.id)?.score ?? null }));
-  return { title: raw.title, newsletter, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: raw.clicks.length > 0 };
+  return { title: raw.title, newsletter, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: raw.clicks.length > 0, images: extractIssueImages(raw.html, { base: raw.url, thumbnail: raw.thumbnail }) };
 }
 
 // Every step reloads the issue, and beehiiv renders expanded content on demand, so keep a fetched issue for a few minutes.

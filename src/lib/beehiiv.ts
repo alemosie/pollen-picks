@@ -167,7 +167,7 @@ export function cleanLogoUrl(raw: unknown): string | undefined {
 export type BeehiivIssue = { id: string; title: string; subtitle?: string; publishedAt: string; url?: string; /** https image URL for the issue: beehiiv's thumbnail_url, else the first picture in its body. */ thumbnail?: string };
 
 /** An issue with everything the Pick step needs: its HTML body and per-link click counts. */
-export type BeehiivIssueContent = { id: string; title: string; publishedAt: string; url?: string; html: string; clicks: ClickRow[] };
+export type BeehiivIssueContent = { id: string; title: string; publishedAt: string; url?: string; /** https address of the issue's preview image (beehiiv's thumbnail_url), when it has one. */ thumbnail?: string; html: string; clicks: ClickRow[] };
 
 type RawPost = {
   id?: unknown;
@@ -300,5 +300,5 @@ export async function fetchIssue(key: string, publicationId: string, postId: str
     throw new BeehiivKeyError("no-content", "beehiiv didn't return this issue's web content. Issues that are only sent by email, or fully paywalled, can't be picked from.");
   }
   const clicks = (Array.isArray(p.stats?.clicks) ? p.stats.clicks : []).map(toClickRow).filter((c): c is ClickRow => c !== null);
-  return { id: postId, title: str(p.title) ?? "Untitled issue", publishedAt: iso(p.publish_date) ?? iso(p.displayed_date) ?? new Date().toISOString(), url: str(p.web_url), html, clicks };
+  return { id: postId, title: str(p.title) ?? "Untitled issue", publishedAt: iso(p.publish_date) ?? iso(p.displayed_date) ?? new Date().toISOString(), url: str(p.web_url), thumbnail: httpsUrl(p.thumbnail_url), html, clicks };
 }
