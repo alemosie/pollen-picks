@@ -37,7 +37,7 @@ export function ChannelFit({
               </span>
               <ChannelIcon service={service} className="size-3.5 shrink-0" />
               <span className="min-w-0 truncate">
-                {serviceLabel(service)} <span className="opacity-70">({group.length})</span>
+                {serviceLabel(service)} <span className="opacity-75">({group.length})</span>
               </span>
               <span className="sr-only">{fit.fits ? "fits" : fit.over > 0 ? `over the limit by ${fit.over}` : `${fit.mentionsOver} too many tags`}</span>
               {!fit.fits && (
