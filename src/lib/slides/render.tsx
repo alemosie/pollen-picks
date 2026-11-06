@@ -36,14 +36,29 @@ async function draw(slide: Slide, kit: Kit, withEmoji: boolean) {
   return res.arrayBuffer();
 }
 
-export async function renderSlide(slide: Slide, kit: Kit): Promise<Response> {
+/**
+ * `web` is for slides shown on screen in the design step: a smaller WebP of `web.width` pixels. Posts to Buffer never ask for it
+ * and keep the full-size PNG. If sharp can't load (it is a native module), the PNG is served instead, so a preview never breaks.
+ */
+export async function renderSlide(slide: Slide, kit: Kit, web?: { width: number }): Promise<Response> {
   let png: ArrayBuffer;
   try {
     png = await draw(slide, kit, true);
   } catch {
     png = await draw(stripDeep(slide), kit, false);
   }
-  const res = new Response(png, { headers: { "Content-Type": "image/png" } });
+  let body: BodyInit = png;
+  let type = "image/png";
+  if (web) {
+    try {
+      const { default: sharp } = await import("sharp");
+      body = new Uint8Array(await sharp(Buffer.from(png)).resize({ width: web.width }).webp({ quality: 82 }).toBuffer());
+      type = "image/webp";
+    } catch {
+      // keep the PNG
+    }
+  }
+  const res = new Response(body, { headers: { "Content-Type": type } });
   // Next's default is max-age=0, so every request re-rendered. The same slide is fetched once per channel (and by every viewer),
   // so let browsers keep it briefly and Netlify's CDN for a day. A new deploy clears the CDN cache, so template changes still show up.
   if (process.env.NODE_ENV === "production") {
