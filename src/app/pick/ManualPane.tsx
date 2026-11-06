@@ -49,7 +49,8 @@ type Selection =
 const buttonStyle =
   "absolute z-10 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold shadow-lg";
 // On a touch screen the phone's own menu (Copy, Look Up, the floating toolbar) opens right above the selection, exactly where a floating
-// button would go. So there the button is docked at the bottom of the screen, above the step bar, where nothing else appears.
+// button would go. So there the button is docked at the top centre of the screen instead: the bottom already holds the picks tray and the
+// step bar, and the top is clear of both. It is coral, the Manual tab's colour, so it can't be mistaken for Continue.
 const dockedStyle = "inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-base font-bold shadow-lg";
 
 /**
@@ -346,19 +347,43 @@ export function ManualPane({
 
   return (
     <div>
-      <p className="mb-3 mt-0 text-lg">
-        <Highlighter
-          aria-hidden
-          className="mr-1.5 inline size-5 align-[-0.2em]"
-          strokeWidth={2.25}
-        />
-        {touch ? (
-          <>Tap <strong>+</strong> beside a paragraph or heading to pick it. Or touch and hold a word, drag the handles to select part of one, then press <strong>Pick</strong> at the bottom of the screen.</>
-        ) : (
-          <>Select any text in the issue below, then press <strong>Pick</strong>. Or press <strong>+</strong> beside a paragraph or heading to pick all of it, and again to take it back.</>
-        )}{" "}
-        Links aren&rsquo;t clickable here.
-      </p>
+      <div className="mb-3">
+        <h3 className="m-0 font-display text-lg">To select a pick</h3>
+        <ul className="m-0 mt-2 grid list-none gap-1.5 p-0 text-base">
+          {touch ? (
+            <>
+              <li className="flex items-start gap-2.5">
+                <Plus aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
+                <span>
+                  Tap <strong>+</strong> beside a paragraph or heading to pick it.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Highlighter aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
+                <span>
+                  Or touch and hold a word, drag the handles to select part of one, then press <strong>Pick</strong> at the top of the screen.
+                </span>
+              </li>
+            </>
+          ) : (
+            <>
+              <li className="flex items-start gap-2.5">
+                <Highlighter aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
+                <span>
+                  Select any text in the issue below, then press <strong>Pick</strong>.
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Plus aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
+                <span>
+                  Or press <strong>+</strong> beside a paragraph or heading to pick all of it, and again to take it back.
+                </span>
+              </li>
+            </>
+          )}
+        </ul>
+        <p className="mb-0 mt-2 text-sm italic">Links aren&rsquo;t clickable here.</p>
+      </div>
 
       {note && (
         <p
@@ -426,7 +451,7 @@ export function ManualPane({
           {sel && (
             <div
               className={touch ? "pointer-events-none fixed inset-x-0 z-40 flex justify-center px-4" : undefined}
-              style={touch ? { bottom: "calc(var(--flowbar-h, 4.75rem) + 0.75rem)" } : undefined}
+              style={touch ? { top: "calc(env(safe-area-inset-top, 0px) + 0.75rem)" } : undefined}
             >
               {"tooLong" in sel ? (
                 <p
@@ -448,7 +473,7 @@ export function ManualPane({
                 <button
                   type="button"
                   style={touch ? undefined : { left: sel.left, top: floatTop(sel.top) }}
-                  className={`${touch ? `${dockedStyle} pointer-events-auto` : buttonStyle} bg-ink text-cream hover:bg-ink-deep disabled:opacity-60`}
+                  className={`${touch ? `${dockedStyle} pointer-events-auto` : buttonStyle} ${touch ? "bg-coral text-ink-deep" : "bg-ink text-cream hover:bg-ink-deep"} disabled:opacity-60`}
                   onMouseDown={(e) => e.preventDefault()}
                   // A tap outside the issue can clear its selection before the click arrives, which would hide this button first.
                   // On touch the pick is made when the finger goes down; a keyboard press (detail 0) still goes through onClick.
