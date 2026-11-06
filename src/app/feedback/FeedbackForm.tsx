@@ -150,11 +150,11 @@ export function FeedbackForm() {
       </Question>
 
       <Question title="What's one thing you loved?">
-        <textarea name="loved" rows={3} maxLength={1000} className={field} />
+        <textarea name="loved" aria-label="What's one thing you loved?" rows={3} maxLength={1000} className={field} />
       </Question>
 
       <Question title="What's one thing you'd change?">
-        <textarea name="wouldChange" rows={3} maxLength={1000} className={field} />
+        <textarea name="wouldChange" aria-label="What's one thing you'd change?" rows={3} maxLength={1000} className={field} />
       </Question>
 
       <Question title="OK to quote you?" required>
