@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { SavedFlash } from "@/components/SavedFlash";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import Link from "next/link";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { loadFormat, saveFormat } from "@/lib/progress";
-import { Check, Copy, X } from "lucide-react";
+import { Check, Copy, Info, X } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import type { Channel } from "@/components/ChannelPicker";
+import { ChannelFit } from "./ChannelFit";
 import {
   CAPTION_ORDERS,
   CAPTION_VARIANTS,
   buildCaption,
   captionLeftOut,
+  captionLength,
+  fitFor,
+  MAX_MENTIONS,
   limitOf,
+  networksOf,
   variantFor,
   variantLimit,
   type CaptionItem,
@@ -144,7 +149,10 @@ export function WriteView({
   const visible = CAPTION_VARIANTS.filter((v) => usedBy(v.id).length > 0);
   const activeTab = visible.find((v) => v.id === tab)?.id ?? visible[0]?.id;
   const variant = CAPTION_VARIANTS.find((v) => v.id === activeTab);
-  const networksFor = (v: CaptionVariant) => [...new Set(usedBy(v).map((c) => serviceLabel(c.service)))].sort();
+  // The connected networks this caption is too long for (the same check as the channel list).
+  // True when the only problem is too many @tags (the caption isn't too long anywhere).
+  const tagsOnly = (v: CaptionVariant) => usedBy(v).every((c) => fitFor(c.service, captionFor(v)).over === 0);
+  const overNetworks = (v: CaptionVariant) => [...new Set(usedBy(v).filter((c) => !fitFor(c.service, captionFor(v)).fits).map((c) => serviceLabel(c.service)))].sort();
   // The tightest network of a caption is the one that sets its limit: say which.
   const tightest = (v: CaptionVariant) => {
     const limit = limitFor(v);
@@ -153,26 +161,27 @@ export function WriteView({
 
   return (
     <>
-      <div className="mb-6">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-          <h1 className="mb-3 text-4xl sm:text-5xl">
+      <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
+          <h1 className="mb-3 col-span-2 row-start-2 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
             <StepWord>Write</StepWord> your {visible.length > 1 ? "captions" : "caption"}
           </h1>
-          <div className="flex shrink-0 items-center gap-3 sm:mt-2">
-            <SavedFlash />
-            <ShareLinkButton />
-          </div>
-        </div>
-        <p className="mb-0 max-w-2xl text-lg">
+          <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
           Choose how the caption reads. You&rsquo;ll pick where it goes, and review everything, on the next step.
           {demo ? " In demo mode, the channels are examples." : ""}
         </p>
+          <div className="relative flex shrink-0 items-center gap-3 col-span-2 row-start-1 mb-2 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:self-start sm:row-span-2 sm:mt-2">
+            <SavedFlash />
+            <ShareLinkButton />
+          </div>
       </div>
 
-      <section className="min-w-0 max-w-3xl">
-        {orders.length > 1 && (
-          <div className="mb-3 flex flex-wrap items-center gap-1.5 text-sm" role="group" aria-label="Picks by">
-            <span className="mr-1 font-semibold">Picks by</span>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8">
+      {orders.length > 1 && (
+        <div className="grid content-start gap-2 text-sm lg:col-start-2 lg:row-start-1" role="group" aria-labelledby="picks-by-heading">
+          <p id="picks-by-heading" className="m-0 font-semibold">
+            Picks by
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5">
             {orders.map((o) => (
               <button
                 key={o.id}
@@ -188,12 +197,10 @@ export function WriteView({
               </button>
             ))}
           </div>
-        )}
-        <p className="mb-6 mt-0 text-sm">
-          {orders.length > 1 ? "Choose how picks are listed. " : ""}
-          {orders.length > 1 && visible.length > 1 ? "Picking a different order replaces both captions. " : ""}
-          Per-channel tweaks happen in Buffer.
-        </p>
+          {visible.length > 1 && <p className="m-0 text-xs">Picking a different order replaces both captions.</p>}
+        </div>
+      )}
+      <section className="min-w-0 max-w-3xl lg:col-start-1 lg:row-span-2 lg:row-start-1">
         {variant && activeTab ? (
           <>
             {visible.length > 1 && (
@@ -224,6 +231,7 @@ export function WriteView({
               aria-labelledby={visible.length > 1 ? `tab-${activeTab}` : undefined}
               className={`grid gap-3 rounded-2xl border-[3px] p-4 sm:p-5 ${ACCENT[activeTab].border}`}
             >
+              <CharCount length={captionLength(captionFor(activeTab), activeTab)} limit={limitFor(activeTab)} networks={tightest(activeTab)} overNetworks={overNetworks(activeTab)} tagsOnly={tagsOnly(activeTab)} variant={activeTab} />
               <textarea
                 aria-label={`${variant.label} caption`}
                 value={captionFor(activeTab)}
@@ -239,7 +247,6 @@ export function WriteView({
                   hand.
                 </p>
               )}
-              <CharCount text={captionFor(activeTab)} limit={limitFor(activeTab)} networks={tightest(activeTab)} />
               {activeTab === "instagram" && edited.instagram === undefined && taggedCount > 0 && (
                 <p className="m-0 flex items-start gap-2 text-sm">
                   <ChannelIcon service="instagram" className="mt-0.5 size-4 shrink-0" />
@@ -247,13 +254,13 @@ export function WriteView({
                     {plural(taggedCount, "pick")} link{taggedCount === 1 ? "s" : ""} to an Instagram account, so{" "}
                     {taggedCount === 1 ? "its line ends" : "their lines end"} with{" "}
                     <span className="font-semibold">&ldquo;From @handle&rdquo;</span> — that tags the account when you post.
+                    {taggedCount > MAX_MENTIONS.instagram && ` Instagram allows ${MAX_MENTIONS.instagram} tags per post, so only the first ${MAX_MENTIONS.instagram} are tagged.`}
                   </span>
                 </p>
               )}
               {activeTab !== "instagram" && (
                 <p className="m-0 text-sm">
-                  <span className="font-semibold">{variant.note}</span> Used for your {list(networksFor(activeTab))}{" "}
-                  {usedBy(activeTab).length === 1 ? "channel" : "channels"}.
+                  <span className="font-semibold">Use for:</span> {list(networksOf(activeTab))}.
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -299,6 +306,10 @@ export function WriteView({
           </p>
         )}
       </section>
+      <div className={orders.length > 1 ? "lg:col-start-2 lg:row-start-2" : "lg:col-start-2 lg:row-start-1"}>
+        <ChannelFit channels={usable} captionFor={captionFor} onShow={setTab} />
+      </div>
+      </div>
 
       {linkHelp && (
         <SourceLinkHelp
@@ -395,21 +406,34 @@ function SourceLinkHelp({
   );
 }
 
-/** How much of the limit the caption uses. Over it, the Send step won't send to the networks it is too long for. */
-function CharCount({ text, limit, networks }: { text: string; limit: number; networks: string[] }) {
-  const over = text.length - limit;
+/** How much of the limit the caption uses. Over it, "Send now" saves a draft for the networks it is too long for. */
+function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant }: { length: number; limit: number; networks: string[]; overNetworks: string[]; tagsOnly: boolean; variant: CaptionVariant }) {
+  const tipId = useId();
+  const tip = `${networks.length > 0 ? `The limit of ${list(networks)}. ` : ""}Emoji count as 2 characters${variant === "instagram" ? ", and so does every line break" : ""}, the way Buffer counts them.`;
   return (
-    <p className={`m-0 text-sm ${over > 0 ? "border-l-4 border-coral pl-3 font-semibold" : ""}`} role={over > 0 ? "alert" : undefined}>
-      <span className="font-semibold">
-        {text.length.toLocaleString("en")} / {limit.toLocaleString("en")} characters
-      </span>
-      {networks.length > 0 && <> (the limit of {list(networks)})</>}
-      {over > 0 && (
-        <>
-          {" "}
-          &mdash; {over.toLocaleString("en")} over. Shorten it here, or leave {networks.length > 0 ? list(networks) : "those networks"} out on the next step.
-        </>
+    <div className="flex items-start justify-between gap-x-4 gap-y-1 text-sm">
+      {overNetworks.length > 0 && (
+        <p role="alert" className="m-0 min-w-0 border-l-4 border-coral pl-3 font-semibold">
+          {tagsOnly
+            ? `Too many @tags for ${overNetworks.length === 1 ? overNetworks[0] : `${overNetworks.length} networks`} (${MAX_MENTIONS.instagram} is the most). Remove some here, or fix it in Buffer.`
+            : `Too long for ${overNetworks.length === 1 ? overNetworks[0] : `${overNetworks.length} networks`}. Trim it here, or shorten it in Buffer.`}
+        </p>
       )}
-    </p>
+      <span className="ml-auto inline-flex shrink-0 items-center gap-1 font-semibold">
+        {length.toLocaleString("en")} / {limit.toLocaleString("en")} characters
+        <span className="group relative inline-flex">
+          <button type="button" aria-label="About this limit" aria-describedby={tipId} className="grid size-6 place-items-center rounded-full hover:bg-ink/10">
+            <Info aria-hidden className="size-4" strokeWidth={2.25} />
+          </button>
+          <span
+            id={tipId}
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-60 rounded-lg bg-ink px-3 py-2 text-xs font-normal text-cream opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          >
+            {tip}
+          </span>
+        </span>
+      </span>
+    </div>
   );
 }

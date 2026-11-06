@@ -1,7 +1,6 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { siteOrigin } from "@/lib/buffer";
-import { limitOf } from "@/lib/caption";
-import { serviceLabel } from "@/lib/channels";
+import { effectiveIntent } from "@/lib/caption";
 import { fakeMode, type PostIntent } from "@/lib/bufferPost";
 import { requireSession } from "@/lib/guard";
 import { loadAppIssue } from "@/lib/sources";
@@ -10,7 +9,7 @@ import { enqueue, processQueue } from "@/lib/sendQueue";
 /**
  * Queue a send: one row per selected channel in post_history (status 'queued'), then return at once with the batch id. The posts themselves
  * are created by the send queue (src/lib/sendQueue.ts), which doesn't depend on this page staying open: this request only starts it.
- * `intent: "draft"` (the default) saves drafts that are never published. `intent: "now"` publishes immediately and must carry `confirmed: true`,
+ * `intent: "draft"` (the default) saves drafts that are never published. A channel whose caption is over its network's limit is always saved as a draft, even on `intent: "now"`, so one long caption never holds up the rest. `intent: "now"` publishes immediately and must carry `confirmed: true`,
  * which the confirmation dialog sets, so a stray request can't publish anything.
  * The sample issue can't be sent: it only exists in the public /demo flow, and a request without a real `source` is refused.
  * Buffer fetches the slide images itself, so they must be publicly reachable (not localhost).
@@ -37,14 +36,6 @@ export async function POST(req: NextRequest) {
   if (channels.length > 200) return NextResponse.json({ error: "That's too many channels for one send." }, { status: 400 });
   if (picks.length === 0) return NextResponse.json({ error: "No picks." }, { status: 400 });
 
-  // A caption longer than a network allows is refused by Buffer: say so before anything is queued.
-  for (const c of channels) {
-    const caption = body.captions?.[c.id] ?? body.caption ?? "";
-    const limit = limitOf(c.service);
-    if (limit !== undefined && caption.length > limit)
-      return NextResponse.json({ error: `The caption is ${caption.length - limit} characters over the ${serviceLabel(c.service)} limit (${limit}). Shorten it on the Write step. Nothing was sent.` }, { status: 400 });
-  }
-
   const base = (process.env.PUBLIC_BASE_URL ?? siteOrigin()).replace(/\/$/, "");
   if (!fakeMode() && /localhost|127\.0\.0\.1/.test(base)) {
     return NextResponse.json({ error: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` }, { status: 400 });
@@ -58,7 +49,11 @@ export async function POST(req: NextRequest) {
       intent,
       newsletter: issue.newsletter,
       issueTitle: issue.title,
-      channels: channels.map((c) => ({ id: c.id, service: c.service, name: String(c.name ?? ""), caption: body.captions?.[c.id] ?? body.caption ?? "" })),
+      // A caption over a network's limit is never published: that channel is saved as a draft to shorten in Buffer, and the rest go as asked.
+      channels: channels.map((c) => {
+        const caption = body.captions?.[c.id] ?? body.caption ?? "";
+        return { id: c.id, service: c.service, name: String(c.name ?? ""), caption, intent: effectiveIntent(c.service, caption, intent) };
+      }),
     });
     // Start sending now; whatever doesn't fit in this request is picked up by the page's progress checks and by the scheduled worker.
     const userId = g.session.userId;

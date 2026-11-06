@@ -7,7 +7,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
 
 export async function GET() {
   if (process.env.NODE_ENV === "production") return off();
-  return NextResponse.json({ settings: readFakeSettings(), env: { fake: process.env.BUFFER_FAKE === "1", channels: Number(process.env.BUFFER_FAKE_CHANNELS) || 0 } }, { headers: NO_STORE });
+  return NextResponse.json({ settings: readFakeSettings(), env: { fake: process.env.BUFFER_FAKE === "1", channels: Number(process.env.BUFFER_FAKE_CHANNELS) || 0, limits: process.env.BUFFER_FAKE_LIMITS === "1" } }, { headers: NO_STORE });
 }
 
 /** Body: a partial FakeSettings (merged into what is saved), or `{ reset: true }` to go back to the env vars. */
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
   const cur = readFakeSettings();
   const next: FakeSettings = { ...cur };
   if (typeof body.enabled === "boolean") next.enabled = body.enabled;
+  if (typeof body.enforceLimits === "boolean") next.enforceLimits = body.enforceLimits;
   if (body.channels !== undefined) next.channels = Number(body.channels);
   if (body.rateLimitNext !== undefined) next.rateLimitNext = Number(body.rateLimitNext);
   if (body.behaviour && typeof body.behaviour === "object") {

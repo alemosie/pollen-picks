@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildCaption, captionLeftOut, dayLabel, isInstagram, limitOf, MAX_CAPTION_CHARS, sortCaptionItems, variantFor, variantLimit, type CaptionItem } from "./caption";
+import { buildCaption, captionLeftOut, captionLength, dayLabel, effectiveIntent, fitFor, limitNote, mentionCount, networksOf, isInstagram, limitOf, MAX_CAPTION_CHARS, sortCaptionItems, variantFor, variantLimit, type CaptionItem } from "./caption";
 
 const it = (title: string, o: Partial<CaptionItem> = {}): CaptionItem => ({ title, when: null, place: null, rank: null, date: null, ...o });
 const base = { newsletter: "Just a Phase", link: "https://jap.example/p/49" } as const;
@@ -105,11 +105,11 @@ test("limits: each network's own, and the tightest among the ones that share a c
   assert.equal(variantLimit("link", []), 2200);
 });
 
-test("a short caption: titles with their day, the full link, no tag, and it fits", () => {
+test("a short caption: titles only, the full link, no tag, and it fits", () => {
   const items = [it("Gatti's Music Hall", { rank: 1, date: "2026-11-21", tag: "camden", when: "Sat 21 Nov" }), it("L'Orient", { rank: 2 }), it("God Save The Queens", { rank: 3 }), it("The Future of Knowledge", { rank: 4 }), it("Fifth pick with a rather long title", { rank: 5 }), it("Sixth pick with a rather long title too", { rank: 6 }), it("Seventh pick with a rather long title as well", { rank: 7 }), it("Eighth pick with yet another long title", { rank: 8 })];
   const text = buildCaption(items, { ...base, order: "clicks", variant: "short", limit: 280 });
   assert.ok(text.length <= 280, String(text.length));
-  assert.ok(text.includes("🔥 Gatti's Music Hall (Sat 21 Nov)"));
+  assert.ok(text.includes("🔥 Gatti's Music Hall\n") && !text.includes("Sat 21 Nov"));
   assert.ok(text.endsWith("Read it here: https://jap.example/p/49"));
   assert.ok(!text.includes("@camden") && !text.includes("Details on every pick") && !text.includes("Link in bio"));
   const more = Number(/…and (\d+) more/.exec(text)?.[1]);
@@ -127,4 +127,69 @@ test("the base caption may use the room LinkedIn has", () => {
   const small = buildCaption(items, { ...base, order: "clicks", variant: "link", limit: 2196 });
   const big = buildCaption(items, { ...base, order: "clicks", variant: "link", limit: 3000 });
   assert.ok(small.length <= 2196 && big.length <= 3000 && big.length > 2196);
+});
+
+test("fitFor: a caption against one network's own limit", () => {
+  assert.deepEqual(fitFor("twitter", "x".repeat(280)), { limit: 280, over: 0, mentionsOver: 0, fits: true }, "exactly at the limit fits");
+  assert.deepEqual(fitFor("X", "x".repeat(281)), { limit: 280, over: 1, mentionsOver: 0, fits: false });
+  assert.deepEqual(fitFor("bluesky", "x".repeat(450)), { limit: 300, over: 150, mentionsOver: 0, fits: false });
+  assert.equal(fitFor("linkedin", "x".repeat(450)).fits, true, "the same text fits a network with more room");
+  assert.deepEqual(fitFor("tiktok", "x".repeat(99999)), { limit: undefined, over: 0, mentionsOver: 0, fits: true }, "unknown limit: nothing to flag");
+  assert.equal(fitFor("threads", "🔥".repeat(251)).over, 2, "emoji count as two units, on the safe side");
+});
+
+test("Instagram counts every line break as 2; other networks count one unit per character", () => {
+  const text = "a\n\nb";
+  assert.equal(captionLength(text, "instagram"), 6);
+  assert.equal(captionLength(text, "link"), 4);
+  assert.equal(fitFor("instagram", "x".repeat(2190) + "\n".repeat(4)).over, 2, "2,194 characters + 4 breaks = 2,198");
+  assert.equal(fitFor("linkedin", "x".repeat(2190) + "\n".repeat(4)).fits, true);
+  const lines = Array.from({ length: 40 }, (_, i) => it(`Pick number ${i}`, { rank: i + 1, when: "Sat 21 Nov @ 10:00", place: "Somewhere nice" }));
+  const generated = buildCaption(lines, { ...base, order: "clicks", variant: "instagram", limit: MAX_CAPTION_CHARS });
+  assert.ok(captionLength(generated, "instagram") <= MAX_CAPTION_CHARS, "the generated caption fits by Instagram's own count");
+});
+
+test("effectiveIntent: only a too-long Send now turns into a draft", () => {
+  const long = "x".repeat(400);
+  assert.equal(effectiveIntent("bluesky", long, "now"), "draft");
+  assert.equal(effectiveIntent("linkedin", long, "now"), "now", "the same text fits LinkedIn");
+  assert.equal(effectiveIntent("bluesky", "short", "now"), "now");
+  assert.equal(effectiveIntent("bluesky", long, "draft"), "draft");
+  assert.equal(effectiveIntent("tiktok", long, "now"), "now", "unknown limit: nothing to flag");
+});
+
+test("networksOf: every network a caption is for, once each", () => {
+  assert.deepEqual(networksOf("instagram"), ["Instagram"]);
+  assert.deepEqual(networksOf("link"), ["LinkedIn", "Facebook"]);
+  assert.deepEqual(networksOf("short"), ["X", "Bluesky", "Threads", "Mastodon"]);
+});
+
+const handles = (n: number) => Array.from({ length: n }, (_, i) => `@user${i + 1}`).join(" ");
+
+test("mentions: counted like Instagram does, e-mail addresses excluded", () => {
+  assert.equal(mentionCount("From @a_b.c and (@d), mail me@example.com"), 2);
+  assert.equal(mentionCount("no tags here"), 0);
+});
+
+test("fitFor: more than 20 mentions doesn't fit Instagram, only Instagram", () => {
+  const f = fitFor("instagram", handles(23));
+  assert.deepEqual([f.fits, f.over, f.mentionsOver], [false, 0, 3]);
+  assert.equal(fitFor("instagram", handles(20)).fits, true);
+  assert.equal(fitFor("linkedin", handles(23)).fits, true);
+  assert.equal(effectiveIntent("instagram", handles(21), "now"), "draft");
+  assert.equal(effectiveIntent("instagram", handles(20), "now"), "now");
+});
+
+test("captions tag at most 20 accounts on Instagram", () => {
+  const many = Array.from({ length: 30 }, (_, i) => it(`Pick ${i + 1}`, { rank: i + 1, tag: `acct${i + 1}` }));
+  const text = buildCaption(many, { ...base, order: "clicks", variant: "instagram", limit: 100_000 });
+  assert.equal(mentionCount(text), 20);
+  assert.equal(mentionCount(buildCaption(many, { ...base, order: "clicks", variant: "link", limit: 100_000 })), 0, "other networks never tag");
+});
+
+test("limitNote: says what is over, only when something is", () => {
+  assert.equal(limitNote("bluesky", "short"), null);
+  assert.equal(limitNote("bluesky", "x".repeat(450)), "Over Bluesky's limit (150 characters over). Fix it in Buffer before scheduling.");
+  assert.equal(limitNote("instagram", handles(23)), "Over Instagram's limit (3 @tags over the limit of 20). Fix it in Buffer before scheduling.");
+  assert.match(limitNote("instagram", "x".repeat(2300) + " " + handles(22)) ?? "", /\(\d+ characters over, 2 @tags over the limit of 20\)/);
 });

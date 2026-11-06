@@ -12,6 +12,7 @@
 // 'unknown' and the person is told to check Buffer. The only automatic retry is Buffer's 429, which means nothing was created.
 
 import { randomUUID } from "node:crypto";
+import { limitNote } from "./caption";
 import { imageLimit, unsupportedReason } from "./channels";
 import { siteOrigin } from "./buffer";
 import { createChannelPost, fakeMode } from "./bufferPost";
@@ -47,7 +48,8 @@ export type QueueRequest = {
   intent: PostIntent;
   newsletter: string;
   issueTitle: string;
-  channels: { id: string; service: string; name: string; caption: string }[];
+  /** `intent` per channel overrides the batch one: a channel whose caption is too long for a publish-now is saved as a draft. */
+  channels: { id: string; service: string; name: string; caption: string; intent?: PostIntent }[];
 };
 
 /** Writes one row per channel and returns the batch id. Channels that can't take a carousel are logged as failed straight away. */
@@ -59,7 +61,7 @@ export async function enqueue(userId: string, r: QueueRequest): Promise<{ batchI
     channel_id: c.id.slice(0, 100),
     service: clip(c.service.toLowerCase(), 40) || "unknown",
     channel_name: clip(c.name, 120),
-    mode: r.intent,
+    mode: c.intent ?? r.intent,
     newsletter: clip(r.newsletter, 120),
     issue_title: clip(r.issueTitle, 200),
   });
@@ -204,7 +206,9 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
         intent: row.mode,
       });
       if (out.ok) {
-        await finish(row, { status: row.mode === "draft" ? "draft" : "sending", post_id: out.postId, slides: images.length, error: null });
+        // Buffer saves a draft that is over its network's limit, but won't schedule or publish it: leave a note on the row (a created post has no other use for `error`).
+        const note = row.mode === "draft" ? limitNote(row.service, row.caption ?? "") : null;
+        await finish(row, { status: row.mode === "draft" ? "draft" : "sending", post_id: out.postId, slides: images.length, error: note });
         if (!fakeMode()) await logDrafts(row.user_id, [{ service: row.service, ok: true, mode: row.mode }]);
         continue;
       }

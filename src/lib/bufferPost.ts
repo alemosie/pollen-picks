@@ -2,7 +2,9 @@
 // again afterwards. Both /api/draft and /api/post-status go through here, so the two paths can't drift apart.
 
 import { gql } from "./buffer";
-import { fakeBehaviour, fakeMode, takeFakeRateLimit } from "./fake";
+import { fitFor } from "./caption";
+import { serviceLabel } from "./channels";
+import { fakeBehaviour, fakeEnforcesLimits, fakeMode, takeFakeRateLimit } from "./fake";
 
 /** "draft" saves to Buffer without publishing. "now" publishes immediately and can't be undone from here. */
 export type PostIntent = "draft" | "now";
@@ -117,6 +119,8 @@ async function fakeCreate(p: ChannelPostInput): Promise<ChannelPostOutcome> {
   if (takeFakeRateLimit()) return { ok: false, error: "Fake mode: Buffer says too many requests.", rateLimited: true };
   await sleep(500 + Math.random() * 1200);
   const svc = p.service.toLowerCase();
+  const fit = fitFor(svc, p.text);
+  if (fakeEnforcesLimits() && p.intent === "now" && !fit.fits) return { ok: false, error: `${serviceLabel(svc)} posts cannot exceed ${fit.limit} characters.` };
   const behaviour = fakeBehaviour(svc);
   if (behaviour === "fail") return { ok: false, error: "Fake mode: Buffer rejected this post." };
   if (behaviour === "unknown")

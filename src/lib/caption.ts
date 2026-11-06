@@ -1,5 +1,6 @@
-import { serviceKey } from "./channels";
+import { serviceKey, serviceLabel } from "./channels";
 import { stripEmoji } from "./slides/plan";
+import type { PostIntent } from "./bufferPost";
 
 /** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
 export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string };
@@ -57,8 +58,8 @@ function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): str
   const from = fromTag(i.tag, variant);
   const bullet = bulletFor(order);
   const cat = i.group ? ` · ${cleanText(i.group)}` : "";
-  // Short captions have room for titles, and a day when one is known.
-  if (variant === "short") return `${bullet} ${title}${i.date ? ` (${dayLabel(i.date)})` : ""}`;
+  // Short captions have room for titles only: every character counts, and the newsletter has the rest.
+  if (variant === "short") return `${bullet} ${title}`;
   // By date: a pick without a date has no day to show, so it gets a plain bullet instead.
   if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}${cat}${from}` : `• ${title}${place}${cat}${from}`;
   const when = i.when ? cleanWhen(i.when) : "";
@@ -68,18 +69,62 @@ function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): str
 export const isInstagram = (service: string) => service.toLowerCase().replace(/[^a-z]/g, "") === "instagram";
 
 /**
- * The captions: Instagram has no clickable links in captions, so it points to the bio. "Base" is the long one for networks with room
+ * The captions: Instagram has no clickable links in captions, so it points to the bio. "Long" is the one for networks with room
  * (LinkedIn, Facebook), with the newsletter URL. "Short" is for X, Bluesky, Threads and Mastodon: a few titles and the link.
  */
 export type CaptionVariant = "instagram" | "link" | "short";
-export const CAPTION_VARIANTS: { id: CaptionVariant; label: string; note: string }[] = [
-  { id: "instagram", label: "Instagram", note: "No direct link: links aren't clickable in Instagram captions, so it points to the bio." },
-  { id: "link", label: "Base", note: "The long version, with the direct newsletter link." },
-  { id: "short", label: "Short", note: "A few titles and the direct link, short enough for the networks with the tightest limits. The link is counted in full." },
+export const CAPTION_VARIANTS: { id: CaptionVariant; label: string }[] = [
+  { id: "instagram", label: "Instagram" },
+  { id: "link", label: "Long" },
+  { id: "short", label: "Short" },
 ];
 export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : SHORT_NETWORKS.has(serviceKey(service)) ? "short" : "link");
+/** Every network a caption is written for (by name, in a fixed order), whether or not the account has it connected. */
+export const networksOf = (variant: CaptionVariant): string[] => [
+  ...new Set(Object.keys(CHAR_LIMITS).filter((k) => variantFor(k) === variant).map(serviceLabel)),
+];
 /** One network's own limit, if known. */
 export const limitOf = (service: string): number | undefined => CHAR_LIMITS[serviceKey(service)];
+/** How a caption is counted: UTF-16 units, and on Instagram every line break counts as 2 (Buffer's docs, "How Buffer counts characters"). */
+export const captionLength = (text: string, variant: CaptionVariant): number =>
+  variant === "instagram" ? text.length + (text.match(/\n/g)?.length ?? 0) : text.length;
+
+/** Instagram refuses a caption with more than this many @mentions (Buffer's composer: "At most 20 mentions can be used for caption and comment"). */
+export const MAX_MENTIONS: Record<string, number> = { instagram: 20 };
+const MENTION = /(^|[^\w.@])@([\w.]{1,30})/g;
+/** How many @mentions a text has (an e-mail address isn't one). */
+export const mentionCount = (text: string): number => (text.match(MENTION) ?? []).length;
+/**
+ * Whether `text` fits one network's own rules: its character limit, and on Instagram its @mention limit. A network with no known limit counts
+ * as fitting. `over` is how many characters too many and `mentionsOver` how many mentions too many (0 when fine). Links are counted at their
+ * real length, which is the safe side where Buffer counts them shorter (LinkedIn 24, X 23).
+ */
+export function fitFor(service: string, text: string): { limit: number | undefined; over: number; mentionsOver: number; fits: boolean } {
+  const limit = limitOf(service);
+  const over = limit === undefined ? 0 : Math.max(0, captionLength(text, variantFor(service)) - limit);
+  const max = MAX_MENTIONS[serviceKey(service)];
+  const mentionsOver = max === undefined ? 0 : Math.max(0, mentionCount(text) - max);
+  return { limit, over, mentionsOver, fits: over === 0 && mentionsOver === 0 };
+}
+
+/**
+ * A short note for a draft that was saved over its network's limit (Buffer allows that for drafts, but won't schedule or publish it): what is
+ * over, and what to do. Null when the caption fits.
+ */
+export function limitNote(service: string, text: string): string | null {
+  const f = fitFor(service, text);
+  if (f.fits) return null;
+  const parts = [
+    ...(f.over > 0 ? [`${f.over.toLocaleString("en")} characters over`] : []),
+    ...(f.mentionsOver > 0 ? [`${f.mentionsOver} @tags over the limit of ${MAX_MENTIONS[serviceKey(service)]}`] : []),
+  ];
+  return `Over ${serviceLabel(service)}'s limit (${parts.join(", ")}). Fix it in Buffer before scheduling.`;
+}
+
+/** "Send now" to a channel whose caption is over its limit becomes a draft instead (Buffer would refuse to publish it), to shorten in Buffer. Drafts stay drafts. */
+export const effectiveIntent = (service: string, text: string, wanted: PostIntent): PostIntent =>
+  wanted === "now" && !fitFor(service, text).fits ? "draft" : wanted;
+
 /** The room a variant's caption has: the tightest limit among the networks that use it (`services` = their Buffer services). */
 export function variantLimit(variant: CaptionVariant, services: string[]): number {
   const own = services.filter((s) => variantFor(s) === variant).map(limitOf).filter((n): n is number => n !== undefined);
@@ -91,7 +136,10 @@ type CaptionOpts = { /** Most characters the caption may have; defaults to the v
 /** The caption, and the titles of the picks that didn't fit in it (in caption order). */
 function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; leftOut: string[] } {
   const sorted = sortCaptionItems(items, opts.order);
-  const all = sorted.map((i) => line(i, opts.order, opts.variant));
+  // Instagram refuses more @mentions than it allows: the first ones keep their "From @handle", the rest go without.
+  let tagged = 0;
+  const maxTags = opts.variant === "instagram" ? MAX_MENTIONS.instagram : Infinity;
+  const all = sorted.map((i) => line(i.tag && ++tagged > maxTags ? { ...i, tag: null } : i, opts.order, opts.variant));
   const outro = opts.creditLink ? `Read the original post: ${opts.link}` : opts.variant !== "instagram" ? `Read it here: ${opts.link}` : "Link in bio.";
   const head = `${opts.heading ?? "This week's picks"} from ${opts.newsletter}${opts.author ? ` by ${opts.author}` : ""} 🌼`;
   const foot = opts.creditLink || opts.variant === "short" ? outro : `Details on every pick are in the newsletter. ${outro}`;
@@ -111,7 +159,7 @@ function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; le
   // Every pick goes in while the caption fits; otherwise as many as fit, then "…and N more". At least one always stays.
   const limit = opts.limit ?? DEFAULT_LIMIT[opts.variant];
   let n = all.length;
-  while (n > 1 && build(n).length > limit) n--;
+  while (n > 1 && captionLength(build(n), opts.variant) > limit) n--;
   return { text: build(n), leftOut: sorted.slice(n).map((i) => cleanText(i.title)) };
 }
 

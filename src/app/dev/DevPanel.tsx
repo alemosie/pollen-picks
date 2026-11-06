@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Behaviour = "pass" | "fail" | "unknown" | "publish_fail";
-type Settings = { enabled?: boolean; channels?: number; behaviour?: Record<string, Behaviour>; rateLimitNext?: number };
+type Settings = { enabled?: boolean; channels?: number; behaviour?: Record<string, Behaviour>; rateLimitNext?: number; enforceLimits?: boolean };
 
 const NETWORKS: [string, string][] = [
   ["instagram", "Instagram"],
@@ -29,13 +29,13 @@ const BUTTON = "rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-in
 
 export function DevPanel() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [env, setEnv] = useState({ fake: false, channels: 0 });
+  const [env, setEnv] = useState({ fake: false, channels: 0, limits: false });
   const [note, setNote] = useState("");
 
   const load = useCallback(async () => {
     const r = await fetch("/api/dev/fake", { cache: "no-store" });
     if (!r.ok) return setNote("The dev API isn't available (production build?).");
-    const j = (await r.json()) as { settings: Settings; env: { fake: boolean; channels: number } };
+    const j = (await r.json()) as { settings: Settings; env: { fake: boolean; channels: number; limits: boolean } };
     setSettings(j.settings);
     setEnv(j.env);
   }, []);
@@ -56,6 +56,7 @@ export function DevPanel() {
 
   const enabled = settings.enabled ?? env.fake;
   const channels = settings.channels ?? env.channels;
+  const enforceLimits = settings.enforceLimits ?? env.limits;
 
   return (
     <div className="grid gap-6">
@@ -65,6 +66,16 @@ export function DevPanel() {
           Fake Buffer (no real posts are created)
         </label>
         {!enabled && <p className="m-0 text-sm font-semibold">Fake mode is off: sends go to your real Buffer. Nothing below applies.</p>}
+      </section>
+
+      <section className={`grid gap-3 rounded-2xl bg-card p-5 ${enabled ? "" : "opacity-60"}`}>
+        <label className="flex items-center gap-3 font-bold">
+          <input type="checkbox" checked={enforceLimits} onChange={(e) => void save({ enforceLimits: e.target.checked })} className="size-5" />
+          Buffer refuses over-limit captions when publishing
+        </label>
+        <p className="m-0 text-sm">
+          Like the real Buffer: a draft may exceed a network&rsquo;s limit, but a post to publish is refused with &ldquo;cannot exceed N characters&rdquo;. &ldquo;Send now&rdquo; should never hit this, because channels with a caption over their limit become drafts instead. Off: Buffer accepts anything.
+        </p>
       </section>
 
       <section className={`grid gap-3 rounded-2xl bg-card p-5 ${enabled ? "" : "opacity-60"}`}>

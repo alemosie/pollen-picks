@@ -24,7 +24,7 @@ function describe(c: HistoryEntry, now: number): { text: string; busy?: boolean;
     };
   if (c.status === "unknown")
     return { text: "Unknown, check Buffer", tone: "warn", detail: `The request didn't finish, so this may or may not have gone out. Check Buffer first, then send it again if it isn't there.${c.resendable ? "" : " Sending again from here only works for 24 hours, so use the app to send it again."}` };
-  if (c.mode === "draft") return { text: "Draft in Buffer" };
+  if (c.mode === "draft") return { text: "Draft in Buffer", detail: c.error ?? undefined };
   if (c.status === "sent") return { text: c.liveUrl ? "Live" : "Published" };
   if (c.status === "error") return { text: "Buffer couldn't publish this", tone: "bad", detail: "Open it in Buffer to see why and try again there." };
   if (c.status === "needs_approval") return { text: "Needs approval in Buffer", tone: "warn" };

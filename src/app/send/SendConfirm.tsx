@@ -13,14 +13,15 @@ import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import {
   CAPTION_VARIANTS,
   buildCaption,
-  limitOf,
+  captionLength,
+  effectiveIntent,
   variantFor,
   variantLimit,
   type CaptionItem,
   type CaptionOrder,
   type CaptionVariant,
 } from "@/lib/caption";
-import { imageLimit, serviceLabel, unsupportedReason } from "@/lib/channels";
+import { imageLimit, unsupportedReason } from "@/lib/channels";
 import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
 import { clearResume, clearSendBatches, loadFormat, loadSendBatches, saveSendBatches } from "@/lib/progress";
@@ -292,9 +293,8 @@ export function SendConfirm({
     );
 
   const header = (
-    <div className="mb-8">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-        <h1 className="mb-3 text-4xl sm:text-5xl">
+    <div className="mb-8 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
+        <h1 className="col-span-2 row-start-2 mb-3 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
           {demo ? (
             <>
               Here&rsquo;s your <StepWord>creation</StepWord>
@@ -305,29 +305,37 @@ export function SendConfirm({
             </>
           )}
         </h1>
-        <div className="flex flex-wrap items-center gap-3 sm:mt-2">
+      {demo ? (
+        <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
+          You&rsquo;ve made it to the end of the demo. In the live app, this is where you send your posts to socials
+          via Buffer: as drafts to review and schedule, or published straight away.
+        </p>
+      ) : (
+        <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
+          Choose where it goes and take one last look. Then create drafts to review and schedule in Buffer, or
+          send now to publish straight away.
+        </p>
+      )}
+      <div className="col-span-2 row-start-1 mb-2 flex items-center gap-3 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:row-span-2 sm:mt-2 sm:self-start">
           <ShareLinkButton />
           {demo && (
             <a
               href="/feedback"
               onClick={() => track("feedback_clicked")}
-              className="inline-flex shrink-0 items-center rounded-xl bg-honey px-4 py-2.5 font-bold text-ink-deep hover:brightness-95"
+              className="hidden shrink-0 items-center rounded-xl bg-honey px-4 py-2.5 font-bold text-ink-deep hover:brightness-95 sm:inline-flex"
             >
               Leave feedback
             </a>
           )}
         </div>
-      </div>
-      {demo ? (
-        <p className="mb-0 max-w-2xl text-lg">
-          You&rsquo;ve made it to the end of the demo. In the live app, this is where you send your posts to socials
-          via Buffer: as drafts to review and schedule, or published straight away.
-        </p>
-      ) : (
-        <p className="mb-0 max-w-2xl text-lg">
-          Choose where it goes and take one last look. Then create drafts to review and schedule in Buffer, or
-          send now to publish straight away.
-        </p>
+      {demo && (
+        <a
+          href="/feedback"
+          onClick={() => track("feedback_clicked")}
+          className="col-span-2 row-start-4 mt-4 inline-flex w-fit shrink-0 items-center rounded-xl bg-honey px-4 py-2.5 font-bold text-ink-deep hover:brightness-95 sm:hidden"
+        >
+          Leave feedback
+        </a>
       )}
     </div>
   );
@@ -362,12 +370,10 @@ export function SendConfirm({
       link,
       limit: variantLimit(v, usable.map((c) => c.service)),
     });
-  // A hand-edited caption can be longer than a network allows. Those networks can't be sent to until it is shortened (or they are unticked).
-  const tooLong = chosen.filter((c) => {
-    const limit = limitOf(c.service);
-    return limit !== undefined && captionFor(variantFor(c.service)).length > limit;
-  });
-  const tooLongNames = [...new Set(tooLong.map((c) => serviceLabel(c.service)))].sort();
+  // "Send now" never publishes a caption that is over a network's limit: that channel is saved as a draft to shorten in Buffer. The server does the same.
+  const draftsOf = (ids: string[]) => chosen.filter((c) => ids.includes(c.id) && effectiveIntent(c.service, captionFor(variantFor(c.service)), "now") === "draft");
+  const armedDrafts = armed ? draftsOf(armed) : [];
+  const armedNow = armed ? armed.length - armedDrafts.length : 0;
   const visible = CAPTION_VARIANTS.filter((v) =>
     chosen.some((c) => variantFor(c.service) === v.id),
   );
@@ -461,45 +467,59 @@ export function SendConfirm({
   const only = current.length === 1 ? current[0] : null;
   const onlyPost = only?.postId && !only.postId.startsWith("fake-") ? only.postId : undefined;
   const onlyFake = Boolean(only?.postId?.startsWith("fake-"));
+  // Labels follow what was really created: a "Send now" where every caption was too long only made drafts.
+  const draftRows = current.filter((e) => e.mode !== "now").length;
+  const labelMode: PostIntent = current.length > 0 && draftRows === current.length ? "draft" : mode;
   const status = busy
-    ? mode === "now"
+    ? labelMode === "now"
       ? `Sending… ${done.length} of ${Math.max(current.length, chosen.length)}`
       : `Creating drafts… ${done.length} of ${Math.max(current.length, chosen.length)}`
     : started
-      ? mode === "now"
-        ? `${okCount} of ${current.length} sent to Buffer`
+      ? labelMode === "now"
+        ? `${okCount} of ${current.length} sent to Buffer${draftRows > 0 && labelMode === "now" ? ` (${plural(draftRows, "draft")} to finish there)` : ""}`
         : `${okCount} of ${current.length} ${current.length === 1 ? "draft" : "drafts"} created`
       : demo
         ? ""
         : n === 0
           ? "Select at least one channel"
-          : tooLong.length > 0
-            ? `The caption is too long for ${tooLongNames.join(", ")}. Shorten it on Write, or untick ${tooLong.length === 1 ? "it" : "them"}.`
-            : plural(n, "channel");
+          : plural(n, "channel");
 
   const ready = armed !== null && !busy;
   const modalTitle = ready
-    ? `Publish ${plural(armed!.length, "post")} now?`
+    ? armedNow > 0
+      ? `Publish ${plural(armedNow, "post")} now?`
+      : `Save ${plural(armedDrafts.length, "draft")} instead?`
     : busy
-      ? mode === "now"
+      ? labelMode === "now"
         ? "Sending…"
         : "Creating drafts…"
       : unknownCount > 0 && retryable.length === 0
         ? "Check these posts in Buffer"
         : failed.length > 0
-          ? mode === "now"
+          ? labelMode === "now"
             ? "Some posts need another try"
             : "Some drafts need another try"
-          : mode === "now"
-            ? "Posts sent to Buffer"
+          : labelMode === "now"
+            ? draftRows > 0
+              ? `Sent, with ${plural(draftRows, "draft")} to finish`
+              : "Posts sent to Buffer"
             : "Your drafts are ready";
+  const names = (list: Channel[]) => list.map((c) => c.name).join(", ");
+  const draftChannels = current.filter((e) => e.mode !== "now").map((e) => byId.get(e.channelId ?? "")).filter((c): c is Channel => Boolean(c));
+  const tooLongNote = (list: Channel[], past: boolean) => {
+    const one = list.length === 1;
+    return `${names(list)} ${one ? "has a caption" : "have captions"} over the network's limit, so ${one ? "it" : "they"} ${past ? (one ? "was" : "were") : "will be"} saved as ${one ? "a draft" : "drafts"} for you to shorten in Buffer.`;
+  };
   const modalIntro = ready
-    ? "This publishes straight away to the channels below, and can't be undone from here."
-    : mode === "now"
-      ? "Buffer publishes each post to its network. Live links appear here once they are out."
+    ? armedNow > 0
+      ? `This publishes straight away to the channels below, and can't be undone from here.${armedDrafts.length > 0 ? ` ${tooLongNote(armedDrafts, false)}` : ""}`
+      : `Nothing is published. ${tooLongNote(armedDrafts, false)}`
+    : labelMode === "now"
+      ? `Buffer publishes each post to its network. Live links appear here once they are out.${draftChannels.length > 0 ? ` ${tooLongNote(draftChannels, true)}` : ""}`
       : "Nothing is published. Open each draft in Buffer to review, edit and schedule it.";
+
   const rowView = (c: Channel): RowView => {
-    if (armed?.includes(c.id) && !busy) return { text: "Ready to publish" };
+    if (armed?.includes(c.id) && !busy) return armedDrafts.some((d) => d.id === c.id) ? { text: "Will be saved as a draft", detail: "Over its network's limit." } : { text: "Ready to publish" };
     const e = entryFor(c.id);
     if (!e) return started && (starting || !checked) ? { text: "Waiting…", busy: true } : { text: "Not sent" };
     if (e.status === "queued") return { text: "Waiting…", busy: true, detail: "Waiting for its turn." };
@@ -509,7 +529,8 @@ export function SendConfirm({
     const fake = Boolean(e.postId?.startsWith("fake-"));
     const note = e.slides && e.slides < urls.length ? `Only the first ${e.slides} of ${urls.length} slides fit on ${c.service}.` : undefined;
     const base = { note, bufferId: fake ? undefined : (e.postId ?? undefined) };
-    if (e.mode !== "now") return { ...base, text: fake ? "Fake draft (not sent)" : "Draft created" };
+    if (e.mode !== "now")
+      return { ...base, text: fake ? "Fake draft (not sent)" : "Draft created", detail: [mode === "now" ? "Saved as a draft instead of being published." : null, e.error].filter(Boolean).join(" ") || undefined };
     if (e.status === "sent") return { ...base, text: e.liveUrl ? "Live" : "Published", liveUrl: e.liveUrl };
     if (e.status === "error")
       return { ...base, text: "Buffer couldn't publish this", tone: "bad", detail: "Open it in Buffer to see why and try again there.", openBuffer: true };
@@ -597,30 +618,31 @@ export function SendConfirm({
         hidden={!demo && view !== "preview"}
         className={demo ? "mb-4" : `mb-4 rounded-2xl border-[3px] p-4 sm:p-5 ${TAB_ACCENT.preview.border}`}
       >
-        <div className="grid gap-8 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] md:items-start">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-8 md:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] md:items-start">
           <SlideCarousel urls={urls} />
-          <section className="grid min-w-0 gap-4">
+          <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
             {visible.length === 0 && (
               <p className="m-0 rounded-2xl border-[3px] border-ink/15 p-4 text-sm">
                 Select a channel to see its caption.
               </p>
             )}
             {visible.map((v) => (
-              <div key={v.id} className={`grid gap-2 rounded-2xl border-[3px] p-4 ${ACCENT[v.id]}`}>
+              <div key={v.id} className={`grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border-[3px] p-4 ${ACCENT[v.id]}`}>
                 <p className="m-0 flex items-center gap-2 text-sm font-semibold">
                   {v.id === "instagram" && <ChannelIcon service="instagram" className="size-4 shrink-0" />}
                   {v.label} · {plural(chosen.filter((c) => variantFor(c.service) === v.id).length, "channel")}
                 </p>
-                <div className="whitespace-pre-wrap rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/15">
+                <div className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/15">
                   {captionFor(v.id)}
                 </div>
                 {(() => {
                   const text = captionFor(v.id);
                   const limit = variantLimit(v.id, chosen.map((c) => c.service));
-                  const over = text.length > limit;
+                  const length = captionLength(text, v.id);
+                  const over = length > limit;
                   return (
                     <p className={`m-0 text-xs ${over ? "font-semibold text-coral" : ""}`}>
-                      {text.length.toLocaleString("en")} / {limit.toLocaleString("en")} characters{over ? ": too long, shorten it on Write" : ""}
+                      {length.toLocaleString("en")} / {limit.toLocaleString("en")} characters{over ? ": too long. Send now saves a draft instead." : ""}
                     </p>
                   );
                 })()}
@@ -794,7 +816,7 @@ export function SendConfirm({
                   }}
                   className={finishButton}
                 >
-                  Publish now
+                  {armedNow > 0 ? "Publish now" : "Save drafts"}
                 </button>
               </>
             ) : (
@@ -861,7 +883,7 @@ export function SendConfirm({
       >
         {demo ? (
           <DemoGate signedIn={demo.signedIn} label="Finish demo" className={finishButton} onOpen={pollenBurst} />
-        ) : (n === 0 || tooLong.length > 0) && !started ? (
+        ) : n === 0 && !started ? (
           <>
             <span aria-disabled className={primaryDisabled}>
               Create draft

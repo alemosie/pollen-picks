@@ -6,6 +6,7 @@
 //   BUFFER_FAKE_UNKNOWN=linkedin       networks whose create call dies mid-request (outcome unknown)
 //   BUFFER_FAKE_PUBLISH_FAIL=linkedin  networks that Buffer accepts but then fails to publish
 //   BUFFER_FAKE_RATE_LIMIT=3           the first 3 create calls after the server starts get a 429
+//   BUFFER_FAKE_LIMITS=1               publish-now calls refuse a caption over its network's limit, like Buffer's "cannot exceed N characters" (drafts may exceed it, as in Buffer)
 
 // A dev settings page (/dev, development only) can change all of this without editing env vars. Its choices are kept in .dev-fake.json (git-ignored)
 // and win over the env vars; "Reset" deletes the file, so the env vars apply again. In production none of this is read.
@@ -26,6 +27,8 @@ export type FakeSettings = {
   behaviour?: Record<string, FakeBehaviour>;
   /** The next N create calls get a 429 (Buffer's "too many requests"); counts down as they happen. */
   rateLimitNext?: number;
+  /** Refuse captions over a network's limit, over BUFFER_FAKE_LIMITS. */
+  enforceLimits?: boolean;
 };
 
 const isDev = () => process.env.NODE_ENV !== "production";
@@ -40,6 +43,7 @@ export function readFakeSettings(): FakeSettings {
     const raw = JSON.parse(readFileSync(FILE(), "utf8")) as Record<string, unknown>;
     const out: FakeSettings = {};
     if (typeof raw.enabled === "boolean") out.enabled = raw.enabled;
+    if (typeof raw.enforceLimits === "boolean") out.enforceLimits = raw.enforceLimits;
     if (raw.channels !== undefined) out.channels = clampInt(raw.channels, 200);
     if (raw.rateLimitNext !== undefined) out.rateLimitNext = clampInt(raw.rateLimitNext, 100);
     if (raw.behaviour && typeof raw.behaviour === "object") {
@@ -65,6 +69,8 @@ export function resetFakeSettings() {
 }
 
 export const fakeMode = () => isDev() && (readFakeSettings().enabled ?? process.env.BUFFER_FAKE === "1");
+
+export const fakeEnforcesLimits = () => fakeMode() && (readFakeSettings().enforceLimits ?? process.env.BUFFER_FAKE_LIMITS === "1");
 
 export const fakeList = (name: string) =>
   (process.env[name] ?? "")
