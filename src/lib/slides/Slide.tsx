@@ -154,13 +154,21 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
     );
   }
   const n = slide.items.length;
+  // When the publication and the organization have the same name, it only appears once: bottom left, with the top left left empty.
+  const nameOf = (k: Slot | undefined) => (k === "publication" ? kit.identity?.publication.name : k === "organization" ? kit.identity?.organization.name : undefined)?.trim().toLowerCase();
+  const bottomName = nameOf(kit.slots?.bottom);
+  const topKind = kit.slots && bottomName && nameOf(kit.slots.top) === bottomName ? "none" : kit.slots?.top;
+  // Without a saved style (the demo, or before one is chosen) the bottom left repeats the plain name when there is no logo or "Swipe": show it there only.
+  const nameOnlyBelow = !kit.slots && !kit.swipe && !kit.logo;
   return (
     <div style={{ ...base, background: custom ?? c.background, padding: P, gap: 28, color: kit.onBackground ?? c.text }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
         <div style={{ display: "flex", background: slide.group ? c.chip : "transparent", borderRadius: 999, padding: slide.group ? "8px 26px" : 0, fontSize: 32, fontWeight: 700, color: c.text }}>
           {slide.group ??
             (kit.slots ? (
-              <CornerSlot kind={kit.slots.top} kit={kit} logoSize={64} fontSize={32} color={kit.nameOnBackground} maxWidth={720} />
+              <CornerSlot kind={topKind ?? "none"} kit={kit} logoSize={64} fontSize={32} color={kit.nameOnBackground} maxWidth={720} />
+            ) : nameOnlyBelow ? (
+              <div style={{ display: "flex" }} />
             ) : (
               <Brand kit={kit} size={64} logo={kit.logoOnBackground ?? kit.logo} fontSize={32} color={kit.nameOnBackground} />
             ))}
