@@ -50,7 +50,10 @@ export function PickTray({
     prev.current = items.length;
   }, [items]);
 
-  if (items.length === 0 && !saved) return null;
+  // Once there has been a pick, the tray stays when the last one is removed, with a prompt to add another; before that it stays out of the way.
+  const [had, setHad] = useState(false);
+  if (items.length > 0 && !had) setHad(true);
+  if (items.length === 0 && !saved && !had) return null;
   const near = meter && (meter.count >= meter.maxCount || meter.words >= meter.maxWords * 0.8);
 
   const label = saved ? (
@@ -99,7 +102,13 @@ export function PickTray({
             )}
             {note && <p role="alert" className="mb-3 mt-0 border-l-4 border-coral pl-3 text-sm font-semibold">{note}</p>}
             <div>
-            <ul aria-label="Your picks" className="m-0 flex list-none flex-col gap-2 p-0">
+            {items.length === 0 && (
+              <p role="status" className="m-0 rounded-xl border-2 border-dashed border-ink/25 p-4 text-center text-sm">
+                <strong className="block text-base">Add a pick here!</strong>
+                Press <strong>+</strong> beside a paragraph in the issue to add it.
+              </p>
+            )}
+            <ul aria-label="Your picks" className="m-0 empty:hidden flex list-none flex-col gap-2 p-0">
               {items.map((h) => {
                 const on = h.pick > 0;
                 return (
