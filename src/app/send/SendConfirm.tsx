@@ -62,6 +62,9 @@ type RowView = {
 };
 
 /** The last step's action is coral, to set it apart from the honey Continue buttons. */
+/** Where drafts wait in Buffer, for review and scheduling. */
+const BUFFER_DRAFTS = "https://publish.buffer.com/schedule?tab=drafts";
+
 const finishButton =
   "rounded-xl bg-coral px-6 py-3 font-bold text-ink-deep hover:brightness-95";
 /** On a phone the two actions share the bar with Back, so they are a little smaller. */
@@ -852,7 +855,7 @@ export function SendConfirm({
                       Go to History
                     </a>
                     <a
-                      href={onlyPost && !onlyFake ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}` : "https://publish.buffer.com"}
+                      href={onlyPost && !onlyFake ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}` : labelMode === "now" ? "https://publish.buffer.com" : BUFFER_DRAFTS}
                       target="_blank"
                       rel="noreferrer"
                       className="rounded-xl bg-coral px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95"
@@ -908,7 +911,9 @@ export function SendConfirm({
             href={
               onlyPost && !onlyFake
                 ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}`
-                : "https://publish.buffer.com"
+                : mode === "now"
+                  ? "https://publish.buffer.com"
+                  : BUFFER_DRAFTS
             }
             target="_blank"
             rel="noreferrer"
