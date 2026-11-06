@@ -244,7 +244,9 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
       parts++;
     }
     const room = (BODY_H - (n - 1) * CARD_GAP) / n - fixed - (parts - 1) * z.gap + 8; // 8: the bottom padding can give a little
-    return Math.max(0, Math.min(z.blurbLines, Math.floor(room / (z.blurb * 1.35))));
+    // With one or two picks per slide the description may use every line that is left; with more, a short one-liner is the design.
+    const fits = Math.floor(room / (z.blurb * 1.35));
+    return Math.max(0, n <= 2 ? fits : Math.min(z.blurbLines, fits));
   })();
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: outline ? z.pad - 4 : z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden", ...(outline ? { border: `4px solid ${text}` } : {}) }}>

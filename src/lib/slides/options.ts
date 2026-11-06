@@ -45,7 +45,7 @@ export const SPEC_LIMITS = {
   title: 90,
   when: 80,
   place: 60,
-  blurb: 400,
+  blurb: 700,
   group: 40,
   coverTitle: 60,
   coverSubtitle: 80,
