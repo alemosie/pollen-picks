@@ -69,6 +69,7 @@ async function DesignContent({
       <PaletteSync palette={palette} />
       <TemplateEditor
         mode={mode}
+        issueKey={issue.url}
         newsletter={issue.newsletter}
         items={items}
         picks={ids}

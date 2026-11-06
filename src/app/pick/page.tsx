@@ -106,7 +106,9 @@ async function PickContent({
         </p>
       </div>
       <Picker
+        key={`${String(mode ?? "")}|${issue.url}`}
         mode={String(mode ?? "")}
+        issueKey={issue.url}
         chunks={issue.chunks}
         hasClicks={issue.hasClicks}
         initialView={parsePicking(picking)}

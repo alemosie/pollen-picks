@@ -29,6 +29,7 @@ const SPEC_WARN = 6000;
 
 export function TemplateEditor({
   mode,
+  issueKey,
   newsletter,
   items,
   picks,
@@ -36,12 +37,15 @@ export function TemplateEditor({
 }: {
   /** Content source: "demo" is the public sample, with its own /demo pages. */
   mode: string;
+  /** The issue's address: a saved layout is only restored for the same issue even when `mode` is the same. */
+  issueKey?: string;
   /** The newsletter's name, used in slide and caption wording. */
   newsletter: string;
   items: SlideItem[];
   picks: number[];
   initial: TemplateOptions;
 }) {
+  const scope = issueKey ? `${mode}|${issueKey}` : mode;
   // The URL only carries a layout once you've moved on; otherwise pick up where you left off (mode and slides) from this browser.
   const stored = useSyncExternalStore(
     () => () => {},
@@ -52,17 +56,17 @@ export function TemplateEditor({
     try {
       const t = stored ? (JSON.parse(stored) as TemplateState) : null;
       // Slide ids belong to one issue: a layout saved for another issue (or before layouts were scoped) is not restored.
-      return t?.spec?.slides?.length && t.scope === mode ? t : null;
+      return t?.spec?.slides?.length && t.scope === scope ? t : null;
     } catch {
       return null;
     }
-  }, [stored, mode]);
+  }, [stored, scope]);
   const base: TemplateState = initial.spec ? { custom: true, spec: initial.spec } : (saved ?? { custom: false, spec: { slides: [[]] } });
   const [mine, setMine] = useState<TemplateState | null>(null);
   const { custom, spec } = mine ?? base;
   const update = (t: TemplateState) => {
     setMine(t);
-    saveTemplate({ ...t, scope: mode });
+    saveTemplate({ ...t, scope });
   };
   // Turning Customize on with nothing placed starts with the first pick on the first slide, so there is something to build from.
   const setCustom = (c: boolean) => {

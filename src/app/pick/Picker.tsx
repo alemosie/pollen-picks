@@ -79,6 +79,7 @@ const ACCENT: Record<View, { solid: string; light: string; border: string }> = {
 
 export function Picker({
   mode,
+  issueKey,
   chunks: serverChunks,
   hasClicks,
   initialView,
@@ -89,6 +90,8 @@ export function Picker({
   lookups = false,
 }: {
   mode: string;
+  /** Which issue these chunks are from (its address). Picks are positions in one issue's list, so saved picks are only restored for the same issue, even when `mode` is the same ("own" = the latest issue of whichever publication is chosen). */
+  issueKey?: string;
   chunks: Chunk[];
   hasClicks: boolean;
   initialView?: View;
@@ -102,6 +105,7 @@ export function Picker({
   /** Signed in: a picked post link is looked up (the server decides whether this account may). The public demo only shows cached answers. */
   lookups?: boolean;
 }) {
+  const scope = issueKey ? `${mode}|${issueKey}` : mode;
   // Highlights saved or removed in the Manual tab this visit; the server's list covers earlier visits.
   const [extra, setExtra] = useState<Chunk[]>([]);
   const [removed, setRemoved] = useState<number[]>([]);
@@ -112,15 +116,17 @@ export function Picker({
     );
   }, [serverChunks, extra, removed]);
   const parsed = serverChunks.some((c) => !isCustomId(c.id));
+  // Clicks were recorded, but every ranked item may be over (an old issue of an events newsletter): then start on Section instead.
+  const anyRanked = hasClicks && serverChunks.some((c) => c.rank);
   const [view, setViewState] = useState<View>(
     manualOnly
       ? "manual"
       : initialView === "manual" && !manual
       ? "section"
-      : initialView === "top-clicks" && !hasClicks
+      : initialView === "top-clicks" && !anyRanked
         ? "section"
         : (initialView ??
-          (hasClicks
+          (anyRanked
             ? "top-clicks"
             : manual && !parsed
               ? "manual"
@@ -160,15 +166,15 @@ export function Picker({
       const fromLink = (initialPicks ?? []).filter((id) => valid.has(id));
       const saved = fromLink.length
         ? fromLink
-        : (loadPicked(mode) ?? []).filter((id) => valid.has(id));
+        : (loadPicked(scope) ?? []).filter((id) => valid.has(id));
       if (saved.length > 0) setPicked(saved);
       setRestored(true);
     }, 0);
     return () => clearTimeout(t);
-  }, [chunks, initialPicks, mode]);
+  }, [chunks, initialPicks, scope]);
   useEffect(() => {
-    if (restored) savePicked(picked, mode);
-  }, [picked, restored, mode]);
+    if (restored) savePicked(picked, scope);
+  }, [picked, restored, scope]);
 
   const visible = useMemo(() => {
     if (view === "top-clicks")
@@ -570,7 +576,9 @@ export function Picker({
             })}
             {visible.length === 0 && (
               <li className="rounded-2xl bg-surface p-6 text-center">
-                Nothing to show here.
+                {view === "top-clicks"
+                  ? "Nothing to rank here: the events in this issue are over, or none of its links were clicked. Try the Section tab."
+                  : "Nothing to show here."}
               </li>
             )}
           </ul>

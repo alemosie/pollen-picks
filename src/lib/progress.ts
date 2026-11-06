@@ -1,9 +1,11 @@
-// Where the user got to in the flow, kept in localStorage so a closed tab or a detour doesn't lose it.
-// Every access is wrapped: storage can be blocked or empty (private windows, cleared data).
-const KEY = "pollen-picks:progress";
-const PICKED = "pollen-picks:picked";
-const FORMAT = "pollen-picks:format";
-const TEMPLATE = "pollen-picks:template";
+// One run of the flow (source -> pick -> design -> write -> send) is kept as ONE record in localStorage, so it is either all
+// there or all gone: it can never mix the picks of one issue with the layout or caption of another. Everything in it belongs
+// to `scope` (the flow mode plus the issue's address). Saving picks or a layout for a different scope throws the rest of the
+// record away; only "where you left off" survives, since that is always about now. Every access is wrapped: storage can be
+// blocked or empty (private windows, cleared data).
+const RUN = "pollen-picks:run";
+// Before the record existed each piece had a key of its own (and its own idea of which issue it belonged to). They are dropped.
+const LEGACY = ["pollen-picks:progress", "pollen-picks:picked", "pollen-picks:format", "pollen-picks:template", "pollen-picks:send"];
 
 import type { CustomSpec } from "@/lib/slides/options";
 
@@ -16,6 +18,27 @@ export const STEP_NAMES = [
 ] as const;
 
 export type Progress = { href: string; step: number; savedAt: number };
+
+// What Write saved: caption order, hand edits and the open tab, for one set of picks + template. (Older saves also hold a
+// `selected` list from when channels were chosen on this step; it is ignored. Channels are chosen on Send now.)
+export type FormatState = {
+  sig: string;
+  order: string;
+  edited: Record<string, string>;
+  tab: string;
+};
+/** `scope` is the flow mode (which carries the issue) the layout was made for: slide ids only mean something for that issue. */
+export type TemplateState = { custom: boolean; spec: CustomSpec; scope?: string };
+type SavedSend = { sig: string; batchIds: string[]; intent: "draft" | "now"; savedAt: number };
+
+export type Run = {
+  scope?: string;
+  progress?: Progress;
+  picked?: number[];
+  format?: FormatState;
+  template?: TemplateState;
+  send?: SavedSend;
+};
 
 function read<T>(key: string): T | null {
   try {
@@ -30,40 +53,49 @@ function write(key: string, value: unknown) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {}
 }
-
-export const loadProgress = () => read<Progress>(KEY);
-export const saveProgress = (href: string, step: number) =>
-  write(KEY, { href, step, savedAt: Date.now() } satisfies Progress);
-
-// Picks are positions in one issue's list, so they only mean something for that issue. They are saved with the
-// flow `scope` (the mode, which carries the issue) and only restored for the same one. Called without a scope
-// (the share link) it returns whatever was saved last.
-type SavedPicks = { scope: string; ids: number[] };
-export function loadPicked(scope?: string): number[] | null {
-  const v = read<number[] | SavedPicks>(PICKED);
-  if (!v) return null;
-  if (Array.isArray(v)) return scope === undefined ? v : null; // saved before picks were scoped: can't tell which issue
-  return scope === undefined || v.scope === scope ? v.ids : null;
-}
-export const savePicked = (ids: number[], scope: string) => write(PICKED, { scope, ids } satisfies SavedPicks);
-
-// What Write saved: caption order, hand edits and the open tab, for one set of picks + template. (Older saves also hold a
-// `selected` list from when channels were chosen on this step; it is ignored. Channels are chosen on Send now.)
-export type FormatState = {
-  sig: string;
-  order: string;
-  edited: Record<string, string>;
-  tab: string;
-};
-export const loadFormat = () => read<FormatState>(FORMAT);
-export const saveFormat = (s: FormatState) => {
-  let same = false;
+function dropLegacy() {
   try {
-    same = localStorage.getItem(FORMAT) === JSON.stringify(s);
+    for (const k of LEGACY) localStorage.removeItem(k);
   } catch {}
-  write(FORMAT, s);
+}
+
+const readRun = (): Run => {
+  const r = read<Run>(RUN);
+  return r && typeof r === "object" && !Array.isArray(r) ? r : {};
+};
+const writeRun = (r: Run) => {
+  write(RUN, r);
+  dropLegacy();
+};
+/** The record to change. A scope that is not the saved one starts a new run (keeping only where the user is now). */
+function runFor(scope?: string): Run {
+  let r = readRun();
+  if (scope !== undefined) {
+    if (r.scope !== undefined && r.scope !== scope) r = { progress: r.progress };
+    r.scope = scope;
+  }
+  return r;
+}
+/** Only what was saved for this scope; another issue's state is never handed out. */
+const same = (r: Run, scope?: string) => scope === undefined || r.scope === undefined || r.scope === scope;
+
+export const loadProgress = () => readRun().progress ?? null;
+export const saveProgress = (href: string, step: number) => writeRun({ ...readRun(), progress: { href, step, savedAt: Date.now() } });
+
+// Picks are positions in one issue's list. Called without a scope (the share link) it returns whatever was saved last.
+export function loadPicked(scope?: string): number[] | null {
+  const r = readRun();
+  return same(r, scope) && Array.isArray(r.picked) ? r.picked : null;
+}
+export const savePicked = (ids: number[], scope: string) => writeRun({ ...runFor(scope), picked: ids });
+
+export const loadFormat = () => readRun().format ?? null;
+export const saveFormat = (f: FormatState) => {
+  const r = readRun();
+  const unchanged = JSON.stringify(r.format) === JSON.stringify(f);
+  writeRun({ ...r, format: f });
   // Flash "Saved" only for a real change, not when the page rewrites what it just restored.
-  if (!same) notifySaved();
+  if (!unchanged) notifySaved();
 };
 
 // Which channels are ticked on Send. Not tied to one issue or set of picks: it is a habit of the account, so it survives a
@@ -74,16 +106,11 @@ export type ChannelChoice = { selected: string[]; known: string[] };
 export const loadChannelChoice = () => read<ChannelChoice>(CHANNELS);
 export const saveChannelChoice = (c: ChannelChoice) => write(CHANNELS, c);
 
-/** `scope` is the flow mode (which carries the issue) the layout was made for: slide ids only mean something for that issue. */
-export type TemplateState = { custom: boolean; spec: CustomSpec; scope?: string };
-export const loadTemplate = () => read<TemplateState>(TEMPLATE);
+export const loadTemplate = () => readRun().template ?? null;
 /** Raw stored string, for useSyncExternalStore (must be a stable value between reads). */
 export const templateSnapshot = (): string | null => {
-  try {
-    return localStorage.getItem(TEMPLATE);
-  } catch {
-    return null;
-  }
+  const t = readRun().template;
+  return t ? JSON.stringify(t) : null;
 };
 export const SAVED_EVENT = "pollen-picks:saved";
 /** Lets the page header flash "Saved". */
@@ -92,8 +119,8 @@ function notifySaved() {
     window.dispatchEvent(new Event(SAVED_EVENT));
   } catch {}
 }
-export const saveTemplate = (s: TemplateState) => {
-  write(TEMPLATE, s);
+export const saveTemplate = (t: TemplateState) => {
+  writeRun({ ...runFor(t.scope), template: t });
   notifySaved();
 };
 
@@ -103,25 +130,21 @@ export const saveTemplate = (s: TemplateState) => {
  * instead of asking for Write again.
  */
 export function clearResume() {
-  try {
-    localStorage.removeItem(KEY);
-  } catch {}
+  const { progress: _gone, ...rest } = readRun(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  writeRun(rest);
 }
 
 // A send runs on the server, so this page can be closed or left while it goes on. The batch ids are kept so that coming back to /send for the same
 // picks shows how it went (and doesn't offer to send it all again). Forgotten after two hours, by "Start a new send", or when a new flow is started from Source.
-const SEND = "pollen-picks:send";
-type SavedSend = { sig: string; batchIds: string[]; intent: "draft" | "now"; savedAt: number };
 export function loadSendBatches(sig: string): { batchIds: string[]; intent: "draft" | "now" } | null {
-  const v = read<SavedSend>(SEND);
+  const v = readRun().send;
   if (!v || v.sig !== sig || !Array.isArray(v.batchIds) || Date.now() - v.savedAt > 2 * 60 * 60 * 1000) return null;
   return { batchIds: v.batchIds.filter((b) => typeof b === "string"), intent: v.intent === "now" ? "now" : "draft" };
 }
-export const saveSendBatches = (sig: string, v: { batchIds: string[]; intent: "draft" | "now" }) => write(SEND, { sig, ...v, savedAt: Date.now() } satisfies SavedSend);
+export const saveSendBatches = (sig: string, v: { batchIds: string[]; intent: "draft" | "now" }) => writeRun({ ...readRun(), send: { sig, ...v, savedAt: Date.now() } });
 export function clearSendBatches() {
-  try {
-    localStorage.removeItem(SEND);
-  } catch {}
+  const { send: _gone, ...rest } = readRun(); // eslint-disable-line @typescript-eslint/no-unused-vars
+  writeRun(rest);
 }
 
 // Choosing a source starts a new run. The browser's copy of the last run is dropped here at once; the server's (the highlights
@@ -144,6 +167,7 @@ export function endFreshRun() {
 /** Forget everything: "Start over". */
 export function clearProgress() {
   try {
-    for (const k of [KEY, PICKED, FORMAT, TEMPLATE, SEND]) localStorage.removeItem(k);
+    localStorage.removeItem(RUN);
+    dropLegacy();
   } catch {}
 }
