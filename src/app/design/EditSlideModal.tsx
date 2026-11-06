@@ -472,11 +472,12 @@ export function EditSlideModal({
               ))}
           </div>
         </div>
-        <div className="flex items-center justify-between gap-3 px-7 py-5">
-          <div className="flex items-center gap-4">
+        {/* On a phone the status takes a row of its own, with Revert and Done below it; from sm up it is one row. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 px-5 py-4 sm:px-7 sm:py-5">
+          <div className="contents sm:flex sm:items-center sm:gap-4">
             <p
               role="status"
-              className="m-0 flex items-center gap-2 text-sm font-semibold"
+              className="m-0 text-sm font-semibold max-sm:basis-full"
             >
               {dirty ? (
                 <>
@@ -504,7 +505,7 @@ export function EditSlideModal({
           <button
             type="button"
             onClick={() => ref.current?.close()}
-            className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep"
+            className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep max-sm:ml-auto"
           >
             Done
           </button>
