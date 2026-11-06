@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { BufferLogo } from "@/components/BufferLogo";
 import { Logo } from "@/components/Logo";
-import { PollenGust } from "@/components/PollenGust";
+import { PollenScatter } from "@/components/PollenScatter";
 import { StepWord } from "@/components/StepWord";
 import { hasLiveSession, hasSession } from "@/lib/auth";
 
@@ -33,8 +33,9 @@ async function LoginWithNext({ searchParams }: { searchParams: Promise<Record<st
 function LoginContent({ next, loggedIn = false, expired = false }: { next: string; loggedIn?: boolean; expired?: boolean }) {
   const go = `/api/auth/buffer/login?next=${encodeURIComponent(next)}&continue=1`;
   return (
-    <div className="flex min-h-dvh flex-col">
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 pb-12 pt-6">
+    <div className="relative flex min-h-dvh flex-col overflow-hidden">
+      <PollenScatter />
+      <main className="relative mx-auto w-full max-w-3xl flex-1 px-6 pb-12 pt-6">
         <header className="mb-10 flex items-center justify-between gap-6 sm:mb-14">
           <Logo height={48} href="/" />
           <Link href="/demo" className="text-sm font-semibold underline underline-offset-4">
@@ -95,7 +96,6 @@ function LoginContent({ next, loggedIn = false, expired = false }: { next: strin
           </Link>
         </p>
       </main>
-      <PollenGust className="mx-auto max-w-5xl" />
     </div>
   );
 }
