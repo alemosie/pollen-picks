@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import { BRAND_NAME, contrast, sameColor } from "@/lib/brand";
 import { MARK_SVG } from "./mark";
-import { TAG_SHRINK, shortBlurb } from "./plan";
+import { BODY_H, CARD_GAP, CONTENT_W, TAG_SHRINK, lines, shortBlurb } from "./plan";
 import type { Slot } from "./style";
 import { SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types";
 
@@ -211,6 +211,33 @@ const cardTone = (tone: string, bg: string | undefined, fallback: string) => (bg
 
 function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; display: string; dw: number; text: string; outline?: boolean }) {
   const z = SIZES[n as 1 | 2 | 3 | 4];
+  // The description gets whatever height is left after everything else on the card (chip, title, date line, @handle), so the
+  // @handle and the date line are never squeezed or pushed over the text. A rough model, like the one that packs picks onto slides.
+  const blurbLines = (() => {
+    if (!item.blurb) return 0;
+    const width = CONTENT_W - 2 * z.pad;
+    const meta = [item.when, item.place].filter(Boolean).join(" · ");
+    let fixed = 2 * z.pad + Math.min(z.titleLines, lines(item.title, z.title, 0.6, width)) * z.title * 1.08;
+    let parts = 2; // the title and the description
+    if (showGroup && item.group) {
+      fixed += (z.meta - 8) * 1.2 + 8;
+      parts++;
+    }
+    if (item.logo) {
+      fixed += LOGO_H[n as 1 | 2 | 3 | 4];
+      parts++;
+    }
+    if (meta) {
+      fixed += Math.min(2, lines(meta, z.meta, 0.55, width)) * z.meta * 1.2;
+      parts++;
+    }
+    if (item.tag) {
+      fixed += (z.meta - TAG_SHRINK) * 1.2;
+      parts++;
+    }
+    const room = (BODY_H - (n - 1) * CARD_GAP) / n - fixed - (parts - 1) * z.gap + 8; // 8: the bottom padding can give a little
+    return Math.max(0, Math.min(z.blurbLines, Math.floor(room / (z.blurb * 1.35))));
+  })();
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: outline ? z.pad - 4 : z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden", ...(outline ? { border: `4px solid ${text}` } : {}) }}>
       {showGroup && item.group && (
@@ -229,12 +256,12 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
           )}
         </div>
       )}
-      <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: z.title, lineHeight: 1.08, ...clamp(z.titleLines) }}>{item.title}</div>
+      <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: z.title, lineHeight: 1.08, flexShrink: 0, ...clamp(z.titleLines) }}>{item.title}</div>
       {(item.when || item.place) && (
-        <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
+        <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, flexShrink: 0, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
-      {z.blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(z.blurbLines) }}>{n >= 3 ? shortBlurb(item.blurb) : item.blurb}</div>}
-      {item.tag && <div style={{ display: "flex", fontSize: z.meta - TAG_SHRINK, fontWeight: 700, ...clamp(1) }}>{`@${item.tag}`}</div>}
+      {blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(blurbLines) }}>{n >= 3 ? shortBlurb(item.blurb) : item.blurb}</div>}
+      {item.tag && <div style={{ display: "flex", fontSize: z.meta - TAG_SHRINK, fontWeight: 700, flexShrink: 0, ...clamp(1) }}>{`@${item.tag}`}</div>}
     </div>
   );
 }

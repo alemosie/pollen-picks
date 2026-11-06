@@ -51,9 +51,9 @@ export function packGroups(items: SlideItem[], k: number): SlideItem[][] {
 }
 
 // Rough layout model, mirroring Slide.tsx: 1080x1350, 72px page padding, 64px header + footer, 28px gaps. A slide's card size depends on how many picks share it.
-const CONTENT_W = 1080 - 2 * 72;
-const BODY_H = 1350 - 2 * 72 - 64 - 64 - 2 * 28;
-const CARD_GAP = 28;
+export const CONTENT_W = 1080 - 2 * 72;
+export const BODY_H = 1350 - 2 * 72 - 64 - 64 - 2 * 28;
+export const CARD_GAP = 28;
 const Z = {
   2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 4, gap: 18 },
   3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, gap: 12 },
@@ -66,7 +66,7 @@ export const oneLineLimit = (picksOnSlide: number) => (picksOnSlide >= 3 ? SHORT
 export const shortBlurb = (text: string) => (text.length > SHORT_BLURB ? `${text.slice(0, SHORT_BLURB - 1).trimEnd()}…` : text);
 /** A description this many lines over its clamp counts as "too long" and earns a slide of its own. */
 const BLURB_EXTRA_LINES = 2;
-const lines = (text: string, px: number, em: number, width: number) => Math.max(1, Math.ceil((text.length * px * em) / width));
+export const lines = (text: string, px: number, em: number, width: number) => Math.max(1, Math.ceil((text.length * px * em) / width));
 
 /** Would this pick sit comfortably on a slide shared by `n` picks? (n = 1 always fits: it has the whole slide.) */
 export function fits(item: SlideItem, n: number): boolean {
