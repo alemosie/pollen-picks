@@ -10,7 +10,6 @@ import { ResumeBanner } from "@/components/ResumeBanner";
 import type { BeehiivIssue } from "@/lib/beehiiv";
 import { ownMode, stepUrl } from "@/lib/flow";
 import { startFreshRun } from "@/lib/progress";
-import { Check } from "lucide-react";
 import { Select } from "@/components/Select";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { IssueList } from "./IssueList";
@@ -189,21 +188,44 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
       <div role="radiogroup" aria-label="Newsletter source" className="grid gap-5 md:grid-cols-2">
         {publication ? (
           // A publication is on record: the mode itself shows it.
-          <label className={`${cardBase} bg-accent`}>
-            <input type="radio" name="mode" value="own" checked={mode === "own"} onChange={() => setMode("own")} className="peer sr-only" />
+          <div className={`${cardBase} bg-accent`} onClick={() => setMode("own")}>
+            <input id="mode-own" type="radio" name="mode" value="own" checked={mode === "own"} onChange={() => setMode("own")} className="peer sr-only" />
             {radioDot}
-            <span className="font-display text-2xl">Your newsletter</span>
+            <label htmlFor="mode-own" className="flex cursor-pointer flex-col items-start gap-4">
+              <span className="font-display text-2xl">Your newsletter</span>
+            </label>
+            {beehiiv && beehiiv.publications.length > 1 && (
+              <div className="w-full" onClick={(e) => e.stopPropagation()}>
+                <label htmlFor="publication" className="sr-only">
+                  Publication
+                </label>
+                <Select
+                  id="publication"
+                  value={publicationId ?? ""}
+                  onChange={(e) => {
+                    setMode("own");
+                    setPublicationId(e.target.value);
+                    void loadIssues(e.target.value);
+                  }}
+                  className="py-3 pl-4"
+                >
+                  {beehiiv.publications.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <PublicationSummary publication={publication} avatar="bg-surface" compact />
-            <span className="text-sm">
-              <span className="inline-flex items-center gap-1 rounded-full bg-ink px-2.5 py-0.5 text-xs font-bold text-cream">
-                <Check aria-hidden className="size-3" strokeWidth={3} /> Connected to beehiiv
-              </span>
-              <Link href="/settings" className="ml-2 font-bold underline underline-offset-4">
-                Manage in Settings
-              </Link>
-            </span>
-            <SourceLogos />
-          </label>
+            <SourceLogos
+              after={
+                <Link href="/settings" onClick={(e) => e.stopPropagation()} className="ml-1 text-sm font-bold underline underline-offset-4">
+                  Manage in Settings
+                </Link>
+              }
+            />
+          </div>
         ) : (
           <div className={`${cardBase} ${MODES[0].tone}`} onClick={() => setMode("own")}>
             <input id="mode-own" type="radio" name="mode" value="own" checked={mode === "own"} onChange={() => setMode("own")} className="peer sr-only" />
@@ -239,28 +261,6 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
 
       {mode === "own" && beehiiv && (
         <section ref={below as React.RefObject<HTMLElement>} aria-label="Your issues" className="mt-8 scroll-mt-4">
-          {beehiiv.publications.length > 1 && (
-            <div className="mb-5">
-              <label htmlFor="publication" className="mb-2 block font-bold">
-                Publication
-              </label>
-              <Select
-                id="publication"
-                value={publicationId ?? ""}
-                onChange={(e) => {
-                  setPublicationId(e.target.value);
-                  void loadIssues(e.target.value);
-                }}
-                className="py-3 pl-4"
-              >
-                {beehiiv.publications.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
           <IssueList
             issues={issues}
             page={page}

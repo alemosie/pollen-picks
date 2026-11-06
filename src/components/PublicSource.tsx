@@ -9,7 +9,7 @@ export function PublicSourceBody() {
 const logoChip = "flex h-9 items-center rounded-xl bg-surface px-3 ring-1 ring-ink/10";
 
 /** The row of platform logos along the bottom of a source card. */
-export function SourceLogos({ substack = false, more }: { substack?: boolean; more?: string }) {
+export function SourceLogos({ substack = false, more, after }: { substack?: boolean; more?: string; /** Anything that belongs right next to the logos (a link, say). */ after?: React.ReactNode }) {
   return (
     <span className="mt-auto flex flex-wrap items-center gap-2 pt-1" aria-label={substack ? "Works with beehiiv and Substack" : "beehiiv"}>
       <span className={logoChip}>
@@ -23,6 +23,7 @@ export function SourceLogos({ substack = false, more }: { substack?: boolean; mo
         </span>
       )}
       {more && <span className="text-sm font-semibold">{more}</span>}
+      {after}
     </span>
   );
 }
