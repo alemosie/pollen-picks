@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
+import { PuffIcon } from "@/components/PuffIcon";
 import { usePalette } from "@/components/usePalette";
 import { DEFAULT_COLORS } from "@/lib/brand";
 import {
@@ -416,20 +417,23 @@ export function SlideBuilder({
               onClick={() => setActive(si)}
               className={`flex gap-4 rounded-2xl bg-surface p-3 ring-1 transition ${isOver ? "ring-2 ring-coral" : active === si ? "ring-ink/40" : "ring-ink/10"}`}
             >
-              {thumb(
-                { kind: "slide", index: si },
-                `slide ${si + 1}`,
-                ids.length === 0,
-              )}
+              {/* An empty slide has nothing to preview: on a phone only the "Tap here to select picks" button is shown. */}
+              <div className={ids.length === 0 ? "hidden lg:contents" : "contents"}>
+                {thumb(
+                  { kind: "slide", index: si },
+                  `slide ${si + 1}`,
+                  ids.length === 0,
+                )}
+              </div>
               <div className="flex min-w-0 flex-1 flex-col">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="m-0 font-bold">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2">
+                  <p className="m-0 whitespace-nowrap font-bold">
                     Slide {si + 1}{" "}
                     <span className="font-normal text-ink/70">
                       · {ids.length} of {MAX_PER_SLIDE}
                     </span>
                   </p>
-                  <div className="flex items-center">
+                  <div className="-ml-1.5 flex items-center sm:ml-auto">
                     {spec.slides.length > 1 && (
                       <>
                       {([-1, 1] as const).map((by) => (
@@ -482,8 +486,9 @@ export function SlideBuilder({
                         e.stopPropagation();
                         setSelecting(si);
                       }}
-                      className="w-full rounded-xl border-2 border-dashed border-ink/30 p-4 text-sm font-bold hover:bg-ink/5 lg:hidden"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border-[3px] border-dotted border-honey bg-honey/15 p-4 font-bold hover:bg-honey/30 lg:hidden"
                     >
+                      <PuffIcon className="size-5 shrink-0" strokeWidth={1.1} />
                       Tap here to select picks
                     </button>
                   </>
@@ -588,7 +593,8 @@ export function SlideBuilder({
       </div>
 
       <aside className="hidden min-h-0 flex-col lg:flex rounded-2xl bg-card pt-5 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]">
-        <h2 className="mb-1 px-5 text-2xl">
+        <h2 className="mb-1 flex items-center gap-2 px-5 text-2xl">
+          <PuffIcon className="size-6 shrink-0" strokeWidth={1.1} />
           Your picks ({picks.split(",").filter(Boolean).length})
         </h2>
         <p className="mb-3 mt-0 px-5 text-sm">

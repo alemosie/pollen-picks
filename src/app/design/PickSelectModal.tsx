@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import { MAX_PER_SLIDE } from "@/lib/slides/options";
 
 /** Mobile-friendly multi-select: tick up to 4 picks for one slide. Picks already on another slide move here when ticked. */
@@ -66,6 +67,9 @@ export function PickSelectModal({
             For slide {slideNumber} · {sel.length} of {MAX_PER_SLIDE}
             {full && " (full)"}
           </p>
+          {options.some((o) => o.at != null && !sel.includes(o.id)) && (
+            <p className="m-0 mt-1 text-sm">Picks already on a slide are marked. Tick one to move it here.</p>
+          )}
         </div>
         <ul className="m-0 grid min-h-0 flex-1 list-none content-start gap-1.5 overflow-y-auto p-0 px-5 pb-3">
           {options.map((o, i) => {
@@ -77,6 +81,8 @@ export function PickSelectModal({
             const someOn = gids.some((id) => sel.includes(id));
             const on = sel.includes(o.id);
             const blocked = full && !on;
+            // Already on another slide (and not ticked for this one): shown as placed, so the unplaced picks stand out.
+            const placed = o.at != null && !on;
             return (
               <li key={o.id}>
                 {heading && (
@@ -99,7 +105,7 @@ export function PickSelectModal({
                   </div>
                 )}
                 <label
-                  className={`flex cursor-pointer items-center gap-3 rounded-xl bg-surface px-3 py-3 text-sm font-semibold ring-1 ${on ? "ring-2 ring-ink" : "ring-ink/10"} ${blocked ? "opacity-45" : ""}`}
+                  className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold ring-1 ${placed ? "bg-ink/[0.07]" : "bg-surface"} ${on ? "ring-2 ring-ink" : "ring-ink/10"} ${blocked ? "opacity-45" : ""}`}
                 >
                   <input
                     type="checkbox"
@@ -108,10 +114,11 @@ export function PickSelectModal({
                     onChange={() => toggle(o.id)}
                     className={`size-5 shrink-0 accent-[#2b3a36]`}
                   />
-                  <span className="min-w-0 flex-1">{o.title}</span>
-                  {o.at != null && !on && (
-                    <span className="shrink-0 rounded-full bg-ink/10 px-2 py-0.5 text-xs font-bold">
-                      Slide {o.at + 1}
+                  <span className={`min-w-0 flex-1 ${placed ? "text-ink/60" : ""}`}>{o.title}</span>
+                  {placed && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ink px-2.5 py-1 text-xs font-bold text-cream">
+                      <Check aria-hidden className="size-3" strokeWidth={3} />
+                      Slide {o.at! + 1}
                     </span>
                   )}
                 </label>
