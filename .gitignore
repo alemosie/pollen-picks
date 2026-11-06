@@ -46,3 +46,4 @@ certificates
 
 # dev settings page (/dev) choices
 .dev-fake.json
+.scratch/
