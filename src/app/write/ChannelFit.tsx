@@ -4,12 +4,10 @@ import type { Channel } from "@/components/ChannelPicker";
 import { fitFor, variantFor, type CaptionVariant } from "@/lib/caption";
 import { serviceLabel } from "@/lib/channels";
 
-const byService = (a: Channel, b: Channel) =>
-  serviceLabel(a.service).localeCompare(serviceLabel(b.service), "en") || a.name.localeCompare(b.name, "en", { sensitivity: "base", numeric: true });
-
 /**
- * Will each connected channel take its caption? One quiet line per channel: a check when it fits, a cross and "over by N" when it
- * doesn't (the only time there is more to read; it jumps to the caption to shorten). Which channels are ticked is chosen on Send.
+ * Will each network's caption fit? One quiet line per network, like the pills on Send: a check when it fits, a cross and "over by N"
+ * when it doesn't (the only time there is more to read; it jumps to the caption to shorten). Every channel of a network gets the same
+ * caption and has the same limit, so a network fits or doesn't as a whole. Which channels are ticked is chosen on Send.
  */
 export function ChannelFit({
   channels,
@@ -18,25 +16,28 @@ export function ChannelFit({
 }: {
   channels: Channel[];
   captionFor: (v: CaptionVariant) => string;
-  /** Jump to the tab of the caption a channel uses. */
+  /** Jump to the tab of the caption a network uses. */
   onShow: (v: CaptionVariant) => void;
 }) {
   if (channels.length === 0) return null;
+  const byNetwork = new Map<string, Channel[]>();
+  for (const c of channels) byNetwork.set(c.service, [...(byNetwork.get(c.service) ?? []), c]);
+  const networks = [...byNetwork.entries()].sort(([a], [b]) => serviceLabel(a).localeCompare(serviceLabel(b), "en"));
   return (
     <aside aria-label="Channel limits" className="grid content-start gap-2 text-sm">
       <p className="m-0 font-semibold">Fits on</p>
       <ul className="m-0 grid list-none gap-1.5 p-0">
-        {[...channels].sort(byService).map((c) => {
-          const variant = variantFor(c.service);
-          const fit = fitFor(c.service, captionFor(variant));
+        {networks.map(([service, group]) => {
+          const variant = variantFor(service);
+          const fit = fitFor(service, captionFor(variant));
           return (
-            <li key={c.id} className="flex items-center gap-2">
+            <li key={service} className="flex items-center gap-2" title={group.map((c) => c.name).join(", ")}>
               <span aria-hidden className={`grid size-4 shrink-0 place-items-center rounded-full text-ink-deep ${fit.fits ? "bg-sage" : "bg-coral"}`}>
                 {fit.fits ? <Check className="size-3" strokeWidth={4} /> : <X className="size-3" strokeWidth={4} />}
               </span>
-              <ChannelIcon service={c.service} className="size-3.5 shrink-0" />
-              <span className="min-w-0 truncate" title={c.name}>
-                {c.name}
+              <ChannelIcon service={service} className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">
+                {serviceLabel(service)} <span className="opacity-70">({group.length})</span>
               </span>
               <span className="sr-only">{fit.fits ? "fits" : fit.over > 0 ? `over the limit by ${fit.over}` : `${fit.mentionsOver} too many tags`}</span>
               {!fit.fits && (

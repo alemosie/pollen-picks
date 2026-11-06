@@ -64,6 +64,8 @@ type RowView = {
 /** The last step's action is coral, to set it apart from the honey Continue buttons. */
 const finishButton =
   "rounded-xl bg-coral px-6 py-3 font-bold text-ink-deep hover:brightness-95";
+/** On a phone the two actions share the bar with Back, so they are a little smaller. */
+const compact = "max-sm:px-4 max-sm:py-2.5 max-sm:text-sm max-[360px]:px-3!";
 const ACCENT: Record<CaptionVariant, string> = {
   instagram: "border-honey",
   link: "border-sage",
@@ -129,7 +131,6 @@ export function SendConfirm({
   const [armed, setArmed] = useState<string[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [pollStopped, setPollStopped] = useState(false);
-  const [pollGen, setPollGen] = useState(0);
   // True while the batches on screen were restored from an earlier visit (not started in this one). Only those are checked for "already finished".
   const [restored, setRestored] = useState(false);
   // How many posts of an earlier, finished send failed or are unknown. Shown as a nudge to History.
@@ -283,7 +284,7 @@ export function SendConfirm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [batchKey, pollGen]);
+  }, [batchKey]);
 
   if (choice === null || !selectionReady)
     return (
@@ -504,6 +505,8 @@ export function SendConfirm({
               ? `Sent, with ${plural(draftRows, "draft")} to finish`
               : "Posts sent to Buffer"
             : "Your drafts are ready";
+  // Once the send is confirmed the modal stops reporting progress (History does that); it just says it\u2019s done and points there.
+  const doneTitle = error && batches.length === 0 ? "Nothing was sent" : starting ? "Sending\u2026" : "It\u2019s sent!";
   const names = (list: Channel[]) => list.map((c) => c.name).join(", ");
   const draftChannels = current.filter((e) => e.mode !== "now").map((e) => byId.get(e.channelId ?? "")).filter((c): c is Channel => Boolean(c));
   const tooLongNote = (list: Channel[], past: boolean) => {
@@ -664,7 +667,7 @@ export function SendConfirm({
       >
         <div className="flex max-h-[85vh] flex-col">
           <div className="flex items-center justify-between gap-4 px-7 pb-2 pt-6">
-            <h2 className="m-0 text-2xl">{modalTitle}</h2>
+            <h2 className="m-0 text-2xl">{ready ? modalTitle : doneTitle}</h2>
             <button
               type="button"
               onClick={() => runRef.current?.close()}
@@ -674,6 +677,8 @@ export function SendConfirm({
               <X aria-hidden className="size-5" strokeWidth={2.25} />
             </button>
           </div>
+          {ready ? (
+            <>
           <p className="m-0 px-7 pb-4 text-sm">{modalIntro}</p>
           {fakeAny && !(started && !ready && (busy || stillPublishing)) && (
             <p role="status" className="mx-7 mb-4 rounded-xl bg-surface p-3 text-sm font-semibold ring-2 ring-honey">
@@ -713,11 +718,10 @@ export function SendConfirm({
               )}
             </p>
           )}
-          {started && !ready && cleanSuccess && <FeedbackPrompt className="mx-7 mb-4" />}
           <div className="min-h-0 overflow-y-auto px-7 pb-2">
-            <table className="w-full border-collapse text-left text-sm">
+            <table className="w-full border-collapse text-left text-sm max-sm:block">
               <caption className="sr-only">{mode === "now" ? "Posts by channel" : "Drafts by channel"}</caption>
-              <thead>
+              <thead className="max-sm:sr-only">
                 <tr className="border-b border-ink/15">
                   <th scope="col" className="py-2 pr-3 font-bold">
                     Channel
@@ -730,12 +734,13 @@ export function SendConfirm({
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="max-sm:block">
                 {chosen.map((c) => {
                   const v = rowView(c);
                   return (
-                    <tr key={c.id} className="border-b border-ink/10 align-top">
-                      <td className="py-2.5 pr-3">
+                    // On a phone each row stacks (channel, then its status, then its links) instead of three columns that don't fit.
+                    <tr key={c.id} className="border-b border-ink/10 align-top max-sm:block max-sm:py-3">
+                      <td className="py-2.5 pr-3 max-sm:block max-sm:py-0 max-sm:pr-0">
                         <span className="flex min-w-0 items-center gap-2">
                           <ChannelIcon service={c.service} className="size-4 shrink-0 text-ink/60" />
                           <span title={c.name} className="min-w-0 truncate font-semibold">
@@ -745,11 +750,11 @@ export function SendConfirm({
                         <span className="block pl-6 text-xs text-ink/70">
                           {plural(Math.min(urls.length, imageLimit(c.service)), "slide")}
                         </span>
-                        <span className="block max-w-[16rem] truncate pl-6 text-xs text-ink/70" title={captionFor(variantFor(c.service))}>
+                        <span className="block max-w-[16rem] truncate pl-6 text-xs text-ink/70 max-sm:max-w-full" title={captionFor(variantFor(c.service))}>
                           {captionFor(variantFor(c.service))}
                         </span>
                       </td>
-                      <td className="py-2.5 pr-3">
+                      <td className="py-2.5 pr-3 max-sm:mt-1.5 max-sm:block max-sm:py-0 max-sm:pl-6 max-sm:pr-0">
                         <span
                           className={`flex items-center gap-2 ${v.tone === "bad" ? "font-semibold text-coral" : v.tone === "warn" ? "font-semibold" : ""}`}
                         >
@@ -759,8 +764,8 @@ export function SendConfirm({
                         {v.detail && <span className="block text-xs">{v.detail}</span>}
                         {v.note && <span className="block text-xs">{v.note}</span>}
                       </td>
-                      <td className="py-2.5 text-right">
-                        <span className="flex flex-col items-end gap-1">
+                      <td className="py-2.5 text-right max-sm:block max-sm:py-0 max-sm:pl-6 max-sm:text-left">
+                        <span className="flex flex-col items-end gap-1 max-sm:mt-1 max-sm:items-start">
                           {v.bufferId && (
                             <a
                               href={`https://publish.buffer.com/posts/${encodeURIComponent(v.bufferId)}`}
@@ -819,46 +824,47 @@ export function SendConfirm({
                   {armedNow > 0 ? "Publish now" : "Save drafts"}
                 </button>
               </>
-            ) : (
-              <>
-                <button type="button" onClick={() => runRef.current?.close()} className={ghostButton}>
-                  Close
-                </button>
-                {!busy && mode === "now" && pollStopped && stillPublishing && (
-                  <button type="button" onClick={() => setPollGen((g) => g + 1)} className={ghostButton}>
-                    Refresh
-                  </button>
-                )}
-                {!busy && !allSent && retryable.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => (mode === "now" ? arm(retryable) : send(retryable, "draft"))}
-                    className={finishButton}
-                  >
-                    Retry {retryable.length} failed
-                  </button>
-                )}
-                {started && (
-                  <a
-                    href="/history"
-                    className="rounded-xl bg-honey px-5 py-2.5 font-bold text-ink-deep hover:brightness-95"
-                  >
-                    Go to History
-                  </a>
-                )}
-                {!busy && started && (allSent || retryable.length === 0) && (
-                  <a
-                    href="https://publish.buffer.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-xl bg-coral px-5 py-2.5 font-bold text-ink-deep hover:brightness-95"
-                  >
-                    Open Buffer
-                  </a>
-                )}
-              </>
-            )}
+            ) : null}
           </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-4 px-7 pb-7 pt-1">
+              {fakeAny && (
+                <p role="status" className="m-0 rounded-xl bg-surface p-3 text-sm font-semibold ring-2 ring-honey">
+                  Fake mode: nothing was sent to Buffer.
+                </p>
+              )}
+              {error && batches.length === 0 ? (
+                <p role="alert" className="m-0 border-l-4 border-coral pl-3 font-semibold">
+                  {error}
+                </p>
+              ) : starting ? (
+                <p role="status" className="m-0 flex items-center gap-3 font-semibold">
+                  <PollenSpinner className="size-5" /> Queuing your {labelMode === "now" ? "posts" : "drafts"}…
+                </p>
+              ) : (
+                <>
+                  <p className="m-0 text-lg">
+                    Now, check on the status of your {labelMode === "now" ? "posts" : "drafts"} &mdash; including any failed {labelMode === "now" ? "posts" : "drafts"} that need retries.
+                  </p>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <a href="/history" target="_blank" rel="noreferrer" className="rounded-xl bg-honey px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95">
+                      Go to History
+                    </a>
+                    <a
+                      href={onlyPost && !onlyFake ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}` : "https://publish.buffer.com"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-xl bg-coral px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95"
+                    >
+                      Open in Buffer
+                    </a>
+                  </div>
+                  {cleanSuccess && <FeedbackPrompt className="mt-1" />}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </dialog>
 
@@ -880,15 +886,16 @@ export function SendConfirm({
             status
           )
         }
+        statusHiddenOnPhone={!started}
       >
         {demo ? (
           <DemoGate signedIn={demo.signedIn} label="Finish demo" className={finishButton} onOpen={pollenBurst} />
         ) : n === 0 && !started ? (
           <>
-            <span aria-disabled className={primaryDisabled}>
+            <span aria-disabled className={`${primaryDisabled} ${compact}`}>
               Create draft
             </span>
-            <span aria-disabled className={primaryDisabled}>
+            <span aria-disabled className={`${primaryDisabled} ${compact}`}>
               Send now
             </span>
           </>
@@ -931,11 +938,11 @@ export function SendConfirm({
                 pollenBurst(e.currentTarget);
                 send(chosen, "draft");
               }}
-              className={primaryButton}
+              className={`${primaryButton} ${compact}`}
             >
               Create draft
             </button>
-            <button type="button" onClick={() => arm(chosen)} className={finishButton}>
+            <button type="button" onClick={() => arm(chosen)} className={`${finishButton} ${compact}`}>
               Send now
             </button>
           </>
