@@ -20,6 +20,7 @@ import { PaletteSync } from "@/components/PaletteSync";
 import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
 import { settingsPreviews } from "@/lib/slides/settingsPreview";
 import { DEFAULT_STYLE } from "@/lib/slides/style";
+import { DeleteMyData } from "./DeleteMyData";
 import { OrganizationEditor } from "./OrganizationEditor";
 import { PaletteEditor } from "./PaletteEditor";
 import { SlideStyleEditor } from "./SlideStyleEditor";
@@ -250,6 +251,9 @@ async function AccountSection({ userId, token }: { userId: string; token: string
         <LogOut aria-hidden className="size-4" strokeWidth={2.25} />
         Log out
       </a>
+      <h3 className="mb-1 mt-8 text-lg">Delete your data</h3>
+      <p className="mb-4 mt-0 text-sm">Remove your account and everything stored for it. Anything already in Buffer or beehiiv is left alone.</p>
+      <DeleteMyData />
     </section>
   );
 }

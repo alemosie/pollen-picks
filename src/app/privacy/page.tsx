@@ -182,8 +182,9 @@ const sections: Section[] = [
             To cut off access completely, also delete the key on beehiiv&rsquo;s API page.
           </li>
           <li>
-            <b>Delete your data.</b> Ask through the <Link href="/feedback">feedback form</Link> and your account, brand
-            settings and stored tokens will be deleted. A self-serve button is on the way.
+            <b>Delete your data.</b> Press <i>Delete my data</i> under Account in <Link href="/settings">Settings</Link> and your
+            account, brand settings, history, highlights and stored tokens are deleted straight away. Anything you wrote in the{" "}
+            <Link href="/feedback">feedback form</Link> is kept but no longer linked to you.
           </li>
         </ul>
         <p>Pollen Picks does not sell your data or use it for advertising.</p>
