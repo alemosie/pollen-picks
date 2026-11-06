@@ -1,12 +1,13 @@
 // The slide style a user sets in Settings > Slide style: what goes in the header's and footer's left corner, and the font.
 // Shared by the Settings screen, the server that stores it and the slide renderer, so it holds no server-only code.
 
-export const SLOTS = ["publication", "organization", "title", "date", "none"] as const;
+export const SLOTS = ["publication", "organization", "title", "carousel", "date", "none"] as const;
 export type Slot = (typeof SLOTS)[number];
 export const SLOT_LABEL: Record<Slot, string> = {
   publication: "Publication name + logo",
   organization: "Organization name + logo",
   title: "Issue title",
+  carousel: "Carousel title",
   date: "Issue date",
   none: "Nothing",
 };
