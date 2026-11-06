@@ -10,7 +10,7 @@ import { ServerTimings } from "@/components/ServerTimings";
 import { timer } from "@/lib/timing";
 import { ModePicker } from "./ModePicker";
 
-export const metadata = { title: "Choose your setup · Pollen Picks" };
+export const metadata = { title: "Choose a post · Pollen Picks" };
 
 export default function Start() {
   return (
@@ -33,11 +33,11 @@ async function StartContent() {
       <PageHeader current={1} />
       <div className="mb-10 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
           <h1 className="mb-3 col-span-2 row-start-2 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
-            Choose your newsletter <StepWord>source</StepWord>
+            Choose a <StepWord>post</StepWord>
           </h1>
           <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
-          Buffer is connected. Now choose where the content comes from. You can
-          switch any time.
+          Buffer is connected. Paste a link to any public post, or choose one of your
+          own newsletter issues.
         </p>
           <div className="col-span-2 row-start-1 mb-2 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:self-start sm:row-span-2 sm:mt-2">
             <ShareLinkButton />

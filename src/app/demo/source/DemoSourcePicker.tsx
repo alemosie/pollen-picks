@@ -1,20 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { FlowBar, primaryButton } from "@/components/FlowBar";
 import { IssueRow } from "@/components/IssueRow";
-import { PublicLinkForm } from "@/components/PublicSource";
+import { SquiggleIfOneLine } from "@/components/SquiggleIfOneLine";
+import { PublicationSummary } from "@/components/PublicationSummary";
+import type { BeehiivPublication } from "@/lib/beehiiv";
+import { PollenDots } from "@/components/PollenDots";
+import { PublicLinkForm, SourceLogos } from "@/components/PublicSource";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import { clearProgress } from "@/lib/progress";
 import { clearDemoRows } from "@/lib/pollen/demoHighlights";
 import { clearDemoSource, encodeDemoSource, writeDemoSource } from "@/lib/pollen/demoSource";
 import { stepUrl } from "@/lib/flow";
 
-type Source = { id: string; title: string; tag: string; logos: ReactNode; body: ReactNode; tone: string; href?: string; link?: boolean };
 type Post = { url: string; title: string; site: string | null; author: string | null; image: string | null; publishedAt: string | null };
 
 const sourceOf = (p: Post) => ({ url: p.url, title: p.title, newsletter: p.site || hostOf(p.url) || p.title, author: p.author });
+// The demo issue's publication, as beehiiv reports it (shown the way the signed-in step shows a connected one).
+const DEMO_PUBLICATION: BeehiivPublication = { id: "demo", name: "Just a Phase", organization: "Amsterdam Parent Project", subscribers: 1026, openRate: 70.7, clickRate: 19.3, created: 1730419200 };
 const PICK_PAGE = `${stepUrl("demo", "pick")}?picking=manual`;
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
 const hostOf = (url: string) => {
@@ -25,19 +30,6 @@ const hostOf = (url: string) => {
   }
 };
 
-// Same cards as the signed-in source step (see app/source/ModePicker). The demo issue opens its parsed picker; the public
-// newsletter reads one page (Manual tab only: select text, press Pick).
-const radioDot = (
-  <span
-    aria-hidden
-    className="absolute right-5 top-5 grid size-6 place-items-center rounded-full border-2 border-ink/40 peer-checked:border-ink peer-checked:bg-ink peer-checked:[&>span]:opacity-100"
-  >
-    <span className="size-2 rounded-full bg-cream opacity-0" />
-  </span>
-);
-const cardBase =
-  "relative flex cursor-pointer flex-col gap-4 rounded-2xl p-6 outline-none transition-shadow has-[:checked]:shadow-[0_0_0_2px_var(--color-ink)] has-[input[type=radio]:focus-visible]:shadow-[0_0_0_2px_var(--color-ink)]";
-
 // Starting a demo erases whatever was in progress, including earlier highlights.
 function startFresh() {
   clearProgress();
@@ -45,9 +37,14 @@ function startFresh() {
   clearDemoSource();
 }
 
-export function DemoSourcePicker({ sources, demoIssue }: { sources: Source[]; demoIssue: { title: string; publishedAt: string; thumbnail?: string; newsletter: string; author?: string | null } }) {
-  const [chosen, setChosen] = useState(sources[0].id);
-  const selected = sources.find((s) => s.id === chosen)!;
+type DemoIssue = { title: string; publishedAt: string; thumbnail?: string; newsletter: string; author?: string | null };
+
+/**
+ * Same list as the signed-in step (app/source/ModePicker): paste a link, or use the demo issue, which starts chosen. The demo issue opens its
+ * parsed picker; a pasted post reads one page (Manual tab only: select text, press Pick).
+ */
+export function DemoSourcePicker({ demoIssue }: { demoIssue: DemoIssue }) {
+  const [choice, setChoice] = useState<"demo" | "post">("demo");
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,11 +61,20 @@ export function DemoSourcePicker({ sources, demoIssue }: { sources: Source[]; de
     writeDemoSource(sourceOf(p));
   }, []);
 
+  // The last link that resolved, so pressing the button again with the same text just chooses that post instead of asking again.
+  const resolved = useRef<{ address: string; post: Post } | null>(null);
+
   async function getContent(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
     const address = url.trim();
     if (!address) return setError("Paste a link to a public post first.");
+    if (resolved.current?.address === address) {
+      setError(null);
+      setPost(resolved.current.post);
+      setChoice("post");
+      return;
+    }
     setBusy(true);
     setError(null);
     setPost(null);
@@ -86,7 +92,9 @@ export function DemoSourcePicker({ sources, demoIssue }: { sources: Source[]; de
       };
       // The link is kept in a cookie, so say now if it can't fit rather than after Pick.
       if (encodeDemoSource(sourceOf(found)).length > 3000) return setError("That link is too long for the demo. Try a shorter one.");
+      resolved.current = { address, post: found };
       setPost(found);
+      setChoice("post");
     } catch {
       setError("Couldn't reach Pollen Picks. Check your connection and try again.");
     } finally {
@@ -94,74 +102,66 @@ export function DemoSourcePicker({ sources, demoIssue }: { sources: Source[]; de
     }
   }
 
+  const useDemo = !(choice === "post" && post);
+  const href = useDemo ? stepUrl("demo", "pick") : PICK_PAGE;
+  const onNavigate = useDemo ? startFresh : enterPost;
+
   return (
-    <div>
-      <div role="radiogroup" aria-label="Newsletter source" className="grid gap-5 md:grid-cols-2">
-        {sources.map((s) => (
-          <label key={s.id} className={`${cardBase} ${s.tone}`}>
-            <input type="radio" name="source" value={s.id} checked={chosen === s.id} onChange={() => setChosen(s.id)} className="peer sr-only" />
-            {radioDot}
-            <span className="w-fit rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-bold">{s.tag}</span>
-            <span className="font-display text-2xl">{s.title}</span>
-            {s.body}
-            {s.logos}
-          </label>
-        ))}
-      </div>
-
-      {selected.href && (
-        <fieldset className="m-0 mt-8 min-w-0 border-0 p-0">
-          <legend className="mb-3 p-0 text-lg font-bold">Choose an issue</legend>
-          <IssueRow title={demoIssue.title} detail={[demoIssue.newsletter, demoIssue.author, date(demoIssue.publishedAt)].filter(Boolean).join(" · ")} image={demoIssue.thumbnail} badge="Latest" />
-        </fieldset>
-      )}
-
-      {selected.link && (
-        <>
-          <PublicLinkForm
-            value={url}
-            onChange={(v) => {
-              setUrl(v);
-              setPost(null);
-            }}
-            onSubmit={getContent}
-            busy={busy}
-            error={error}
-          />
-          {post && (
-            <fieldset className="m-0 mt-8 min-w-0 border-0 p-0">
-              <legend className="mb-3 p-0 text-lg font-bold">Your post</legend>
-              <IssueRow
-                title={post.title}
-                image={post.image}
-                detail={[post.site || hostOf(post.url), post.author, post.publishedAt ? date(post.publishedAt) : null].filter(Boolean).join(" · ")}
-              />
-            </fieldset>
-          )}
-        </>
-      )}
-
-      <FlowBar
-        next={selected.href ? { href: selected.href, onNavigate: startFresh } : selected.link && post ? { href: PICK_PAGE, onNavigate: enterPost } : null}
-        status={<ResumeBanner inline />}
-      >
-        {selected.href && (
-          <Link href={selected.href} onClick={startFresh} className={`inline-flex items-center gap-2 ${primaryButton}`}>
-            Pick
-            <Arrow />
-          </Link>
+    <div className="space-y-8">
+      <section aria-label="Paste a link" className="relative rounded-2xl bg-sage/50 p-5 sm:p-6">
+        <PollenDots found={post?.url ?? null} />
+        <h2 className="mb-3 mt-0 font-display text-2xl">Paste a link</h2>
+        <PublicLinkForm
+          inCard
+          value={url}
+          onChange={(v) => {
+            setUrl(v);
+            setPost(null);
+          }}
+          onSubmit={getContent}
+          busy={busy}
+          error={error}
+        />
+        <div className="mt-4">
+          <SourceLogos substack more="and any public blog" />
+        </div>
+        {post && (
+          <div className="mt-4">
+            <IssueRow
+              value="pasted"
+              puff
+              title={post.title}
+              image={post.image}
+              detail={[post.site || hostOf(post.url), post.author, post.publishedAt ? date(post.publishedAt) : null].filter(Boolean).join(" · ")}
+              checked={!useDemo}
+              onChange={() => setChoice("post")}
+            />
+          </div>
         )}
-        {selected.link &&
-          (post ? (
-            <Link href={PICK_PAGE} onClick={enterPost} className={`inline-flex items-center gap-2 ${primaryButton}`}>
-              Pick
-              <Arrow />
-            </Link>
-          ) : (
-            <span aria-disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border-2 border-dashed border-cream/40 px-6 py-3 font-semibold text-cream/60">
-              Get content to continue
-            </span>
-          ))}
+      </section>
+
+      <section aria-label="Demo issue">
+        <h2 className="mb-3 mt-0 font-display text-2xl">Or choose the demo from <SquiggleIfOneLine text={demoIssue.newsletter} /></h2>
+        <div className="mb-4">
+          <PublicationSummary publication={DEMO_PUBLICATION} avatar="bg-honey" compact hideName />
+        </div>
+        <IssueRow
+          value="demo"
+          title={demoIssue.title}
+          detail={[demoIssue.newsletter, demoIssue.author, date(demoIssue.publishedAt)].filter(Boolean).join(" · ")}
+          image={demoIssue.thumbnail}
+          badge="Latest"
+          checked={useDemo}
+          onChange={() => setChoice("demo")}
+        />
+        <p className="mb-0 mt-3 text-sm leading-relaxed italic">A real issue of a beehiiv newsletter, with real click data. No account needed.</p>
+      </section>
+
+      <FlowBar next={{ href, onNavigate }} status={<ResumeBanner inline />}>
+        <Link href={href} onClick={onNavigate} className={`inline-flex items-center gap-2 ${primaryButton}`}>
+          Pick
+          <Arrow />
+        </Link>
       </FlowBar>
     </div>
   );

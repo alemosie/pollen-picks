@@ -98,8 +98,10 @@ export function BeehiivConnect({
         </p>
         <ul className="m-0 grid list-none gap-3 p-0">
           {state.publications.map((p) => (
-            <li key={p.id} className="rounded-2xl bg-surface p-4">
-              <PublicationSummary publication={p} />
+            <li key={p.id}>
+              <div className="rounded-2xl bg-surface p-4">
+                <PublicationSummary publication={p} />
+              </div>
               {!settingsLink && (
                 <LogoField
                   publication={p}
@@ -138,8 +140,8 @@ export function BeehiivConnect({
         <label htmlFor={inputId} className="sr-only">
           beehiiv API key
         </label>
-        <div className="flex flex-wrap gap-3">
-          <div className="relative min-w-0 flex-1">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative min-w-0 sm:flex-1">
             <input
               id={inputId}
               type={show ? "text" : "password"}
@@ -165,7 +167,7 @@ export function BeehiivConnect({
               {show ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
             </button>
           </div>
-          <button type="submit" disabled={busy || !key.trim()} className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep disabled:opacity-60">
+          <button type="submit" disabled={busy || !key.trim()} className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep disabled:opacity-60 max-sm:w-full">
             {busy ? "Checking…" : "Connect"}
           </button>
         </div>
@@ -271,10 +273,9 @@ function LogoField({ publication: p, onSaved }: { publication: BeehiivPublicatio
   }
 
   return (
-    <details className="mt-3 text-sm" open={!p.logo}>
-      <summary className="cursor-pointer font-bold">{p.logo ? "Change logo" : "Add a logo"}</summary>
-      <label htmlFor={id} className="mb-1 mt-3 block font-semibold">
-        Logo image link
+    <div className="mt-3 px-1 text-sm">
+      <label htmlFor={id} className="mb-1 block font-semibold">
+        Newsletter logo link
       </label>
       <div className="flex flex-wrap gap-2">
         <input
@@ -286,9 +287,9 @@ function LogoField({ publication: p, onSaved }: { publication: BeehiivPublicatio
           placeholder="https://…/logo.png"
           autoComplete="off"
           data-1p-ignore
-          className={`${field} min-w-0 flex-1`}
+          className={`${field} min-w-0 flex-1 max-sm:basis-full`}
         />
-        <button type="button" onClick={() => send(value)} disabled={busy || !value.trim()} className="rounded-xl bg-ink px-4 py-2 font-bold text-cream hover:bg-ink-deep disabled:opacity-40">
+        <button type="button" onClick={() => send(value)} disabled={busy || !value.trim()} className="rounded-xl bg-ink px-4 py-2 font-bold max-sm:flex-1 text-cream hover:bg-ink-deep disabled:opacity-40">
           {busy ? "Saving…" : "Save logo"}
         </button>
         {p.logo && (
@@ -297,12 +298,12 @@ function LogoField({ publication: p, onSaved }: { publication: BeehiivPublicatio
           </button>
         )}
       </div>
-      <p className="mb-0 mt-2">beehiiv doesn&rsquo;t always share your logo. Paste a link to the image (https only) and it shows on the source page.</p>
+      <p className="mb-0 mt-2">Shown next to this newsletter in the app, not on your slides. Paste a link to the image (https only).</p>
       {error && (
         <p role="alert" className="mb-0 mt-2 border-l-4 border-coral pl-3 font-semibold">
           {error}
         </p>
       )}
-    </details>
+    </div>
   );
 }

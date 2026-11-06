@@ -13,28 +13,36 @@ const since = (unix: number) => new Date(unix * 1000).toLocaleDateString("en", {
  * `avatar` is the background class, so it stays visible on whatever card it sits on.
  * `compact` shows each stat as an icon and a value, with its name on hover or focus (used inside the mode card).
  */
-export function PublicationSummary({ publication: p, avatar = "bg-honey", compact = false }: { publication: BeehiivPublication; avatar?: string; compact?: boolean }) {
+export function PublicationSummary({ publication: p, avatar = "bg-honey", compact = false, hideName = false }: { publication: BeehiivPublication; avatar?: string; compact?: boolean; /** The name is already shown as a heading next to this. */ hideName?: boolean }) {
+  if (!compact)
+    return (
+      // Phones: the avatar and name on one row, the stats on a full-width row below. Wider: the stats sit under the name.
+      <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-3">
+        <Avatar publication={p} className={`${avatar} sm:row-span-2`} />
+        <div className="min-w-0">
+          {!hideName && <p className="m-0 truncate font-display text-xl">{p.name}</p>}
+          {p.organization && p.organization !== p.name && <p className="m-0 truncate text-sm">{p.organization}</p>}
+        </div>
+        <p className="col-span-2 m-0 flex flex-wrap gap-x-4 gap-y-0.5 text-sm font-semibold sm:col-span-1 sm:col-start-2">
+          {p.subscribers !== undefined && <span>{fmt.format(p.subscribers)} subscribers</span>}
+          {p.openRate !== undefined && <span>{p.openRate}% open rate</span>}
+          {p.clickRate !== undefined && <span>{p.clickRate}% click rate</span>}
+          {p.created !== undefined && <span>Since {since(p.created)}</span>}
+        </p>
+      </div>
+    );
   return (
-    <div className="flex items-center gap-4">
+    <div className="flex min-w-0 items-center gap-4">
       <Avatar publication={p} className={avatar} />
       <div className="min-w-0">
-        <p className={`m-0 truncate font-display ${compact ? "text-2xl" : "text-xl"}`}>{p.name}</p>
+        {!hideName && <p className="m-0 truncate font-display text-2xl">{p.name}</p>}
         {p.organization && p.organization !== p.name && <p className="m-0 truncate text-sm">{p.organization}</p>}
-        {compact ? (
-          <ul className="m-0 mt-2 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-sm font-semibold">
-            {p.subscribers !== undefined && <Stat icon={Users} value={fmt.format(p.subscribers)} label={`${fmt.format(p.subscribers)} subscribers`} />}
-            {p.openRate !== undefined && <Stat icon={MailOpen} value={`${p.openRate}%`} label={`${p.openRate}% open rate`} />}
-            {p.clickRate !== undefined && <Stat icon={MousePointerClick} value={`${p.clickRate}%`} label={`${p.clickRate}% click rate`} />}
-            {p.created !== undefined && <Stat icon={CalendarDays} value={since(p.created)} label={`Since ${since(p.created)}`} />}
-          </ul>
-        ) : (
-          <p className="m-0 mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm font-semibold">
-            {p.subscribers !== undefined && <span>{fmt.format(p.subscribers)} subscribers</span>}
-            {p.openRate !== undefined && <span>{p.openRate}% open rate</span>}
-            {p.clickRate !== undefined && <span>{p.clickRate}% click rate</span>}
-            {p.created !== undefined && <span>Since {since(p.created)}</span>}
-          </p>
-        )}
+        <ul className="m-0 mt-2 flex list-none flex-wrap gap-x-4 gap-y-1 p-0 text-sm font-semibold">
+          {p.subscribers !== undefined && <Stat icon={Users} value={fmt.format(p.subscribers)} label={`${fmt.format(p.subscribers)} subscribers`} />}
+          {p.openRate !== undefined && <Stat icon={MailOpen} value={`${p.openRate}%`} label={`${p.openRate}% open rate`} />}
+          {p.clickRate !== undefined && <Stat icon={MousePointerClick} value={`${p.clickRate}%`} label={`${p.clickRate}% click rate`} />}
+          {p.created !== undefined && <Stat icon={CalendarDays} value={since(p.created)} label={`Since ${since(p.created)}`} />}
+        </ul>
       </div>
     </div>
   );
@@ -59,11 +67,12 @@ function Stat({ icon: Icon, value, label }: { icon: LucideIcon; value: string; l
 }
 
 function Avatar({ publication: p, className }: { publication: BeehiivPublication; className: string }) {
-  const [failed, setFailed] = useState(false);
-  if (p.logo && !failed) {
+  // Remember which link failed to load, not just that one did: a new link gets its own try.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (p.logo && failedUrl !== p.logo) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={sized(p.logo, 112)} alt="" width={56} height={56} onError={() => setFailed(true)} className="size-14 shrink-0 rounded-2xl bg-surface object-cover" />
+      <img src={sized(p.logo, 112)} alt="" width={56} height={56} onError={() => setFailedUrl(p.logo ?? null)} className="size-14 shrink-0 rounded-2xl bg-surface object-cover" />
     );
   }
   return (

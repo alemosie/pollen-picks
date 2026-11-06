@@ -53,7 +53,7 @@ export function PublicLinkForm({
       <label htmlFor="source-url" className={inCard ? "sr-only" : "mb-2 block font-bold"}>
         {inCard ? "Link to a public post" : "Link to the post"}
       </label>
-      <div className="flex flex-wrap gap-3">
+      <div className={inCard ? "flex flex-col gap-3 sm:flex-row" : "flex flex-wrap gap-3"}>
         <input
           id="source-url"
           type="url"
@@ -62,12 +62,12 @@ export function PublicLinkForm({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="https://"
-          className="min-w-0 flex-1 rounded-xl border-2 border-ink bg-surface px-4 py-3 text-base outline-none focus-visible:shadow-[0_0_0_1px_var(--color-ink)]"
+          className="w-full min-w-0 rounded-xl border-2 border-ink bg-surface px-4 py-3 text-base outline-none sm:flex-1 focus-visible:shadow-[0_0_0_1px_var(--color-ink)]"
         />
         <button
           type="submit"
           disabled={busy}
-          className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep disabled:opacity-60"
+          className="rounded-xl bg-ink px-6 py-3 font-bold text-cream hover:bg-ink-deep disabled:opacity-60 max-sm:w-full"
         >
           {busy ? "Getting…" : "Get content"}
         </button>

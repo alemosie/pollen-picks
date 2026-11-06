@@ -1,27 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { BeehiivMark } from "@/components/BeehiivLogo";
+import { IssueRow } from "@/components/IssueRow";
 import type { BeehiivIssue } from "@/lib/beehiiv";
-import { sized } from "@/lib/cdn";
 
 const date = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Amsterdam" });
-
-/** The issue's thumbnail, or a quiet placeholder when it has none or fails to load. */
-function Thumb({ url }: { url?: string }) {
-  const [failed, setFailed] = useState(false);
-  if (!url || failed) {
-    return (
-      <span aria-hidden className="grid h-14 w-20 shrink-0 place-items-center rounded-lg bg-ink/5">
-        <BeehiivMark className="h-5 w-auto text-ink/30" />
-      </span>
-    );
-  }
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={sized(url, 240)} alt="" width={80} height={56} loading="lazy" onError={() => setFailed(true)} className="h-14 w-20 shrink-0 rounded-lg bg-ink/5 object-cover" />
-  );
-}
 
 const pageButton =
   "inline-flex items-center gap-1.5 rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-ink/15 hover:ring-ink/40 disabled:opacity-40 disabled:hover:ring-ink/15";
@@ -32,6 +14,7 @@ export function IssueList({
   page,
   totalPages,
   chosen,
+  active,
   onSelect,
   onPage,
   loading,
@@ -42,6 +25,8 @@ export function IssueList({
   page: number;
   totalPages: number;
   chosen: BeehiivIssue | null;
+  /** False while the pasted link is the chosen post: no issue row shows as chosen then. */
+  active: boolean;
   onSelect: (issue: BeehiivIssue) => void;
   onPage: (page: number) => void;
   loading: boolean;
@@ -71,26 +56,22 @@ export function IssueList({
     return <p className="m-0 text-sm">No sent issues yet. Once you send one from beehiiv, it will show up here.</p>;
   }
   // The chosen issue can sit on another page: say so, so it is clear what Pick will use.
-  const elsewhere = chosen && !issues.some((i) => i.id === chosen.id) ? chosen : null;
+  const elsewhere = active && chosen && !issues.some((i) => i.id === chosen.id) ? chosen : null;
   return (
     <fieldset className="m-0 min-w-0 border-0 p-0" aria-busy={loading}>
-      <legend className="mb-3 p-0 text-lg font-bold">Choose an issue</legend>
-      <div role="radiogroup" className={`grid grid-cols-[minmax(0,1fr)] gap-2 transition-opacity ${loading ? "opacity-50" : ""}`}>
+      <legend className="sr-only">Your issues</legend>
+      <div className={`grid grid-cols-[minmax(0,1fr)] gap-2 transition-opacity ${loading ? "opacity-50" : ""}`}>
         {issues.map((i, n) => (
-          <label
+          <IssueRow
             key={i.id}
-            className="flex min-w-0 items-center gap-3 rounded-xl bg-surface px-3 py-3 ring-1 ring-ink/10 sm:px-4 outline-offset-2 has-[:checked]:shadow-[0_0_0_3px_var(--color-ink)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink"
-          >
-            <input type="radio" name="issue" value={i.id} checked={chosen?.id === i.id} onChange={() => onSelect(i)} className="size-4 shrink-0 accent-ink" />
-            <Thumb url={i.thumbnail} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate font-semibold">{i.title}</span>
-              <span className="flex items-center gap-2 text-sm">
-                {date(i.publishedAt)}
-                {page === 1 && n === 0 && <span className="shrink-0 rounded-full bg-honey px-2.5 py-0.5 text-xs font-bold text-ink-deep">Latest</span>}
-              </span>
-            </span>
-          </label>
+            value={i.id}
+            title={i.title}
+            image={i.thumbnail}
+            detail={date(i.publishedAt)}
+            badge={page === 1 && n === 0 ? "Latest" : undefined}
+            checked={active && chosen?.id === i.id}
+            onChange={() => onSelect(i)}
+          />
         ))}
       </div>
       {elsewhere && (
