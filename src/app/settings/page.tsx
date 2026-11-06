@@ -63,8 +63,10 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
           <h1 className="mb-3 text-4xl sm:text-5xl">
             <StepWord>Settings</StepWord>
           </h1>
-          <div className="relative flex shrink-0 items-center gap-3 sm:mt-2">
-            <SavedFlash />
+          <div className="relative flex shrink-0 items-center gap-3 max-sm:mb-4 sm:mt-2">
+            <span className="max-sm:absolute max-sm:bottom-full max-sm:right-0 max-sm:mb-1">
+              <SavedFlash />
+            </span>
             <Link
               href="/source"
               className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
@@ -80,16 +82,16 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
       <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-10">
         {/* A row of tabs on phones, a column on wider screens. Plain links, so each section has its own address and back works. */}
         <nav aria-label="Settings sections" className="min-w-0">
-          <ul className="m-0 flex list-none gap-2 overflow-x-auto p-0 pb-1 md:sticky md:top-6 md:flex-col md:overflow-visible md:pb-0">
+          <ul className="m-0 flex list-none flex-wrap gap-2 p-0 md:sticky md:top-6 md:flex-col md:flex-nowrap">
             {SECTIONS.map((s) => {
               const on = s.id === section;
               return (
-                <li key={s.id} className="shrink-0 md:shrink">
+                <li key={s.id}>
                   <Link
                     href={s.id === SECTIONS[0].id ? "/settings" : `/settings?section=${s.id}`}
                     aria-current={on ? "page" : undefined}
                     scroll={false}
-                    className={`flex items-center gap-3 whitespace-nowrap rounded-xl px-4 py-2.5 font-bold transition md:whitespace-normal ${
+                    className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold transition md:gap-3 md:whitespace-normal md:px-4 md:py-2.5 md:text-base ${
                       on ? "bg-ink text-cream" : "bg-surface ring-1 ring-ink/15 hover:ring-ink/40"
                     }`}
                   >
@@ -122,7 +124,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
 async function NewsletterSection({ userId }: { userId: string }) {
   const beehiiv = await getBeehiivConnection(userId);
   return (
-    <section aria-labelledby="beehiiv" className="rounded-2xl bg-card p-6">
+    <section aria-labelledby="beehiiv" className="rounded-2xl bg-card p-4 sm:p-6">
       <h2 id="beehiiv" className="mb-1 flex items-center gap-3 text-2xl">
         Connect to <BeehiivLogo title="beehiiv" className="h-6 w-auto" />
       </h2>
@@ -143,7 +145,7 @@ async function InstagramSection({ userId }: { userId: string }) {
   const left = Math.max(0, free - used);
   const plural = (n: number) => `${n} ${n === 1 ? "lookup" : "lookups"}`;
   return (
-    <section aria-labelledby="apify" className="rounded-2xl bg-card p-6">
+    <section aria-labelledby="apify" className="rounded-2xl bg-card p-4 sm:p-6">
       <h2 id="apify" className="mb-1 text-2xl">
         Instagram tagging
       </h2>
@@ -217,7 +219,7 @@ async function AccountSection({ userId, token }: { userId: string; token: string
   const email = live?.data?.account?.email ?? saved;
   const orgs = (live?.data?.account?.organizations ?? []).map((o) => o.name).filter(Boolean);
   return (
-    <section aria-labelledby="account" className="rounded-2xl bg-card p-6">
+    <section aria-labelledby="account" className="rounded-2xl bg-card p-4 sm:p-6">
       <h2 id="account" className="mb-1 text-2xl">
         Account
       </h2>

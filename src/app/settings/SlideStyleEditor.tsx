@@ -96,7 +96,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
   const standard = style.top === DEFAULT_STYLE.top && style.bottom === DEFAULT_STYLE.bottom && style.font === DEFAULT_STYLE.font;
 
   return (
-    <section aria-labelledby="slide-style" className="rounded-2xl bg-card p-6">
+    <section aria-labelledby="slide-style" className="rounded-2xl bg-card p-4 sm:p-6">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
         <h2 id="slide-style" className="m-0 text-2xl">
           Slide style
@@ -158,7 +158,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
           </div>
         </div>
 
-        <figure className="m-0 lg:sticky lg:top-6 lg:self-start" aria-roledescription="carousel" aria-label="Sample slides">
+        <figure className="m-0 max-lg:order-first lg:sticky lg:top-6 lg:self-start" aria-roledescription="carousel" aria-label="Sample slides">
           <div className="max-w-72 lg:max-w-none">
             {srcs.map((src, i) => (
               // Both slides load up front, so flipping between them is instant. The one not shown is hidden from everyone, screen readers included.

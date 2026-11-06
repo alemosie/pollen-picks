@@ -54,7 +54,7 @@ export function PaletteEditor() {
 
   return (
     <div className="grid gap-8">
-      <section className="rounded-2xl bg-card p-6">
+      <section className="rounded-2xl bg-card p-4 sm:p-6">
         <h2 className="mb-1 text-2xl">Palette</h2>
         <p className="mb-5 mt-0 text-sm">
           {MIN_COLORS}–{MAX_COLORS} colors. Slide text switches between dark and light automatically, so it stays readable.
@@ -64,7 +64,7 @@ export function PaletteEditor() {
             const ok = isHex(c);
             const hex = ok ? c : "#ffffff";
             return (
-              <li key={i} className="flex items-center gap-3">
+              <li key={i} className="flex items-center gap-2 sm:gap-3">
                 <input
                   type="color"
                   value={hex}
@@ -83,10 +83,12 @@ export function PaletteEditor() {
                   spellCheck={false}
                   aria-label={`Hex code for color ${i + 1}`}
                   aria-invalid={!ok}
-                  className={`${field} w-32 ${ok ? "" : "ring-2 ring-coral"}`}
+                  className={`${field} w-28 min-w-0 shrink-0 sm:w-32 ${ok ? "" : "ring-2 ring-coral"}`}
                 />
-                <span style={{ background: hex, color: textOn(hex) }} className="grid h-11 min-w-0 flex-1 place-items-center rounded-xl text-sm font-bold ring-1 ring-ink/15">
-                  Aa · Sample text
+                <span style={{ background: hex, color: textOn(hex) }} className="grid h-11 min-w-0 flex-1 place-items-center whitespace-nowrap rounded-xl px-2 text-sm font-bold ring-1 ring-ink/15">
+                  {/* Phones have room for just "Aa"; wider screens get the sample line. */}
+                  <span className="sm:hidden">Aa</span>
+                  <span className="max-sm:hidden">Aa · Sample text</span>
                 </span>
                 <button
                   type="button"
@@ -127,7 +129,7 @@ export function PaletteEditor() {
         </div>
       </section>
 
-      <section className="rounded-2xl bg-card p-6">
+      <section className="rounded-2xl bg-card p-4 sm:p-6">
         <h2 className="mb-1 text-2xl">Paste a palette</h2>
         <p className="mb-4 mt-0 text-sm">
           Paste a <strong>coolors.co</strong> link, or a list of hex codes. This replaces the colors above.

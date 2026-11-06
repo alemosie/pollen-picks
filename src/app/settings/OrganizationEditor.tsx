@@ -60,7 +60,7 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
   const set = !!name.trim() || !!logo;
 
   return (
-    <section aria-labelledby="organization" className="rounded-2xl bg-card p-6">
+    <section aria-labelledby="organization" className="rounded-2xl bg-card p-4 sm:p-6">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
         <h2 id="organization" className="m-0 text-2xl">
           Organization
@@ -109,7 +109,7 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
         </div>
 
         <div>
-          <span className="mb-2 block font-bold">Logo</span>
+          <span className="mb-2 block font-bold">Organization logo</span>
           <div className="flex flex-wrap items-center gap-3">
             {logo ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -134,7 +134,7 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
               </button>
             )}
           </div>
-          <p className="mb-0 mt-1.5 text-xs">PNG or JPEG. It is shrunk before it is saved.</p>
+          <p className="mb-0 mt-1.5 text-xs">Shown on your slides. PNG or JPEG, shrunk before it is saved. Your newsletter logo is set separately, under Newsletter.</p>
         </div>
 
         {error && (
