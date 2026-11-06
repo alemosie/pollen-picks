@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildCaption, captionLeftOut, dayLabel, isInstagram, MAX_CAPTION_CHARS, sortCaptionItems, variantFor, type CaptionItem } from "./caption";
+import { buildCaption, captionLeftOut, dayLabel, isInstagram, limitOf, MAX_CAPTION_CHARS, sortCaptionItems, variantFor, variantLimit, type CaptionItem } from "./caption";
 
 const it = (title: string, o: Partial<CaptionItem> = {}): CaptionItem => ({ title, when: null, place: null, rank: null, date: null, ...o });
 const base = { newsletter: "Just a Phase", link: "https://jap.example/p/49" } as const;
@@ -15,7 +15,9 @@ test("networks: Instagram points to the bio, the rest get the link", () => {
   assert.equal(isInstagram("instagram "), true);
   assert.equal(isInstagram("linkedin"), false);
   assert.equal(variantFor("instagram"), "instagram");
-  assert.equal(variantFor("threads"), "link");
+  assert.equal(variantFor("linkedin"), "link");
+  assert.equal(variantFor("facebook"), "link");
+  for (const s of ["twitter", "x", "bluesky", "threads", "mastodon", "Threads"]) assert.equal(variantFor(s), "short", s);
 });
 
 test("sorting: clicks (unranked last), A-Z without emoji or case, date then time (undated last)", () => {
@@ -86,4 +88,43 @@ test("a long list is cut to fit, with a count of what was left out", () => {
 test("at least one pick always stays", () => {
   const text = buildCaption([it("x".repeat(3000), { rank: 1 })], { ...base, order: "clicks", variant: "link" });
   assert.ok(text.includes("xxxx"));
+});
+
+test("limits: each network's own, and the tightest among the ones that share a caption", () => {
+  assert.equal(limitOf("twitter"), 280);
+  assert.equal(limitOf("Bluesky"), 300);
+  assert.equal(limitOf("linkedin"), 3000);
+  assert.equal(limitOf("tiktok"), undefined);
+  assert.equal(variantLimit("short", ["bluesky", "twitter", "threads"]), 280);
+  assert.equal(variantLimit("short", ["bluesky", "threads"]), 300);
+  assert.equal(variantLimit("short", ["mastodon"]), 500);
+  assert.equal(variantLimit("link", ["linkedin", "facebook"]), 3000);
+  assert.equal(variantLimit("link", ["facebook"]), 5000);
+  assert.equal(variantLimit("instagram", ["instagram"]), MAX_CAPTION_CHARS);
+  assert.equal(variantLimit("short", ["linkedin", "instagram"]), 280, "no short network connected: the default");
+  assert.equal(variantLimit("link", []), 2200);
+});
+
+test("a short caption: titles with their day, the full link, no tag, and it fits", () => {
+  const items = [it("Gatti's Music Hall", { rank: 1, date: "2026-11-21", tag: "camden", when: "Sat 21 Nov" }), it("L'Orient", { rank: 2 }), it("God Save The Queens", { rank: 3 }), it("The Future of Knowledge", { rank: 4 }), it("Fifth pick with a rather long title", { rank: 5 }), it("Sixth pick with a rather long title too", { rank: 6 }), it("Seventh pick with a rather long title as well", { rank: 7 }), it("Eighth pick with yet another long title", { rank: 8 })];
+  const text = buildCaption(items, { ...base, order: "clicks", variant: "short", limit: 280 });
+  assert.ok(text.length <= 280, String(text.length));
+  assert.ok(text.includes("🔥 Gatti's Music Hall (Sat 21 Nov)"));
+  assert.ok(text.endsWith("Read it here: https://jap.example/p/49"));
+  assert.ok(!text.includes("@camden") && !text.includes("Details on every pick") && !text.includes("Link in bio"));
+  const more = Number(/…and (\d+) more/.exec(text)?.[1]);
+  assert.ok(more > 0);
+  assert.equal(captionLeftOut(items, { ...base, order: "clicks", variant: "short", limit: 280 }).length, more);
+});
+
+test("a short caption by date has no 'Other picks' heading", () => {
+  const text = buildCaption([it("Dated", { date: "2026-11-21" }), it("Undated")], { ...base, order: "date", variant: "short", limit: 280 });
+  assert.ok(!text.includes("Other picks"));
+});
+
+test("the base caption may use the room LinkedIn has", () => {
+  const items = Array.from({ length: 40 }, (_, i) => it(`Pick number ${i} ${"x".repeat(60)}`, { rank: i + 1 }));
+  const small = buildCaption(items, { ...base, order: "clicks", variant: "link", limit: 2196 });
+  const big = buildCaption(items, { ...base, order: "clicks", variant: "link", limit: 3000 });
+  assert.ok(small.length <= 2196 && big.length <= 3000 && big.length > 2196);
 });

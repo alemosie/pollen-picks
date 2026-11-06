@@ -13,10 +13,11 @@ import type { Channel } from "@/components/ChannelPicker";
 import {
   CAPTION_ORDERS,
   CAPTION_VARIANTS,
-  MAX_CAPTION_CHARS,
   buildCaption,
   captionLeftOut,
+  limitOf,
   variantFor,
+  variantLimit,
   type CaptionItem,
   type CaptionOrder,
   type CaptionVariant,
@@ -34,6 +35,11 @@ const ACCENT: Record<CaptionVariant, { solid: string; light: string; border: str
     solid: "bg-sage",
     light: "bg-sage/20 hover:bg-sage/40",
     border: "border-sage",
+  },
+  short: {
+    solid: "bg-blush",
+    light: "bg-blush/30 hover:bg-blush/60",
+    border: "border-blush",
   },
 };
 
@@ -96,7 +102,7 @@ export function WriteView({
       if (f && f.sig === sig) {
         if (CAPTION_ORDERS.some((o) => o.id === f.order)) setOrder(f.order as CaptionOrder);
         setEdited(f.edited as Partial<Record<CaptionVariant, string>>);
-        if (f.tab === "instagram" || f.tab === "link") setTab(f.tab);
+        if (f.tab === "instagram" || f.tab === "link" || f.tab === "short") setTab(f.tab);
       }
       setRestored(true);
     }, 0);
@@ -106,8 +112,10 @@ export function WriteView({
     if (restored) saveFormat({ sig, order, edited: edited as Record<string, string>, tab });
   }, [restored, sig, order, edited, tab]);
 
+  // The room each caption has: the tightest limit among the connected networks that use it, so the same text fits all of them.
+  const limitFor = (v: CaptionVariant) => variantLimit(v, usable.filter((c) => variantFor(c.service) === v).map((c) => c.service));
   const generated = (variant: CaptionVariant) =>
-    buildCaption(captionItems, { newsletter, author, creditLink, heading, order, variant, link });
+    buildCaption(captionItems, { newsletter, author, creditLink, heading, order, variant, link, limit: limitFor(variant) });
   const captionFor = (variant: CaptionVariant) => edited[variant] ?? generated(variant);
   async function copyCaption(text: string) {
     try {
@@ -121,7 +129,7 @@ export function WriteView({
   // Picks the template caption can't fit. Not shown once the caption has been edited by hand: then it's the user's text.
   const leftOut = (variant: CaptionVariant) =>
     edited[variant] === undefined
-      ? captionLeftOut(captionItems, { newsletter, author, creditLink, heading, order, variant, link })
+      ? captionLeftOut(captionItems, { newsletter, author, creditLink, heading, order, variant, link, limit: limitFor(variant) })
       : [];
 
   if (channels.length === 0)
@@ -137,6 +145,11 @@ export function WriteView({
   const activeTab = visible.find((v) => v.id === tab)?.id ?? visible[0]?.id;
   const variant = CAPTION_VARIANTS.find((v) => v.id === activeTab);
   const networksFor = (v: CaptionVariant) => [...new Set(usedBy(v).map((c) => serviceLabel(c.service)))].sort();
+  // The tightest network of a caption is the one that sets its limit: say which.
+  const tightest = (v: CaptionVariant) => {
+    const limit = limitFor(v);
+    return [...new Set(usedBy(v).filter((c) => limitOf(c.service) === limit).map((c) => serviceLabel(c.service)))].sort();
+  };
 
   return (
     <>
@@ -184,7 +197,7 @@ export function WriteView({
         {variant && activeTab ? (
           <>
             {visible.length > 1 && (
-              <div role="tablist" aria-label="Base caption" className="flex items-end gap-1.5 px-3 sm:pl-6 sm:pr-0">
+              <div role="tablist" aria-label="Captions" className="flex items-end gap-1.5 px-3 sm:pl-6 sm:pr-0">
                 {visible.map((v) => {
                   const on = activeTab === v.id;
                   return (
@@ -212,7 +225,7 @@ export function WriteView({
               className={`grid gap-3 rounded-2xl border-[3px] p-4 sm:p-5 ${ACCENT[activeTab].border}`}
             >
               <textarea
-                aria-label={`${variant.label} base caption`}
+                aria-label={`${variant.label} caption`}
                 value={captionFor(activeTab)}
                 onChange={(e) => setEdited((m) => ({ ...m, [activeTab]: e.target.value }))}
                 rows={12}
@@ -221,11 +234,12 @@ export function WriteView({
               {leftOut(activeTab).length > 0 && (
                 <p role="status" className="m-0 border-l-4 border-coral pl-3 text-sm font-semibold">
                   {plural(leftOut(activeTab).length, "pick")} won&rsquo;t fit in the{" "}
-                  {MAX_CAPTION_CHARS.toLocaleString("en")}-character caption and will be left out:{" "}
+                  {limitFor(activeTab).toLocaleString("en")}-character caption and will be left out:{" "}
                   {leftOut(activeTab).join(" · ")}. Pick fewer, or add {leftOut(activeTab).length === 1 ? "it" : "them"} by
                   hand.
                 </p>
               )}
+              <CharCount text={captionFor(activeTab)} limit={limitFor(activeTab)} networks={tightest(activeTab)} />
               {activeTab === "instagram" && edited.instagram === undefined && taggedCount > 0 && (
                 <p className="m-0 flex items-start gap-2 text-sm">
                   <ChannelIcon service="instagram" className="mt-0.5 size-4 shrink-0" />
@@ -236,7 +250,7 @@ export function WriteView({
                   </span>
                 </p>
               )}
-              {visible.length > 1 && activeTab !== "instagram" && (
+              {activeTab !== "instagram" && (
                 <p className="m-0 text-sm">
                   <span className="font-semibold">{variant.note}</span> Used for your {list(networksFor(activeTab))}{" "}
                   {usedBy(activeTab).length === 1 ? "channel" : "channels"}.
@@ -290,7 +304,7 @@ export function WriteView({
         <SourceLinkHelp
           link={link}
           creditLink={Boolean(creditLink)}
-          otherPlatforms={usedBy("link").length > 0}
+          otherPlatforms={usedBy("link").length + usedBy("short").length > 0}
           onClose={() => setLinkHelp(false)}
         />
       )}
@@ -378,5 +392,24 @@ function SourceLinkHelp({
       </div>
       {otherPlatforms && <p className="m-0 text-sm">Your other platforms&rsquo; captions include the link directly.</p>}
     </dialog>
+  );
+}
+
+/** How much of the limit the caption uses. Over it, the Send step won't send to the networks it is too long for. */
+function CharCount({ text, limit, networks }: { text: string; limit: number; networks: string[] }) {
+  const over = text.length - limit;
+  return (
+    <p className={`m-0 text-sm ${over > 0 ? "border-l-4 border-coral pl-3 font-semibold" : ""}`} role={over > 0 ? "alert" : undefined}>
+      <span className="font-semibold">
+        {text.length.toLocaleString("en")} / {limit.toLocaleString("en")} characters
+      </span>
+      {networks.length > 0 && <> (the limit of {list(networks)})</>}
+      {over > 0 && (
+        <>
+          {" "}
+          &mdash; {over.toLocaleString("en")} over. Shorten it here, or leave {networks.length > 0 ? list(networks) : "those networks"} out on the next step.
+        </>
+      )}
+    </p>
   );
 }

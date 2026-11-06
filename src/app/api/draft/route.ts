@@ -1,5 +1,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { siteOrigin } from "@/lib/buffer";
+import { limitOf } from "@/lib/caption";
+import { serviceLabel } from "@/lib/channels";
 import { fakeMode, type PostIntent } from "@/lib/bufferPost";
 import { requireSession } from "@/lib/guard";
 import { loadAppIssue } from "@/lib/sources";
@@ -34,6 +36,14 @@ export async function POST(req: NextRequest) {
   if (channels.length === 0) return NextResponse.json({ error: "Choose at least one channel." }, { status: 400 });
   if (channels.length > 200) return NextResponse.json({ error: "That's too many channels for one send." }, { status: 400 });
   if (picks.length === 0) return NextResponse.json({ error: "No picks." }, { status: 400 });
+
+  // A caption longer than a network allows is refused by Buffer: say so before anything is queued.
+  for (const c of channels) {
+    const caption = body.captions?.[c.id] ?? body.caption ?? "";
+    const limit = limitOf(c.service);
+    if (limit !== undefined && caption.length > limit)
+      return NextResponse.json({ error: `The caption is ${caption.length - limit} characters over the ${serviceLabel(c.service)} limit (${limit}). Shorten it on the Write step. Nothing was sent.` }, { status: 400 });
+  }
 
   const base = (process.env.PUBLIC_BASE_URL ?? siteOrigin()).replace(/\/$/, "");
   if (!fakeMode() && /localhost|127\.0\.0\.1/.test(base)) {

@@ -1,3 +1,4 @@
+import { serviceKey } from "./channels";
 import { stripEmoji } from "./slides/plan";
 
 /** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
@@ -19,8 +20,17 @@ export function dayLabel(iso: string): string {
   return `${DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTHS[m - 1]}`;
 }
 
-/** Instagram's caption limit, the tightest of the networks. Counted in UTF-16 units, so emoji count double: on the safe side. */
-export const MAX_CAPTION_CHARS = 2200;
+/** Instagram's caption limit (2,196 per Buffer's docs). Counted in UTF-16 units, so emoji count double: on the safe side. */
+export const MAX_CAPTION_CHARS = 2196;
+/**
+ * Caption limits per network (Buffer's docs, https://developers.buffer.com/guides/character-limits.md). X is treated as the free
+ * 280 (Buffer doesn't say who has Premium). Mastodon's limit varies by server; 500 is the usual one.
+ */
+export const CHAR_LIMITS: Record<string, number> = { instagram: 2196, linkedin: 3000, facebook: 5000, twitter: 280, x: 280, bluesky: 300, threads: 500, mastodon: 500 };
+/** The networks that get the short caption (the rest of the text networks get the base one). */
+const SHORT_NETWORKS = new Set(["twitter", "x", "bluesky", "threads", "mastodon"]);
+/** What a variant's caption is cut to when no network says otherwise. */
+const DEFAULT_LIMIT: Record<string, number> = { instagram: MAX_CAPTION_CHARS, link: 2200, short: 280 };
 /** Emoji stay in captions (every network renders them); only whitespace is tidied. */
 const cleanText = (s: string) => s.replace(/\s+/g, " ").trim();
 /** "Thu 22 Oct @ 09:30-10:30 (Weekly)" -> without the recurrence note, which the caption doesn't need. */
@@ -47,6 +57,8 @@ function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): str
   const from = fromTag(i.tag, variant);
   const bullet = bulletFor(order);
   const cat = i.group ? ` · ${cleanText(i.group)}` : "";
+  // Short captions have room for titles, and a day when one is known.
+  if (variant === "short") return `${bullet} ${title}${i.date ? ` (${dayLabel(i.date)})` : ""}`;
   // By date: a pick without a date has no day to show, so it gets a plain bullet instead.
   if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}${cat}${from}` : `• ${title}${place}${cat}${from}`;
   const when = i.when ? cleanWhen(i.when) : "";
@@ -55,26 +67,37 @@ function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): str
 
 export const isInstagram = (service: string) => service.toLowerCase().replace(/[^a-z]/g, "") === "instagram";
 
-/** The two base captions: Instagram has no clickable links in captions, so it points to the bio; every other network gets the newsletter URL. */
-export type CaptionVariant = "instagram" | "link";
+/**
+ * The captions: Instagram has no clickable links in captions, so it points to the bio. "Base" is the long one for networks with room
+ * (LinkedIn, Facebook), with the newsletter URL. "Short" is for X, Bluesky, Threads and Mastodon: a few titles and the link.
+ */
+export type CaptionVariant = "instagram" | "link" | "short";
 export const CAPTION_VARIANTS: { id: CaptionVariant; label: string; note: string }[] = [
   { id: "instagram", label: "Instagram", note: "No direct link: links aren't clickable in Instagram captions, so it points to the bio." },
-  { id: "link", label: "Other platforms", note: "Includes the direct newsletter link." },
+  { id: "link", label: "Base", note: "The long version, with the direct newsletter link." },
+  { id: "short", label: "Short", note: "A few titles and the direct link, short enough for the networks with the tightest limits. The link is counted in full." },
 ];
-export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : "link");
+export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : SHORT_NETWORKS.has(serviceKey(service)) ? "short" : "link");
+/** One network's own limit, if known. */
+export const limitOf = (service: string): number | undefined => CHAR_LIMITS[serviceKey(service)];
+/** The room a variant's caption has: the tightest limit among the networks that use it (`services` = their Buffer services). */
+export function variantLimit(variant: CaptionVariant, services: string[]): number {
+  const own = services.filter((s) => variantFor(s) === variant).map(limitOf).filter((n): n is number => n !== undefined);
+  return own.length > 0 ? Math.min(...own) : DEFAULT_LIMIT[variant];
+}
 
-type CaptionOpts = { newsletter: string; /** Content from someone else's public post: every caption links to the original (Instagram too, as text). */ creditLink?: boolean; /** Credited after the newsletter name when the page names one. */ author?: string | null; heading?: string; order: CaptionOrder; variant: CaptionVariant; link: string };
+type CaptionOpts = { /** Most characters the caption may have; defaults to the variant's usual limit. */ limit?: number; newsletter: string; /** Content from someone else's public post: every caption links to the original (Instagram too, as text). */ creditLink?: boolean; /** Credited after the newsletter name when the page names one. */ author?: string | null; heading?: string; order: CaptionOrder; variant: CaptionVariant; link: string };
 
 /** The caption, and the titles of the picks that didn't fit in it (in caption order). */
 function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; leftOut: string[] } {
   const sorted = sortCaptionItems(items, opts.order);
   const all = sorted.map((i) => line(i, opts.order, opts.variant));
-  const outro = opts.creditLink ? `Read the original post: ${opts.link}` : opts.variant === "link" ? `Read it here: ${opts.link}` : "Link in bio.";
+  const outro = opts.creditLink ? `Read the original post: ${opts.link}` : opts.variant !== "instagram" ? `Read it here: ${opts.link}` : "Link in bio.";
   const head = `${opts.heading ?? "This week's picks"} from ${opts.newsletter}${opts.author ? ` by ${opts.author}` : ""} 🌼`;
-  const foot = opts.creditLink ? outro : `Details on every pick are in the newsletter. ${outro}`;
+  const foot = opts.creditLink || opts.variant === "short" ? outro : `Details on every pick are in the newsletter. ${outro}`;
   // By date with a mix of dated and undated picks: the dated ones first, then the rest under "Other picks:" (dated sort first).
   const datedCount = opts.order === "date" ? sorted.filter((i) => i.date).length : 0;
-  const mixed = datedCount > 0 && datedCount < sorted.length;
+  const mixed = opts.variant !== "short" && datedCount > 0 && datedCount < sorted.length;
   const list = (n: number) => {
     if (!mixed) return all.slice(0, n).join("\n");
     const dated = all.slice(0, Math.min(n, datedCount)).join("\n");
@@ -86,13 +109,14 @@ function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; le
     return [head, "", list(n) + (more > 0 ? `\n…and ${more} more` : ""), "", foot].join("\n");
   };
   // Every pick goes in while the caption fits; otherwise as many as fit, then "…and N more". At least one always stays.
+  const limit = opts.limit ?? DEFAULT_LIMIT[opts.variant];
   let n = all.length;
-  while (n > 1 && build(n).length > MAX_CAPTION_CHARS) n--;
+  while (n > 1 && build(n).length > limit) n--;
   return { text: build(n), leftOut: sorted.slice(n).map((i) => cleanText(i.title)) };
 }
 
 /** Plain-template caption (no LLM). */
 export const buildCaption = (items: CaptionItem[], opts: CaptionOpts): string => fitCaption(items, opts).text;
 
-/** Titles of the picks the template caption has to leave out to stay within MAX_CAPTION_CHARS. */
+/** Titles of the picks the template caption has to leave out to stay within its limit. */
 export const captionLeftOut = (items: CaptionItem[], opts: CaptionOpts): string[] => fitCaption(items, opts).leftOut;

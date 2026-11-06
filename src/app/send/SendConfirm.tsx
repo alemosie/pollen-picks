@@ -13,12 +13,14 @@ import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import {
   CAPTION_VARIANTS,
   buildCaption,
+  limitOf,
   variantFor,
+  variantLimit,
   type CaptionItem,
   type CaptionOrder,
   type CaptionVariant,
 } from "@/lib/caption";
-import { imageLimit } from "@/lib/channels";
+import { imageLimit, serviceLabel, unsupportedReason } from "@/lib/channels";
 import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
 import { clearResume, clearSendBatches, loadFormat, loadSendBatches, saveSendBatches } from "@/lib/progress";
@@ -64,6 +66,7 @@ const finishButton =
 const ACCENT: Record<CaptionVariant, string> = {
   instagram: "border-honey",
   link: "border-sage",
+  short: "border-blush",
 };
 /** The folder tabs, in the same colours as the tabs on /pick and /write. */
 const TAB_ACCENT = {
@@ -345,6 +348,8 @@ export function SendConfirm({
   // The demo has no channel picker: all of its example channels are used.
   const chosen = demo ? channels : channels.filter((c) => selected.has(c.id));
   const n = chosen.length;
+  // The caption Write showed: its room is the tightest limit among the account's usable channels (not only the ticked ones), so it reads the same here.
+  const usable = channels.filter((c) => !unsupportedReason(c.service));
   const captionFor = (v: CaptionVariant) =>
     edited[v] ??
     buildCaption(captionItems, {
@@ -355,7 +360,14 @@ export function SendConfirm({
       order,
       variant: v,
       link,
+      limit: variantLimit(v, usable.map((c) => c.service)),
     });
+  // A hand-edited caption can be longer than a network allows. Those networks can't be sent to until it is shortened (or they are unticked).
+  const tooLong = chosen.filter((c) => {
+    const limit = limitOf(c.service);
+    return limit !== undefined && captionFor(variantFor(c.service)).length > limit;
+  });
+  const tooLongNames = [...new Set(tooLong.map((c) => serviceLabel(c.service)))].sort();
   const visible = CAPTION_VARIANTS.filter((v) =>
     chosen.some((c) => variantFor(c.service) === v.id),
   );
@@ -461,7 +473,9 @@ export function SendConfirm({
         ? ""
         : n === 0
           ? "Select at least one channel"
-          : plural(n, "channel");
+          : tooLong.length > 0
+            ? `The caption is too long for ${tooLongNames.join(", ")}. Shorten it on Write, or untick ${tooLong.length === 1 ? "it" : "them"}.`
+            : plural(n, "channel");
 
   const ready = armed !== null && !busy;
   const modalTitle = ready
@@ -600,6 +614,16 @@ export function SendConfirm({
                 <div className="whitespace-pre-wrap rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/15">
                   {captionFor(v.id)}
                 </div>
+                {(() => {
+                  const text = captionFor(v.id);
+                  const limit = variantLimit(v.id, chosen.map((c) => c.service));
+                  const over = text.length > limit;
+                  return (
+                    <p className={`m-0 text-xs ${over ? "font-semibold text-coral" : ""}`}>
+                      {text.length.toLocaleString("en")} / {limit.toLocaleString("en")} characters{over ? ": too long, shorten it on Write" : ""}
+                    </p>
+                  );
+                })()}
               </div>
             ))}
           </section>
@@ -837,7 +861,7 @@ export function SendConfirm({
       >
         {demo ? (
           <DemoGate signedIn={demo.signedIn} label="Finish demo" className={finishButton} onOpen={pollenBurst} />
-        ) : n === 0 && !started ? (
+        ) : (n === 0 || tooLong.length > 0) && !started ? (
           <>
             <span aria-disabled className={primaryDisabled}>
               Create draft
