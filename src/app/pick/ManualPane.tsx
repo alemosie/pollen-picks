@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Highlighter, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { isDemo } from "@/lib/flow";
 import {
   CUSTOM_BASE,
@@ -89,6 +89,12 @@ export function ManualPane({
     q.addEventListener("change", set);
     return () => q.removeEventListener("change", set);
   }, []);
+  // Desktop Safari doesn't show the Pick button for highlighted text (Chrome and Firefox do), so there the + buttons are the way to pick.
+  const safari = useSyncExternalStore(
+    () => () => {},
+    () => !touch && /Safari\//.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Firefox/.test(navigator.userAgent),
+    () => false,
+  );
   const cleanup = useRef<() => void>(() => {});
   const [blocks, setBlocks] = useState<Block[]>([]);
   const picked = new Set(highlights.map((h) => flat(h.text)));
@@ -367,22 +373,28 @@ export function ManualPane({
             </>
           ) : (
             <>
-              <li className="flex items-start gap-2.5">
-                <Highlighter aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
-                <span>
-                  Select any text in the issue below, then press <strong>Pick</strong>.
-                </span>
-              </li>
+              {!safari && (
+                <li className="flex items-start gap-2.5">
+                  <Highlighter aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
+                  <span>
+                    Select any text in the issue below, then press <strong>Pick</strong>.
+                  </span>
+                </li>
+              )}
               <li className="flex items-start gap-2.5">
                 <Plus aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
                 <span>
-                  Or press <strong>+</strong> beside a paragraph or heading to pick all of it, and again to take it back.
+                  {safari ? "Press " : "Or press "}
+                  <strong>+</strong> beside a paragraph or heading to pick all of it, and again to take it back.
                 </span>
               </li>
             </>
           )}
         </ul>
-        <p className="mb-0 mt-2 text-sm italic">Links aren&rsquo;t clickable here.</p>
+        <p className="mb-0 mt-2 text-sm italic">
+          Links aren&rsquo;t clickable here.
+          {safari && " Switch to Chrome or Firefox to pick with highlights."}
+        </p>
       </div>
 
       {note && (
