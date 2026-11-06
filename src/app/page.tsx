@@ -11,6 +11,7 @@ import { PopularList } from "@/components/path/PopularList";
 import { BuilderDemo } from "@/components/path/BuilderDemo";
 import { PickMe } from "@/components/path/PickMe";
 import { TagDemo } from "@/components/path/TagDemo";
+import { VoiceDemo } from "@/components/path/VoiceDemo";
 import { PollenBurst } from "@/components/path/PollenBurst";
 import {
   PathRail,
@@ -20,6 +21,7 @@ import {
 } from "@/components/path/PollenPath";
 import { BRAND_NAME } from "@/lib/brand";
 import { loadDemoIssue } from "@/lib/demo";
+import { voiceExample } from "@/lib/voiceExample";
 
 /** The first sentences of a description, up to about `max` characters, so a hero card stays small without cutting mid-sentence. */
 function brief(text: string, max = 150): string {
@@ -46,7 +48,7 @@ export default function Home() {
     ["Wait, is this the right date??", /ade babywearing/i],
     ["Where\u2019s that link?", /sleep survey/i],
     ["Copy link, paste, write caption, repeat", /monti/i],
-    ["Which Mama+ Club was it again?", /mama\+ club/i],
+    ["Which music class was it again?", /suzuki music/i],
   ].flatMap(([note, re]) => {
     const c = issue.chunks.find((x) => (re as RegExp).test(x.title));
     return c
@@ -69,9 +71,9 @@ export default function Home() {
     blurb: brief(ade?.blurb ?? ""),
   };
   const cta =
-    "inline-block rounded-2xl bg-accent px-7 py-3.5 text-lg font-bold text-ink-deep shadow-sm transition hover:-translate-y-0.5 hover:brightness-95 focus-visible:outline-offset-4";
+    "inline-block rounded-2xl bg-accent px-5 py-3 text-base font-bold sm:px-7 sm:py-3.5 sm:text-lg text-ink-deep shadow-sm transition hover:-translate-y-0.5 hover:brightness-95 focus-visible:outline-offset-4";
   const ctaAlt =
-    "inline-block rounded-2xl px-7 py-3.5 text-lg font-bold text-ink-deep ring-2 ring-ink transition hover:-translate-y-0.5 hover:bg-ink/5 focus-visible:outline-offset-4";
+    "inline-block rounded-2xl px-5 py-3 text-base font-bold text-ink-deep ring-2 sm:px-7 sm:py-3.5 sm:text-lg ring-ink transition hover:-translate-y-0.5 hover:bg-ink/5 focus-visible:outline-offset-4";
 
   return (
     <main className="relative min-h-dvh overflow-x-clip">
@@ -99,7 +101,7 @@ export default function Home() {
         <nav aria-label="Get started" className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/demo/source"
-            className="rounded-xl px-3 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral sm:px-4"
+            className="hidden rounded-xl px-3 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral sm:inline-block sm:px-4"
           >
             Try demo
           </Link>
@@ -112,9 +114,10 @@ export default function Home() {
       </header>
 
       {/* Hero */}
-      <section className="mx-auto flex max-w-5xl flex-col items-center gap-5 px-6 pb-14 pt-0 text-center md:pt-4">
-        <PollenBurst size="size-40 sm:size-48" />
-        <h1 className="text-5xl leading-[1.05] sm:text-6xl lg:text-7xl">
+      <section className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-6 pb-10 pt-0 text-center sm:gap-5 sm:pb-14 md:pt-4">
+        <PollenBurst size="size-20 sm:size-48" />
+        {/* One line at any width: the headline is about 9.6em wide, so the size follows the screen (capped at 72px). */}
+        <h1 className="mb-2 whitespace-nowrap sm:mb-1 text-[clamp(1.5rem,calc((100vw-3rem)/10),4.5rem)] leading-[1.05]">
           Let your words{" "}
           <span className="relative inline-block">
             travel
@@ -136,12 +139,12 @@ export default function Home() {
           </span>
           .
         </h1>
-        <p className="mx-auto max-w-2xl text-xl leading-relaxed">
+        <p className="mx-auto max-w-2xl text-balance text-lg leading-relaxed sm:text-xl">
           <strong>From picks to posts:</strong> Pollen Picks turns any newsletter
           or blog into carousel posts via Buffer, tagging creators along the
           way. No AI, just your words in more places.
         </p>
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:mt-0">
           <Link href="/demo/source" className={cta}>
             Try demo
           </Link>
@@ -254,7 +257,41 @@ export default function Home() {
             </Reveal>
           </Stop>
 
-          {/* 5 */}
+          {/* 5: your voice, no AI */}
+          <Stop>
+            <Reveal>
+              <div className="relative max-w-2xl -rotate-1 rounded-[2rem] bg-accent p-7 sm:p-9">
+                <span
+                  aria-hidden
+                  className="absolute -top-3 left-12 h-6 w-24 rotate-3 rounded-sm bg-blush/90"
+                />
+                <h2 className="mb-4 text-3xl leading-tight sm:text-4xl">
+                  Your hard-earned voice, full stop.
+                </h2>
+                <p className="mb-4 text-lg leading-relaxed">
+                  It&rsquo;s not &ldquo;AI in your voice&rdquo; &mdash; it&rsquo;s
+                  just your voice. Pollen Picks never imitates you.{" "}
+                  <b>You choose what&rsquo;s worth highlighting</b>, and your own
+                  words go on the slides.
+                </p>
+                <p className="mb-4 text-lg leading-relaxed">
+                  Smart rules find the details already in your writing &mdash;
+                  like dates, times and descriptions &mdash; so nothing is
+                  invented.
+                </p>
+                <p className="text-lg leading-relaxed">
+                  <b>You control the story, start to finish.</b>
+                </p>
+              </div>
+            </Reveal>
+            <Reveal>
+              <div className="mt-8">
+                <VoiceDemo example={voiceExample("2026-11-06")} />
+              </div>
+            </Reveal>
+          </Stop>
+
+          {/* 6 */}
           <Stop>
             <Reveal>
               <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
@@ -279,66 +316,58 @@ export default function Home() {
             </Reveal>
             <div
               aria-hidden
-              className="flex max-w-2xl items-center gap-1.5 sm:gap-4"
+              className="flex max-w-2xl flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-4"
             >
-              <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
-                  <BeehiivMark className="h-4 w-auto sm:h-5" />
+              <div className="flex shrink-0 items-center gap-2">
+                <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
+                  <BeehiivMark className="h-6 w-auto sm:h-5" />
                 </span>
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
-                  <SubstackMark className="h-4 w-auto sm:h-5" />
+                <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
+                  <SubstackMark className="h-6 w-auto sm:h-5" />
                 </span>
-                <span title="Any public post" className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
-                  <Globe aria-hidden className="size-4 sm:size-5" strokeWidth={2} />
+                <span title="Any public post" className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-surface ring-1 ring-ink/10 sm:size-12">
+                  <Globe aria-hidden className="size-6 sm:size-5" strokeWidth={2} />
                 </span>
               </div>
-              <span className="font-display text-ink/50">→</span>
-              <span className="flex h-10 shrink-0 items-center rounded-2xl bg-accent px-2 sm:h-12 sm:px-3.5">
+              <span className="ml-4 rotate-90 font-display text-ink/50 sm:ml-0 sm:rotate-0">→</span>
+              <span className="flex h-14 shrink-0 items-center rounded-2xl bg-accent px-4 sm:h-12 sm:px-3.5">
                 {/* max-w-none: the global img max-width of 100% lets a shrinking flex item squeeze the logo to nothing. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src="/brand/pollen-picks-lockup-light.svg"
                   alt=""
-                  className="h-7 w-auto max-w-none sm:h-9"
+                  className="h-10 w-auto max-w-none sm:h-9"
                 />
               </span>
-              <span className="font-display text-ink/50">→</span>
-              <span className="flex h-10 shrink-0 items-center rounded-2xl bg-surface px-2 ring-1 ring-ink/10 sm:h-12 sm:px-3.5">
-                <BufferLogo className="h-4 w-auto sm:h-6" />
+              <span className="ml-4 rotate-90 font-display text-ink/50 sm:ml-0 sm:rotate-0">→</span>
+              <span className="flex h-14 shrink-0 items-center rounded-2xl bg-surface px-4 ring-1 ring-ink/10 sm:h-12 sm:px-3.5">
+                <BufferLogo className="h-7 w-auto sm:h-6" />
               </span>
             </div>
           </Stop>
 
-          {/* 6 */}
+          {/* 7 */}
           <Stop>
             <Reveal>
-              <div className="relative max-w-2xl rotate-1 rounded-[2rem] bg-blush p-7 sm:p-9">
-                <span
-                  aria-hidden
-                  className="absolute -top-3 right-12 h-6 w-24 -rotate-3 rounded-sm bg-honey/80"
-                />
-                <h2 className="mb-4 text-3xl leading-tight sm:text-4xl">
-                  Send now or later &mdash; you choose
-                </h2>
-                <p className="mb-4 text-lg leading-relaxed">
-                  Humans are at the core of Pollen Picks. From pre-made{" "}
-                  <b>templates</b> to a fully customizable <b>slide builder</b>,
-                  you decide how much tweaking you want to do before send
-                  &mdash; in Pollen Picks or Buffer.
-                </p>
-                <p className="text-lg leading-relaxed">
-                  And there&rsquo;s <b>no AI inventing things</b>: it only uses
-                  the words you already wrote. Which is the point, because those
-                  are the words your readers loved.
-                </p>
-              </div>
+              <h2 className="mb-4 max-w-2xl text-3xl leading-tight sm:text-5xl">
+                Make it <Squiggle>yours</Squiggle>, send it when you want
+              </h2>
+              <p className="mb-4 max-w-2xl text-lg leading-relaxed">
+                From pre-made <b>templates</b> to a fully customizable{" "}
+                <b>slide builder</b>, you decide how much tweaking to do first.
+                Then post right away, or schedule it for later with Buffer
+                connected.
+              </p>
+              <p className="max-w-2xl text-lg leading-relaxed">
+                <b>Pollen Picks never posts without your approval.</b>
+              </p>
             </Reveal>
             <Reveal delay={0.1}>
               <BuilderDemo event={demoEvent} />
             </Reveal>
           </Stop>
 
-          {/* 7 */}
+          {/* 8 */}
           <Stop>
             <Reveal>
               <h2 className="mb-8 max-w-2xl text-3xl leading-tight sm:text-4xl">
@@ -391,47 +420,51 @@ export default function Home() {
             </Reveal>
           </Stop>
 
-          {/* 8: the bloom */}
+          {/* 9: the bloom */}
           <Stop className="pb-12">
             <Reveal>
-              <div className="relative max-w-2xl">
-                <Bloom />
-                <h2 className="mb-4 text-3xl leading-tight sm:max-w-[calc(100%-8rem)] sm:text-5xl">
-                  Let the best of your writing <Squiggle>travel.</Squiggle>
-                </h2>
-                <p className="mb-6 text-lg leading-relaxed">
-                  Try the demo, or log in with Buffer and bring your own newsletter or blog post.
-                </p>
-                <div className="flex flex-col items-start gap-3 sm:flex-row">
-                  <Link href="/demo/source" className={cta}>
-                    Try demo
-                  </Link>
-                  <AuthLink
-                    className={ctaAlt}
-                    loggedOut="Log in to create"
-                    loggedIn="Open app"
-                  />
+              <div className="relative max-w-2xl -rotate-1 rounded-[2rem] bg-blush p-7 sm:p-9">
+                <span
+                  aria-hidden
+                  className="absolute -top-3 left-12 h-6 w-24 rotate-3 rounded-sm bg-honey/80"
+                />
+                <div className="relative">
+                  <Bloom />
+                  <h2 className="mb-4 text-3xl leading-tight sm:max-w-[calc(100%-8rem)] sm:text-5xl">
+                    Let the best of your writing <Squiggle>travel.</Squiggle>
+                  </h2>
+                  <p className="mb-6 text-lg leading-relaxed">
+                    Try the demo, or log in with Buffer and bring your own newsletter or blog post.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link href="/demo/source" className={cta}>
+                      Try demo
+                    </Link>
+                    <AuthLink
+                      className={ctaAlt}
+                      loggedOut="Log in to create"
+                      loggedIn="Open app"
+                    />
+                  </div>
                 </div>
-                <p className="mt-8 mb-2 text-sm font-semibold">
-                  Works for
-                </p>
-                <ul className="flex flex-wrap gap-2">
-                  {[
-                    "Activities digests",
-                    "Link roundups",
-                    "Best-of recaps",
-                    "Blog posts",
-                    "Weekly newsletters",
-                  ].map((u, i) => (
-                    <li
-                      key={u}
-                      className={`rounded-full px-3.5 py-1.5 text-sm font-semibold ${["bg-accent", "bg-card", "bg-chip/70", "bg-surface ring-1 ring-ink/10"][i % 4]}`}
-                    >
-                      {u}
-                    </li>
-                  ))}
-                </ul>
               </div>
+              <p className="mt-8 mb-2 text-sm font-semibold">Works for</p>
+              <ul className="m-0 flex max-w-2xl list-none flex-wrap gap-2 p-0">
+                {[
+                  ["Activities digests", "bg-accent", "-rotate-2"],
+                  ["Link roundups", "bg-blush", "rotate-1"],
+                  ["Best-of recaps", "bg-sage", "-rotate-1"],
+                  ["Blog posts", "bg-surface ring-1 ring-ink/10", "rotate-2"],
+                  ["Weekly newsletters", "bg-chip/70", "-rotate-1"],
+                ].map(([u, color, tilt]) => (
+                  <li
+                    key={u}
+                    className={`${tilt} ${color} rounded-full px-3.5 py-1.5 text-sm font-semibold shadow-sm`}
+                  >
+                    {u}
+                  </li>
+                ))}
+              </ul>
             </Reveal>
           </Stop>
         </PathRail>

@@ -32,7 +32,7 @@ export function PickMe({ cards }: { cards: PickCard[] }) {
         return (
           <li
             key={card.title}
-            className={`w-[calc(50%-0.375rem)] transition-transform duration-300 sm:w-[13rem] ${s.x} ${on ? "rotate-0" : `${s.r} hover:rotate-0`}`}
+            className={`w-[calc(50%-0.375rem)] transition-transform duration-300 sm:w-[13rem] ${i === 4 ? "hidden sm:block" : ""} ${s.x} ${on ? "rotate-0" : `${s.r} hover:rotate-0`}`}
           >
             {on ? (
               <div

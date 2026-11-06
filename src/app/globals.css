@@ -190,3 +190,8 @@
     animation: none;
   }
 }
+
+/* A pollen speck flying out from a tapped button. */
+@keyframes pp-spark { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--x), var(--y)) scale(0.3); } }
+.pp-spark { animation: pp-spark 0.9s ease-out both; }
+@media (prefers-reduced-motion: reduce) { .pp-spark { display: none; } }

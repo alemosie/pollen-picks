@@ -22,32 +22,7 @@ export function TagDemo({ event }: { event: DemoEvent }) {
   const tagged = TAGS.filter((t) => on.includes(t.id));
 
   return (
-    <div className="grid max-w-3xl items-start gap-6 sm:grid-cols-[minmax(0,15rem)_1fr] sm:gap-8">
-      <div
-        aria-hidden
-        className="relative mx-auto aspect-[4/5] w-full max-w-[15rem] rotate-1 overflow-hidden rounded-3xl bg-card p-5 shadow-sm ring-1 ring-ink/10"
-      >
-        <p className="font-display text-xl leading-tight">{event.title}</p>
-        {event.when && (
-          <p className="mt-2 inline-block rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-semibold">
-            {event.when}
-          </p>
-        )}
-        {event.place && <p className="mt-2 text-sm">{event.place}</p>}
-        {tagged.length > 0 && (
-          <div className="absolute inset-x-4 bottom-4 flex flex-wrap gap-1.5">
-            {tagged.map((t, i) => (
-              <span
-                key={t.id}
-                className={`pp-pop ${TILT[i % TILT.length]} rounded-full bg-ink px-2.5 py-1 text-xs font-semibold text-cream shadow`}
-              >
-                {t.handle}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
+    <div className="grid max-w-3xl items-start gap-6 sm:grid-cols-[1fr_minmax(0,15rem)] sm:gap-8">
       <div>
         <p className="mb-2 text-sm font-semibold text-ink/70">
           Who was involved? Tap to tag them in:
@@ -79,10 +54,8 @@ export function TagDemo({ event }: { event: DemoEvent }) {
           })}
         </ul>
 
+        <h3 className="mb-2 font-display text-xl leading-tight">Instagram caption</h3>
         <div className="rounded-2xl bg-surface p-4 text-[0.95rem] leading-relaxed ring-1 ring-ink/10">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink/60">
-            Caption
-          </p>
           <p>
             {event.blurb ? event.blurb : event.title}
             {tagged.length > 0 && (
@@ -100,6 +73,31 @@ export function TagDemo({ event }: { event: DemoEvent }) {
           </p>
         </div>
       </div>
+      <div
+        aria-hidden
+        className="relative aspect-[4/5] w-full max-w-[15rem] rotate-1 overflow-hidden rounded-3xl bg-sage p-5 shadow-sm ring-1 ring-ink/10"
+      >
+        <p className="font-display text-xl leading-tight">{event.title}</p>
+        {event.when && (
+          <p className="mt-2 inline-block rounded-full bg-ink/10 px-2.5 py-0.5 text-xs font-semibold">
+            {event.when}
+          </p>
+        )}
+        {event.place && <p className="mt-2 text-sm">{event.place}</p>}
+        {tagged.length > 0 && (
+          <div className="absolute inset-x-4 bottom-4 flex flex-wrap gap-1.5">
+            {tagged.map((t, i) => (
+              <span
+                key={t.id}
+                className={`pp-pop ${TILT[i % TILT.length]} rounded-full bg-ink px-2.5 py-1 text-xs font-semibold text-cream shadow`}
+              >
+                {t.handle}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

@@ -101,7 +101,7 @@ export function BuilderDemo({ event }: { event: DemoEvent }) {
                 s === 1 && step >= 8
                   ? "bg-honey"
                   : s === 0
-                    ? "bg-card"
+                    ? "bg-sage"
                     : "bg-cream";
               return (
                 <div
