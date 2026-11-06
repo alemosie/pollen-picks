@@ -1,5 +1,43 @@
 # TODO
 
+## 6 Nov: where things stand (typecheck, lint and 141 unit tests pass; NONE of the UI changes below have been looked at in a browser)
+
+Checks: `yarn test` (all `src/**/*.test.ts`), `yarn check:fake` (the pretend publications), `npx tsc --noEmit -p .`, `npx eslint src scripts`. Nothing from 6 Nov is committed or deployed yet.
+
+### Done 5-6 Nov
+- [x] Migrations 0018 (custom pick link text) and 0019 (keep caption when unknown) applied to dev and prod on 5 Nov. 0015-0017 are on prod too.
+- [x] License: AGPL-3.0 (`package.json`, README, `LICENSE`). README rewritten (what it does, run locally, `/dev` fake mode, stack, privacy, name and logo not licensed, contributions).
+- [x] Privacy page: `pp_fresh` cookie bullet. Notion page updated (Retry, `/dev`, send memory, speed).
+- [x] Category label on picks (`PickEdit.group`, `· label` in captions, field in the slide editor, carried with the pick).
+- [x] Manual highlights: link text stays in the description when it sits mid-sentence; leading separators ("— ", ": ") are stripped from every description.
+- [x] Generic ranking for any layout (`src/lib/pollen/rankChunks.ts`): clicked links in event sections or with dates, boilerplate/sponsor/duplicate links dropped, past events dropped, ties by clickers, total clicks, date, issue order. Replaces the activities-only ranker in `sources.ts` and `demo.ts`.
+- [x] Date parser rewrite (`dates.ts`): many formats, ranges, times, "Until", recurrence, ISO and unambiguous numeric dates, "Tues/Weds/Thurs", dates in running text with cue rules (start, end or middle of a blurb; deadlines rejected). Relative words ("tomorrow", "this weekend", "next Friday") are NOT read, on purpose. A bare weekday is read only on a date line or under a "Friday" subheading.
+- [x] A pick with no date line gets one written from the date found in its text (`withDates`), so slides, captions and the editor show it.
+- [x] Entries spread over paragraphs (emoji + linked title, description, `📍 venue | 🕖 time` line), bold venue lead-ins, and day subheadings now parse as one pick each with a date (WellyBuzz-style, no bullets).
+- [x] Fake beehiiv key (dev only, `/dev` shows it): four pretend publications with different layouts (Brooklyn Weekend Guide, Dev Links Digest, Date Soup, Welly Weekend), three issues each.
+- [x] One saved run per browser (`pollen-picks:run`) instead of five keys: picks, layout, caption and send batches belong to one issue and are dropped together when the issue changes; fixes old picks showing up after switching publication. The old keys are deleted on first save. Pick and Design pass the issue's address as the scope.
+- [x] Unit tests for parsing (dates, urls, chunks, content, custom highlights), ranking, captions, slide specs and planning, flow ids, history filters, saved progress, the fake publications and the demo snapshot.
+- [x] UI: /source card (publication picker under "Your newsletter", no "Connected to beehiiv" pill, "Manage in Settings" beside the logo); pick tray top edge no longer clipped; "Fill all slides" moved under "Your picks" (also in the Slides header on phones); two-pick slides show 4 description lines; slide editor: card color is one palette-icon circle at the top right of each pick, slide background and a slide-wide category label sit under the preview, the palette link is an arrow icon to `/settings?section=colors`, the default swatch is hidden when a palette color already equals it.
+
+### To do next
+- [ ] Look at every 6 Nov UI change in a browser (list above), on desktop and phone. Especially: the palette popover in the slide editor, the /source card with several publications, the pick tray, date lines filled in from text, a two-pick slide with a long description.
+- [ ] Click through the four fake publications in a signed-in dev session (`yarn dev`, paste the fake key; reconnect your real beehiiv key afterwards). Run `yarn check:fake` on the Mac.
+- [ ] Live test with the real beehiiv key on the live site: full run, real send, Instagram Now (never tested; needs a public base URL or tunnel for the images), then the first public post.
+- [ ] Phone-layout pass: History (cards vs table), filters, /source, the Design builder, the iOS selection menu.
+- [ ] Prize wording ($25,600 pool shared by up to 16 winners); splash "Your hard-earned voice, full stop." stop and Stop 5 node wording.
+- [ ] `/design` is about 130 ms slower than it needs to be: fetch the issue and the settings together; check `/pick`, `/write`, `/send` for the same pattern.
+- [ ] Add a fifth fake publication in the style of the "LA digest" newsletter once we have a link to it.
+- [ ] Write-up: refresh the Post #2 plan in Notion (rename to "I need it to be free: my technical stack for nonprofit community software", fold #3 into it, fix the 6-vs-5 warning).
+- [ ] After the contest: keep the run on the server (one draft row per user) so it can be resumed on another device; delete-my-data (below).
+
+### Known gaps from not using AI (won't do; to call out in the write-up)
+- Non-English month names (Dutch, Spanish...) are not read: such a pick gets no date but is still ranked by clicks.
+- Relative dates ("tomorrow", "this Saturday", "next week") are not read.
+- A plain date with no cue word ("on", a weekday, a time) in the middle of a long blurb is skipped.
+- A deadline written without one of the known warning words ("by", "before", "closes"...) could be taken as the event date.
+- Slides show the newsletter's own date text, or a date written from the text when it has none; recurring events ("Every Tuesday") get no written date.
+- Layouts that put the date in a heading other than a plain weekday ("Fri 6 Nov" works, "Opening weekend" does not).
+
 ## 5 Nov: History + server-side send queue (typecheck + lint pass; not yet run in a browser)
 - [x] Sends are queued in `post_history` (migrations 0015, 0016) and processed server-side: after the request (`after()`), by the open page's polling, and by opening History (no cron: Netlify's free plan has a hard credit cap, so nothing runs in the background).
 - [x] 429s are retried with backoff (20s to 5m, 6 attempts); a dropped publish-now becomes `unknown` and is never retried (no double posts).
@@ -17,7 +55,7 @@
 
 ## 5 Nov: fixes from the live test (code written, typecheck + lint pass; not yet run in a browser)
 
-Migrations: `0014_sent_posts.sql` is applied to both Supabase projects. `0015_post_history.sql` (renames the table to `post_history`, keeps failed attempts too) is applied to DEV only: apply it to the prod project before deploying.
+Migrations: `0014_sent_posts.sql` and `0015_post_history.sql` (renames the table to `post_history`, keeps failed attempts too) are applied to both Supabase projects (0015 on prod on 5 Nov).
 
 - [ ] Double loading animation Pick > Design: `FlowLoader` is now a client component that sets every instance to the same point of its loop (from the clock), and the "instant" one no longer fades in again. Check Pick > Design in the browser with a slow connection.
 - [ ] Organization name: the Name field in Settings is now filled in with beehiiv's organization (typing the same name saves nothing, so slides keep following beehiiv; clearing the field goes back to it). Old beehiiv connections without an organization are refreshed once (`withOrganization`). An organization equal to the publication name is kept now. Check with the Amsterdam Parent Project key.
@@ -40,16 +78,16 @@ Migrations: `0014_sent_posts.sql` is applied to both Supabase projects. `0015_po
 - [ ] After deploy, the funnel event is `write_reached` (was `prepare_reached`): the live site keeps the old name until the deploy, so count both when reading `demo_events`.
 - [ ] Check the phone (iOS Safari text selection in the Manual iframe, source screen, bottom bar, progress indicator).
 
-## !! IMPORTANT: come back to this when we do tagging (captions per network)
+## Captions per network (built 6 Nov; typecheck, lint and unit tests pass; not yet looked at in a browser)
 
-Today there is one caption for every non-Instagram network ("Other platforms", up to 2,200 characters). That is too long for X and Bluesky. Decided on 4 Nov to leave it for now and fix it together with tagging, because tagging changes what goes into captions (@mentions) and how much room /write has.
+Three captions now: Instagram, Base (long, with the link: LinkedIn, Facebook) and Short (X, Bluesky, Threads, Mastodon: a few titles with their day, then the link). A tab shows only for a network family the account has connected (usable channels, not only the ticked ones).
 
-- [ ] Split the single "Other platforms" caption into Base (long, with the link) and Short, next to Instagram. Show a caption box only for a network family the account has connected (not only the selected channels). LinkedIn + Facebook = one box (Base).
-- [ ] Short limit = the tightest connected short network: 280 if X is connected (also covers Bluesky's 300), 300 if only Bluesky, 500 if only Threads or Mastodon. Treat every X account as free (Buffer doesn't say who has Premium). Show the limit and the networks it covers in the box.
-- [ ] Limits per Buffer's docs (https://developers.buffer.com/guides/character-limits.md): Instagram 2,196 (our `MAX_CAPTION_CHARS` is 2,200, so lower it), LinkedIn 3,000, Facebook 5,000, X free 280 (Premium 25,000), Bluesky 300, Threads 500, Mastodon 500 (varies by server).
-- [ ] Count the link at full length (not X's 23) to leave a margin, since Buffer validates in its own units. Show a live counter and block both send buttons for a network whose caption is over its limit.
-- [ ] Reuse `fitCaption` in `src/lib/caption.ts` with a limit per variant (it already fits what it can and reports what it left out); `variantFor` gets a third case for short-form networks.
-- [ ] Decide the tagging approach first: Instagram tags positioned per image (`image.metadata.userTags`, from Buffer's docs, not checked in detail), or @mentions in the caption (works on every network). Positioned tags need the slide images on screen, which affects the layout.
+- [x] Limits per network (`CHAR_LIMITS` in `src/lib/caption.ts`, from Buffer's docs): Instagram 2,196, LinkedIn 3,000, Facebook 5,000, X 280 (always the free limit), Bluesky 300, Threads 500, Mastodon 500. A caption's room is the tightest limit among the connected networks that use it, so one text fits all of them. `MAX_CAPTION_CHARS` is now 2,196.
+- [x] The link is counted in full. Live counter on Write ("1,234 / 3,000 characters (the limit of LinkedIn)"), a warning over the limit, and the "won't fit, left out" note uses the right limit.
+- [x] Send: each ticked network is checked against its own limit; over it, both send buttons are disabled and the status says which networks (shorten on Write or untick them). The preview shows a counter per caption. `/api/draft` refuses a caption over a channel's limit before queueing.
+- [x] The demo has a sample X channel so the Short tab shows.
+- [ ] Look at Write and Send in the browser with Instagram + LinkedIn + X + Bluesky connected (tabs on a phone, counters, over-limit state). Use `BUFFER_FAKE=1 BUFFER_FAKE_CHANNELS=60` for many networks.
+- [ ] Still open: decide the tagging approach (positioned Instagram tags per image via `image.metadata.userTags`, or @mentions in the caption). Positioned tags need the slide images on screen, which affects the layout. Check whether Buffer keeps user tags on drafts.
 
 ## Today (4 Nov): demo for everyone, aimed at real use, then feedback
 
