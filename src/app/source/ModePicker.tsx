@@ -297,7 +297,7 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
             <Arrow />
           </Link>
         ) : (
-          <span aria-disabled className="inline-flex cursor-not-allowed items-center gap-2 rounded-xl border-2 border-dashed border-cream/40 px-6 py-3 font-semibold text-cream/60">
+          <span aria-disabled className="inline-flex min-w-0 cursor-not-allowed items-center gap-2 rounded-xl border-2 border-dashed border-cream/40 px-4 py-2 text-center text-sm font-semibold leading-tight text-cream/60 sm:px-6 sm:py-3 sm:text-base">
             {selected.cta}
           </span>
         )}
