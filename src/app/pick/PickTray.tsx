@@ -1,23 +1,26 @@
 "use client";
 
-import { Check, Highlighter, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { PuffIcon } from "@/components/PuffIcon";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/events";
 import { TagChip, type TagState } from "./TagChip";
 
-export type TrayItem = { id: number; text: string; url: string | null; pick: number; tag?: TagState };
+/** A pick. `highlight`: made in the Manual tab. */
+export type TrayItem = { id: number; text: string; url: string | null; pick: number; tag?: TagState; highlight?: boolean };
 
 const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 
 /**
- * Your highlights, always in view while you scroll the issue: a card in the bottom right on wide screens, a pill that
- * opens a bottom drawer on phones. It flashes "Saved" when a highlight is added, and shows how much room is left.
+ * Your picks (parsed ones and highlights together), in view on every tab while you scroll: a card in the bottom right on wide
+ * screens, a pill that opens a bottom drawer on phones. It flashes "Saved" when a highlight is added, and shows the demo's room left.
  * Sits above the flow bar (about 5rem tall).
  */
 export function PickTray({
   items,
   full,
   meter,
+  note,
   onRemove,
   onToggle,
 }: {
@@ -26,6 +29,8 @@ export function PickTray({
   full: boolean;
   /** The demo's limits, as "of" pairs. Omitted for signed-in users. */
   meter?: { count: number; maxCount: number; words: number; maxWords: number };
+  /** An error from removing a highlight. */
+  note?: string | null;
   onRemove: (id: number) => void;
   onToggle: (id: number) => void;
 }) {
@@ -36,7 +41,7 @@ export function PickTray({
 
   // A new highlight: say so, then fade the note after a moment.
   useEffect(() => {
-    if (items.length > prev.current) {
+    if (items.length > prev.current && items[items.length - 1]?.highlight) {
       setSaved(items[items.length - 1]?.text ?? "");
       const t = setTimeout(() => setSaved(null), 2500);
       prev.current = items.length;
@@ -46,7 +51,6 @@ export function PickTray({
   }, [items]);
 
   if (items.length === 0 && !saved) return null;
-  const picked = items.filter((i) => i.pick > 0).length;
   const near = meter && (meter.count >= meter.maxCount || meter.words >= meter.maxWords * 0.8);
 
   const label = saved ? (
@@ -59,6 +63,8 @@ export function PickTray({
   const visible = choice === null ? "hidden sm:block" : choice ? "block" : "hidden";
   // Open, the panel runs down behind the flow bar. Closed, only its tab is left, and at the very bottom the bar would cover it, with no way to
   // open the list again: so a closed tab sits just above the bar instead (the bar's height is published by FlowBar).
+  // Open, the tab is solid ink like the panel it joins. Closed, it is an outline, so it doesn't melt into the dark flow bar below.
+  const tabFill = choice === null ? "bg-surface text-ink sm:bg-ink sm:text-cream" : choice ? "bg-ink text-cream" : "bg-surface text-ink";
   const lift = "bottom-[var(--flowbar-h,4.75rem)]";
   const place = choice === null ? `${lift} sm:bottom-0` : choice ? "bottom-0" : lift;
 
@@ -75,39 +81,31 @@ export function PickTray({
             type="button"
             onClick={() => setChoice(!(choice ?? window.matchMedia("(min-width: 640px)").matches))}
             aria-expanded={choice ?? undefined}
-            className={`relative z-10 -mb-[3px] flex items-center gap-2 rounded-t-2xl px-5 py-3 text-base font-bold text-ink-deep transition-colors ${
-              saved ? "bg-honey" : "bg-blush"
+            className={`relative z-10 -mb-[3px] flex items-center gap-2 rounded-t-2xl border-[3px] border-b-0 border-ink px-5 py-3 text-base font-bold transition-colors ${
+              saved ? "bg-honey text-ink-deep" : `${tabFill}`
             }`}
           >
-            <Highlighter aria-hidden className="size-4 shrink-0" strokeWidth={2.25} />
+            <PuffIcon className="size-5 shrink-0" strokeWidth={1.1} />
             {label}
             <span aria-hidden className="text-xs">▴</span>
           </button>
         </div>
-        <div className={`${visible} overflow-hidden rounded-t-2xl rounded-tl-none border-[3px] border-b-0 border-blush bg-surface pt-3 shadow-lg`}>
+        <div className={`${visible} overflow-hidden rounded-t-2xl rounded-tl-none border-[3px] border-b-0 border-ink bg-surface pt-3 shadow-lg`}>
           <div className="max-h-[calc(100dvh-15rem)] overflow-y-auto px-3 pb-24 pt-1">
             {meter && (
               <p className={`mb-3 mt-0 text-sm font-semibold ${near ? "text-ink-deep" : ""}`}>
-                {meter.words} of {meter.maxWords} words. The demo holds up to {meter.maxCount} highlights.
+                {meter.count}/{meter.maxCount} picks, {meter.words}/{meter.maxWords} words.
               </p>
             )}
-            {meter && (
-              <p className="mb-3 mt-0 text-xs">
-                Want to try more picks?{" "}
-                <a href="/login?next=%2Fsource" onClick={() => track("login_clicked")} className="font-bold underline underline-offset-4">
-                  Log in
-                </a>{" "}
-                to pick up to 20.
-              </p>
-            )}
+            {note && <p role="alert" className="mb-3 mt-0 border-l-4 border-coral pl-3 text-sm font-semibold">{note}</p>}
             <div>
-            <ul aria-label="Your highlights" className="m-0 flex list-none flex-col gap-2 p-0">
+            <ul aria-label="Your picks" className="m-0 flex list-none flex-col gap-2 p-0">
               {items.map((h) => {
                 const on = h.pick > 0;
                 return (
-                  <li key={h.id} className={`flex items-start gap-2.5 rounded-xl p-2.5 text-sm ${on ? "bg-blush ring-2 ring-ink" : "bg-card ring-1 ring-ink/10"}`}>
+                  <li key={h.id} className={`flex items-start gap-2.5 rounded-xl p-2.5 text-sm ${on ? "bg-ink text-cream" : "bg-card ring-1 ring-ink/10"}`}>
                     {on ? (
-                      <span aria-label={`Pick ${h.pick}`} className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-ink text-[11px] font-bold text-cream">
+                      <span aria-label={`Pick ${h.pick}`} className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full bg-cream text-[11px] font-bold text-ink">
                         {h.pick}
                       </span>
                     ) : (
@@ -127,9 +125,9 @@ export function PickTray({
                     <button
                       type="button"
                       onClick={() => onRemove(h.id)}
-                      aria-label="Remove this highlight"
+                      aria-label={on ? "Remove this pick" : "Remove this highlight"}
                       title={on ? "Remove this pick" : "Remove this highlight"}
-                      className="-mr-1 grid size-6 shrink-0 place-items-center rounded-full hover:bg-ink/10"
+                      className={`-mr-1 grid size-6 shrink-0 place-items-center rounded-full ${on ? "hover:bg-cream/15" : "hover:bg-ink/10"}`}
                     >
                       <X aria-hidden className="size-4" strokeWidth={2.5} />
                     </button>
@@ -137,7 +135,15 @@ export function PickTray({
                 );
               })}
             </ul>
-            <p className="mb-0 mt-2 text-xs">{picked} picked</p>
+            {meter && (
+              <p className="mb-0 mt-3 text-xs">
+                Want to try more picks?{" "}
+                <a href="/login?next=%2Fsource" onClick={() => track("login_clicked")} className="font-bold underline underline-offset-4">
+                  Log in
+                </a>{" "}
+                to pick up to 20.
+              </p>
+            )}
             </div>
           </div>
         </div>

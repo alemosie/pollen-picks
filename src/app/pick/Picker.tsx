@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadPicked, savePicked } from "@/lib/progress";
 import Link from "next/link";
-import { Select } from "@/components/Select";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
-import { stepUrl } from "@/lib/flow";
+import { isDemo, stepUrl } from "@/lib/flow";
 import {
   AlignLeft,
+  ArrowUp,
   LayoutList,
   Link2,
   List,
@@ -18,10 +18,12 @@ import {
 } from "lucide-react";
 import { isCustomId } from "@/lib/pollen/custom";
 import { instagramPostKey, instagramTag, type KnownHandles } from "@/lib/pollen/url";
-import { ChannelIcon } from "@/components/ChannelIcon";
 import { ApifyConnect } from "@/components/ApifyConnect";
 import { TagChip, type TagState } from "./TagChip";
-import { ManualPane } from "./ManualPane";
+import { ManualPane, deleteHighlight } from "./ManualPane";
+import { PickTray, type TrayItem } from "./PickTray";
+import { MAX_DEMO_WORDS, demoWords } from "@/lib/pollen/demoHighlights";
+import { CUSTOM_BASE } from "@/lib/pollen/custom";
 import type { View } from "./picking";
 
 type Chunk = {
@@ -53,6 +55,8 @@ function elementType(c: Pick<Chunk, "id" | "kind" | "url">): {
 }
 
 const MAX = 20;
+/** The public demo is capped lower, across everything picked (highlights included), so there is one limit to understand. */
+const MAX_DEMO_PICKS = 5;
 const topIdsOf = (chunks: { id: number; rank: number | null }[], n: number) =>
   chunks
     .filter((c) => c.rank && c.rank <= n)
@@ -106,6 +110,7 @@ export function Picker({
   lookups?: boolean;
 }) {
   const scope = issueKey ? `${mode}|${issueKey}` : mode;
+  const limit = mode === "demo" ? MAX_DEMO_PICKS : MAX;
   // Highlights saved or removed in the Manual tab this visit; the server's list covers earlier visits.
   const [extra, setExtra] = useState<Chunk[]>([]);
   const [removed, setRemoved] = useState<number[]>([]);
@@ -143,15 +148,8 @@ export function Picker({
     () => [...new Set(chunks.map((c) => c.section))],
     [chunks],
   );
-  // Default to the section with the most ranked items (the activity list).
-  const [section, setSection] = useState(() => {
-    const counts = new Map<string, number>();
-    for (const c of chunks)
-      if (c.rank) counts.set(c.section, (counts.get(c.section) ?? 0) + 1);
-    return (
-      [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? sections[0]
-    );
-  });
+  // The section whose heading is at the top of the screen, lit in the jump bar.
+  const [section, setSection] = useState(sections[0] ?? "");
   // Nothing is picked until the user picks it (the Top 3/5/10 chips are there for a quick start).
   const [picked, setPicked] = useState<number[]>([]);
   // Remember the selection so leaving and coming back doesn't lose it. Restore after mount (keeps SSR markup identical).
@@ -163,15 +161,15 @@ export function Picker({
       restoredOnce.current = true;
       const valid = new Set(chunks.map((c) => c.id));
       // A shared link's picks win over what this browser had saved.
-      const fromLink = (initialPicks ?? []).filter((id) => valid.has(id));
+      const fromLink = (initialPicks ?? []).filter((id) => valid.has(id)).slice(0, limit);
       const saved = fromLink.length
         ? fromLink
-        : (loadPicked(scope) ?? []).filter((id) => valid.has(id));
+        : (loadPicked(scope) ?? []).filter((id) => valid.has(id)).slice(0, limit);
       if (saved.length > 0) setPicked(saved);
       setRestored(true);
     }, 0);
     return () => clearTimeout(t);
-  }, [chunks, initialPicks, scope]);
+  }, [chunks, initialPicks, scope, limit]);
   useEffect(() => {
     if (restored) savePicked(picked, scope);
   }, [picked, restored, scope]);
@@ -179,11 +177,51 @@ export function Picker({
   const visible = useMemo(() => {
     if (view === "top-clicks")
       return chunks.filter((c) => c.rank).sort((a, b) => a.rank! - b.rank!);
-    if (view === "section") return chunks.filter((c) => c.section === section);
+    if (view === "section") return chunks.filter((c) => !isCustomId(c.id));
     return chunks;
-  }, [view, section, chunks]);
+  }, [view, chunks]);
 
-  const full = picked.length >= MAX;
+  // A section often opens with a line of introduction (no link, no date, nothing to post): shown as plain text under its heading,
+  // not as a pick.
+  const intros = useMemo(() => {
+    const ids = new Set<number>();
+    if (view !== "section") return ids;
+    visible.forEach((c, i) => {
+      if (c.section === visible[i - 1]?.section) return;
+      const rest = visible.slice(i + 1).filter((x) => x.section === c.section);
+      if (c.kind === "paragraph" && !c.url && !c.when && !c.rank && !c.body && rest.some((x) => x.kind === "bullet")) ids.add(c.id);
+    });
+    return ids;
+  }, [view, visible]);
+
+  const jumpTo = (sec: string) => {
+    setSection(sec);
+    document.getElementById(`section-${sections.indexOf(sec)}`)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  };
+  // Light the pill of the section being read.
+  useEffect(() => {
+    if (view !== "section" || sections.length < 2) return;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      let current = 0;
+      sections.forEach((_, i) => {
+        const el = document.getElementById(`section-${i}`);
+        if (el && el.getBoundingClientRect().top <= window.innerHeight * 0.35) current = i;
+      });
+      setSection(sections[current]);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, [view, sections]);
+
+  const full = picked.length >= limit;
   // Picks whose link is an Instagram account (or a post, once its account is looked up) get tagged in the Instagram caption (Write step).
   const byId = useMemo(() => new Map(chunks.map((c) => [c.id, c])), [chunks]);
   const [found, setFound] = useState<KnownHandles>(knownHandles ?? {});
@@ -264,11 +302,10 @@ export function Picker({
     }
   };
   const taggedCount = picked.filter((id) => tagOf(byId.get(id)?.url ?? null)).length;
-  const anyTags = visible.some((c) => tagOf(c.url) || (lookups && instagramPostKey(c.url)));
   const addHighlight = (chunk: Chunk) => {
     setExtra((e) => [...e, chunk]);
     setPicked((p) =>
-      p.length >= MAX || p.includes(chunk.id) ? p : [...p, chunk.id],
+      p.length >= limit || p.includes(chunk.id) ? p : [...p, chunk.id],
     );
   };
   const removeHighlight = (id: number) => {
@@ -280,19 +317,54 @@ export function Picker({
     setPicked((p) =>
       p.includes(id)
         ? p.filter((x) => x !== id)
-        : p.length >= MAX
+        : p.length >= limit
           ? p
           : [...p, id],
     );
+  // One tray on every tab: everything picked, parsed picks and highlights together, in pick order. Adding or removing works
+  // the same from a tab or from the tray itself.
+  const [trayNote, setTrayNote] = useState<string | null>(null);
+  const trayItems: TrayItem[] = [
+    ...picked.flatMap((id, i) => {
+      const c = byId.get(id);
+      return c ? [{ id, text: isCustomId(id) ? c.text : c.title, url: c.url, pick: i + 1, tag: tagState(c.url), highlight: isCustomId(id) }] : [];
+    }),
+  ];
+  const removeFromTray = async (id: number) => {
+    setTrayNote(null);
+    if (!isCustomId(id)) return toggle(id);
+    const err = await deleteHighlight(mode, id);
+    if (err) return setTrayNote(err);
+    removeHighlight(id);
+  };
+  // A highlight lives only while it is picked: when a new selection leaves one out (Top 3/5, Clear), it is deleted.
+  const replacePicks = (next: number[]) => {
+    setPicked(next);
+    for (const c of chunks) {
+      if (isCustomId(c.id) && !next.includes(c.id)) void deleteHighlight(mode, c.id).then((err) => { if (!err) removeHighlight(c.id); });
+    }
+  };
+  // Highlights saved before but not picked no longer exist as such: drop them once, after the picks are restored.
+  const pruned = useRef(false);
+  useEffect(() => {
+    if (!restored || pruned.current || initialPicks?.length) return;
+    pruned.current = true;
+    for (const c of chunks) {
+      if (isCustomId(c.id) && !picked.includes(c.id)) void deleteHighlight(mode, c.id).then((err) => { if (!err) removeHighlight(c.id); });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
+  const demoMode = isDemo(mode);
   const topIds = (n: number) => topIdsOf(chunks, n);
   // A quick-select chip lights up while the current picks are exactly that top N.
-  const activeTop = [3, 5, 10].find((n) => {
+  const topChips = [3, 5, 10].filter((n) => n <= limit);
+  const activeTop = topChips.find((n) => {
     const ids = topIds(n);
     return (
       ids.length === picked.length && ids.every((id) => picked.includes(id))
     );
   });
-  const selectTop = (n: number) => setPicked(activeTop === n ? [] : topIds(n));
+  const selectTop = (n: number) => replacePicks(activeTop === n ? [] : topIds(n).slice(0, limit));
 
   const tabs: {
     id: View;
@@ -394,51 +466,54 @@ export function Picker({
       <div
         className={`mb-4 rounded-2xl border-[3px] p-4 sm:p-5 ${ACCENT[view].border}`}
       >
-        {view === "section" && (
-          <label className="mb-4 flex flex-wrap items-center gap-3 text-sm font-semibold">
-            Section
-            <span className="min-w-0 flex-1">
-              <Select
-                value={section}
-                onChange={(e) => setSection(e.target.value)}
-                className="font-semibold"
-              >
-                {sections.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </Select>
-            </span>
-          </label>
+        {view === "section" && sections.length > 1 && (
+          <nav id="section-nav" aria-label="Jump to section" className="mb-5 flex flex-wrap gap-2 text-sm sm:text-lg">
+            {sections.map((sec) => {
+              const active = sec === section;
+              const n = visible.filter((c) => c.section === sec && picked.includes(c.id)).length;
+              return (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => jumpTo(sec)}
+                  aria-current={active ? "true" : undefined}
+                  data-active={active || undefined} className={`flex max-w-full items-center gap-2 rounded-full px-3.5 py-2 text-left font-bold leading-tight transition sm:px-5 sm:py-2.5 ${active ? "bg-ink text-cream" : "bg-ink/10 ring-1 ring-ink/15 hover:bg-ink/15"}`}
+                >
+                  <span className="min-w-0 truncate">{sec}</span>
+                  {n > 0 && (
+                    <span aria-label={`${n} picked`} className="grid size-6 shrink-0 place-items-center rounded-full bg-honey text-sm text-ink-deep">
+                      {n}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
         )}
 
         {view === "top-clicks" && (
           <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-            <span className="hidden font-semibold sm:inline">
-              Quick select:
-            </span>
-            {[3, 5, 10].map((n) => (
+            {topChips.map((n) => (
               <button
                 key={n}
                 onClick={() => selectTop(n)}
                 aria-pressed={activeTop === n}
-                className={`rounded-full px-3 py-1 font-bold transition ${activeTop === n ? ACCENT[view].solid : ACCENT[view].light}`}
+                className={`min-h-11 rounded-full px-4 py-1 font-bold transition ${activeTop === n ? ACCENT[view].solid : ACCENT[view].light}`}
               >
                 Top {n}
               </button>
             ))}
             {picked.length > 0 && (
               <button
-                onClick={() => setPicked([])}
-                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold underline-offset-4 hover:underline"
+                onClick={() => replacePicks([])}
+                className="inline-flex min-h-11 items-center gap-1 rounded-full px-2.5 py-1 font-semibold underline-offset-4 hover:underline"
               >
                 <X aria-hidden className="size-4" strokeWidth={2.5} />
                 Clear selection
               </button>
             )}
-            <span className="w-full text-xs sm:ml-auto sm:w-auto">
-              Upcoming events only
+            <span className="w-full text-xs sm:ml-auto sm:w-auto italic">
+              For events: Showing upcoming events only
             </span>
           </div>
         )}
@@ -458,29 +533,51 @@ export function Picker({
               }))}
             onAdd={(c) => addHighlight(c as Chunk)}
             onRemove={removeHighlight}
-            onToggle={toggle}
           />
         )}
 
-        {view !== "manual" && anyTags && (
-          <p className="mb-3 mt-0 flex items-start gap-2 text-sm">
-            <ChannelIcon service="instagram" className="mt-0.5 size-4 shrink-0" />
-            <span>
-              Picks that link to Instagram show the account&rsquo;s handle{lookups ? " (for a post, we find it when you pick it)" : ""}. Your Instagram caption credits them with{" "}
-              <span className="font-semibold">&ldquo;From @handle&rdquo;</span>, which tags them.
-            </span>
-          </p>
-        )}
+        <PickTray
+          items={trayItems}
+          full={full}
+          meter={
+            demoMode
+              ? {
+                  count: picked.length,
+                  maxCount: limit,
+                  maxWords: MAX_DEMO_WORDS,
+                  words: demoWords(
+                    chunks
+                      .filter((c) => isCustomId(c.id))
+                      .map((c) => ({ id: c.id - CUSTOM_BASE, text: c.text, url: c.url })),
+                  ),
+                }
+              : undefined
+          }
+          note={trayNote}
+          onRemove={removeFromTray}
+          onToggle={toggle}
+        />
 
         {view !== "manual" && (
           <ul className="flex flex-col gap-2">
             {visible.map((c, i) => {
+              const startsSection = view === "section" && c.section !== visible[i - 1]?.section;
+              const heading = startsSection && (
+                <h2
+                  id={`section-${sections.indexOf(c.section)}`}
+                  className={`mb-1 scroll-mt-4 font-display text-2xl leading-tight ${i === 0 ? "mt-0" : "mt-8"}`}
+                >
+                  {c.section}
+                </h2>
+              );
+              if (intros.has(c.id)) return <li key={c.id} className="contents">{heading}<p className="mb-2 mt-0 text-lg">{c.text}</p></li>;
               const idx = picked.indexOf(c.id);
               const on = idx >= 0;
               const disabled = !on && full;
               const { topic: top, group: grp } = labels[i];
               return (
                 <li key={c.id} className="contents">
+                  {heading}
                   {top && (
                     <p
                       className={`mt-4 w-fit rounded-full px-3 py-1 text-base font-bold text-ink-deep bg-sage`}
@@ -514,9 +611,14 @@ export function Picker({
                           title={label}
                           className="absolute right-4 top-4 text-ink/60"
                         >
+                          {view === "top-clicks" && c.rank && (
+                            <span aria-hidden className="font-display text-base leading-none">
+                              #{c.rank}
+                            </span>
+                          )}
                           <Kind
                             aria-hidden
-                            className="size-4"
+                            className={`size-4 ${view === "top-clicks" && c.rank ? "hidden" : ""}`}
                             strokeWidth={2.25}
                           />
                           <span className="sr-only">{label}</span>
@@ -531,11 +633,6 @@ export function Picker({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-x-2">
-                        {view === "top-clicks" && c.rank && (
-                          <span className="shrink-0 font-display text-ink/60">
-                            #{c.rank}
-                          </span>
-                        )}
                         <span className="font-bold">
                           {c.kind === "paragraph" && !c.body
                             ? clamp(c.text, 160)
@@ -571,6 +668,16 @@ export function Picker({
                       <TagChip state={tagState(c.url)} className="mt-2" />
                     </span>
                   </label>
+                  {view === "section" && sections.length > 1 && c.section !== visible[i + 1]?.section && (
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById("section-nav")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" })}
+                      className="mb-2 mt-1 inline-flex w-fit items-center gap-1.5 text-sm font-semibold underline underline-offset-4"
+                    >
+                      <ArrowUp aria-hidden className="size-4" strokeWidth={2.5} />
+                      Back to sections
+                    </button>
+                  )}
                 </li>
               );
             })}
@@ -617,16 +724,19 @@ export function Picker({
         back={{ href: "/source", label: "Source" }}
         status={
           <>
-            {picked.length === 0
-              ? "Select 1 to 20 items"
-              : `${picked.length} of ${MAX} selected${taggedCount > 0 ? ` · ${taggedCount} to tag on Instagram` : ""}`}
-            {full && <span className="ml-2 font-normal">Maximum reached</span>}
+            <span className="sm:hidden">{picked.length === 0 ? `Pick 1\u2013${limit}` : `${picked.length}/${limit}`}</span>
+            <span className="hidden sm:inline">
+              {picked.length === 0
+                ? `Select 1 to ${limit} items`
+                : `${picked.length} of ${limit} selected${taggedCount > 0 ? ` · ${taggedCount} to tag on Instagram` : ""}`}
+              {full && <span className="ml-2 font-normal">Maximum reached</span>}
+            </span>
           </>
         }
       >
         {picked.length > 0 && (
           <button
-            onClick={() => setPicked([])}
+            onClick={() => replacePicks([])}
             className="text-sm font-semibold underline underline-offset-4"
           >
             Clear

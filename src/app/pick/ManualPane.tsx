@@ -11,7 +11,6 @@ import {
   customChunk,
 } from "@/lib/pollen/custom";
 import { track } from "@/lib/events";
-import { PickTray } from "./PickTray";
 import type { TagState } from "./TagChip";
 import { readDemoSource } from "@/lib/pollen/demoSource";
 import {
@@ -22,6 +21,20 @@ import {
   readDemoRows,
   writeDemoRows,
 } from "@/lib/pollen/demoHighlights";
+
+/** Deletes a saved highlight (this browser's demo copy, or the account's). Resolves to an error message, or null when it worked. */
+export async function deleteHighlight(mode: string, id: number): Promise<string | null> {
+  try {
+    if (isDemo(mode)) {
+      writeDemoRows(readDemoRows().filter((r) => r.id !== id - CUSTOM_BASE));
+      return null;
+    }
+    const res = await fetch(`/api/picks/custom?mode=${encodeURIComponent(mode)}&id=${id}`, { method: "DELETE" });
+    return res.ok ? null : "Couldn't remove the highlight. Try again in a moment.";
+  } catch {
+    return "Couldn't reach Pollen Picks. Check your connection and try again.";
+  }
+}
 
 /** What gets saved as a highlight: a selection, or a whole paragraph or list item picked with its "+". */
 type Pickable = { text: string; url: string | null; linkText: string | null };
@@ -49,7 +62,6 @@ export function ManualPane({
   full,
   onAdd,
   onRemove,
-  onToggle,
 }: {
   mode: string;
   /** `pick` is the 1-based pick number, or 0 when the highlight is saved but not picked. */
@@ -58,7 +70,6 @@ export function ManualPane({
   full: boolean;
   onAdd: (chunk: unknown) => void;
   onRemove: (id: number) => void;
-  onToggle: (id: number) => void;
 }) {
   const [html, setHtml] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -314,23 +325,9 @@ export function ManualPane({
 
   async function remove(id: number) {
     setNote(null);
-    try {
-      if (demo) {
-        writeDemoRows(readDemoRows().filter((r) => r.id !== id - CUSTOM_BASE));
-        return onRemove(id);
-      }
-      const res = await fetch(
-        `/api/picks/custom?mode=${encodeURIComponent(mode)}&id=${id}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok)
-        return setNote("Couldn't remove the highlight. Try again in a moment.");
-      onRemove(id);
-    } catch {
-      setNote(
-        "Couldn't reach Pollen Picks. Check your connection and try again.",
-      );
-    }
+    const err = await deleteHighlight(mode, id);
+    if (err) return setNote(err);
+    onRemove(id);
   }
 
   // At a limit the selection can't be picked: say why instead of offering a button that fails.
@@ -349,10 +346,10 @@ export function ManualPane({
 
   return (
     <div>
-      <p className="mb-3 mt-0 text-sm">
+      <p className="mb-3 mt-0 text-lg">
         <Highlighter
           aria-hidden
-          className="mr-1.5 inline size-4 align-[-0.15em]"
+          className="mr-1.5 inline size-5 align-[-0.2em]"
           strokeWidth={2.25}
         />
         {touch ? (
@@ -362,25 +359,6 @@ export function ManualPane({
         )}{" "}
         Links aren&rsquo;t clickable here.
       </p>
-
-      <PickTray
-        items={highlights}
-        full={full}
-        meter={
-          demo
-            ? {
-                count: highlights.length,
-                maxCount: MAX_DEMO_HIGHLIGHTS,
-                maxWords: MAX_DEMO_WORDS,
-                words: demoWords(
-                  highlights.map((h) => ({ id: h.id - CUSTOM_BASE, text: h.text, url: h.url })),
-                ),
-              }
-            : undefined
-        }
-        onRemove={remove}
-        onToggle={onToggle}
-      />
 
       {note && (
         <p

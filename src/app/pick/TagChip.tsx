@@ -26,7 +26,7 @@ export function TagChip({ state, small = false, className = "" }: { state: TagSt
   const base = `inline-flex w-fit max-w-full items-center gap-1.5 rounded-full text-xs font-bold ${size} ${className}`;
   if (state.kind === "handle") {
     return (
-      <span title={`This pick links to Instagram's @${state.handle}. The Instagram caption tags it.`} className={`${base} bg-ink/10`}>
+      <span title={`Your Instagram caption credits this with “From @${state.handle}”, which tags the account.`} className={`${base} bg-ink/10`}>
         <ChannelIcon service="instagram" className={`${icon} shrink-0`} />
         <span className="sr-only">Instagram account: </span>
         <span className="truncate">@{state.handle}</span>
