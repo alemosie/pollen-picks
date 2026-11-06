@@ -8,11 +8,14 @@ import { setNextStep, type NextStep } from "@/lib/nextStep";
 export function FlowBar({
   back,
   status,
+  statusHiddenOnPhone = false,
   next,
   children,
 }: {
   back?: { href: string; label: string };
   status?: ReactNode;
+  /** Leave the status out on a narrow screen, where the actions need the room (its gap goes too). */
+  statusHiddenOnPhone?: boolean;
   /** Where the main action goes, once it is ready (null while it isn't). The progress indicator reveals the same link. */
   next?: NextStep;
   children?: ReactNode;
@@ -49,13 +52,14 @@ export function FlowBar({
             <span className="sr-only sm:not-sr-only sm:ml-1">{back.label}</span>
           </Link>
         )}
-        <div className="min-w-0 flex-1" />
-        {status && (
-          <div className="min-w-0 text-right text-xs font-semibold leading-tight sm:text-sm" aria-live="polite">
-            {status}
-          </div>
-        )}
-        <div className="flex shrink-0 items-center gap-3">{children}</div>
+        <div className="ml-auto flex min-w-0 items-center gap-3">
+          {status && (
+            <div className={`min-w-0 text-right text-xs font-semibold leading-tight sm:text-sm ${statusHiddenOnPhone ? "max-sm:hidden" : ""}`} aria-live="polite">
+              {status}
+            </div>
+          )}
+          <div className="flex shrink-0 items-center gap-3">{children}</div>
+        </div>
       </div>
     </div>
   );
