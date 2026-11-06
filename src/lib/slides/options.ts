@@ -42,7 +42,7 @@ export type CustomSpec = {
 export const MAX_PER_SLIDE = 4;
 export const MAX_CUSTOM_SLIDES = 18;
 export const SPEC_LIMITS = {
-  title: 90,
+  title: 160,
   when: 80,
   place: 60,
   blurb: 700,

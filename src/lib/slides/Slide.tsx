@@ -212,6 +212,26 @@ const SIZES = {
   4: { title: 42, titleLines: 2, meta: 26, blurb: 22, blurbLines: 1, pad: 28, gap: 8 },
 } as const;
 
+/** Lines needed when whole words wrap (what the renderer does), with every character `em` wide. Never fewer than the real count for a wider-than-average font. */
+const wrapLines = (text: string, px: number, em: number, width: number) => {
+  const char = px * em;
+  let n = 1;
+  let used = 0;
+  for (const word of text.split(/\s+/).filter(Boolean)) {
+    const w = word.length * char;
+    if (used === 0) used = w;
+    else if (used + char + w <= width) used += char + w;
+    else {
+      n++;
+      used = w;
+    }
+  }
+  return n;
+};
+
+/** The largest a title may grow when its card has no description. */
+const TITLE_MAX = { 1: 300, 2: 190, 3: 110, 4: 84 } as const;
+
 const LOGO_H = { 1: 100, 2: 72, 3: 56, 4: 44 } as const;
 
 /** A card the same color as its slide would vanish; swap it for the kit background (or, if that is the slide color, the other card tone). */
@@ -248,6 +268,38 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
     const fits = Math.floor(room / (z.blurb * 1.35));
     return Math.max(0, n <= 2 ? fits : Math.min(z.blurbLines, fits));
   })();
+  // No description: the title takes the room it would have had, as large as it fits (same rough model as above: lines from the character
+  // count, and no single word wider than the card).
+  const title = (() => {
+    if (item.blurb) return { size: z.title, lines: z.titleLines };
+    const width = CONTENT_W - 2 * z.pad;
+    const meta = [item.when, item.place].filter(Boolean).join(" · ");
+    let other = 0;
+    let parts = 1; // the title
+    if (showGroup && item.group) {
+      other += (z.meta - 8) * 1.2 + 8;
+      parts++;
+    }
+    if (item.logo) {
+      other += LOGO_H[n as 1 | 2 | 3 | 4];
+      parts++;
+    }
+    if (meta) {
+      other += Math.min(2, lines(meta, z.meta, 0.55, width)) * z.meta * 1.2;
+      parts++;
+    }
+    if (item.tag) {
+      other += (z.meta - TAG_SHRINK) * 1.2;
+      parts++;
+    }
+    const room = ((BODY_H - (n - 1) * CARD_GAP) / n - 2 * z.pad - other - (parts - 1) * z.gap) * 0.92;
+    const longest = Math.max(...item.title.split(/\s+/).map((w) => w.length));
+    for (let size = TITLE_MAX[n as 1 | 2 | 3 | 4]; size > z.title; size -= 4) {
+      const l = wrapLines(item.title, size, 0.62, width);
+      if (longest * size * 0.62 <= width && l * size * 1.08 <= room) return { size, lines: l + 1 };
+    }
+    return { size: z.title, lines: z.titleLines };
+  })();
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: outline ? z.pad - 4 : z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden", ...(outline ? { border: `4px solid ${text}` } : {}) }}>
       {showGroup && item.group && (
@@ -266,7 +318,7 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
           )}
         </div>
       )}
-      <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: z.title, lineHeight: 1.08, flexShrink: 0, ...clamp(z.titleLines) }}>{item.title}</div>
+      <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: title.size, lineHeight: 1.08, flexShrink: 0, ...clamp(title.lines) }}>{item.title}</div>
       {(item.when || item.place) && (
         <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, flexShrink: 0, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
