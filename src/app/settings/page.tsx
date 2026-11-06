@@ -1,4 +1,4 @@
-import { ArrowLeft, Building2, LayoutTemplate, LogOut, Newspaper, Palette, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Building2, Images, LayoutTemplate, LogOut, Newspaper, Palette, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
@@ -20,9 +20,11 @@ import { PaletteSync } from "@/components/PaletteSync";
 import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
 import { settingsPreviews } from "@/lib/slides/settingsPreview";
 import { DEFAULT_STYLE } from "@/lib/slides/style";
+import { listPhotoLinks, MAX_PHOTO_LINKS } from "@/lib/userPhotoLinks";
 import { DeleteMyData } from "./DeleteMyData";
 import { OrganizationEditor } from "./OrganizationEditor";
 import { PaletteEditor } from "./PaletteEditor";
+import { PhotosManager } from "./PhotosManager";
 import { SlideStyleEditor } from "./SlideStyleEditor";
 
 export const metadata = { title: "Settings · Pollen Picks" };
@@ -34,6 +36,7 @@ const SECTIONS: { id: string; label: string; hint: string; icon?: LucideIcon }[]
   { id: "instagram", label: "Instagram tagging", hint: "Account lookups" },
   { id: "style", label: "Slide style", hint: "Header, footer and font", icon: LayoutTemplate },
   { id: "colors", label: "Slide colors", hint: "Your palette", icon: Palette },
+  { id: "photos", label: "Photos", hint: "Your saved picture links", icon: Images },
   { id: "account", label: "Account", hint: "Log out", icon: LogOut },
 ];
 const parseSection = (v: string | string[] | undefined) => SECTIONS.find((s) => s.id === (Array.isArray(v) ? v[0] : v))?.id ?? SECTIONS[0].id;
@@ -114,6 +117,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
           {section === "organization" && <OrganizationSection userId={session.userId} />}
           {section === "style" && <StyleSection userId={session.userId} />}
           {section === "colors" && <PaletteEditor />}
+          {section === "photos" && <PhotosSection userId={session.userId} />}
           {section === "account" && <AccountSection userId={session.userId} token={session.accessToken} />}
         </div>
       </div>
@@ -256,6 +260,23 @@ async function AccountSection({ userId, token }: { userId: string; token: string
       <DeleteMyData />
     </section>
   );
+}
+
+/** The picture links this user saved for slides, to remove some (they can keep MAX_PHOTO_LINKS). */
+async function PhotosSection({ userId }: { userId: string }) {
+  const links = await listPhotoLinks(userId).catch(() => null);
+  if (!links)
+    return (
+      <section aria-labelledby="photos" className="rounded-2xl bg-card p-4 sm:p-6">
+        <h2 id="photos" className="mb-1 text-2xl">
+          Photos
+        </h2>
+        <p role="alert" className="m-0 text-sm font-semibold">
+          Couldn&rsquo;t load your saved links. Try again in a moment.
+        </p>
+      </section>
+    );
+  return <PhotosManager initial={links} max={MAX_PHOTO_LINKS} />;
 }
 
 async function OrganizationSection({ userId }: { userId: string }) {
