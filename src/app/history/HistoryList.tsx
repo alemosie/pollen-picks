@@ -249,7 +249,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                     <span className="block truncate font-semibold" title={g.entries[0].issueTitle}>
                       {g.entries[0].issueTitle || g.entries[0].newsletter}
                     </span>
-                    <time dateTime={g.entries[0].createdAt} suppressHydrationWarning className="block text-xs text-ink/70">
+                    <time dateTime={g.entries[0].createdAt} suppressHydrationWarning className="block text-xs text-ink/80">
                       {now === null ? "" : when(g.entries[0].createdAt)}
                     </time>
                     <span className="mt-1 block text-sm">{g.entries.length} need a look</span>
@@ -272,7 +272,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                       <span className="mt-1 block pl-6 text-sm">{v.text}</span>
                       {v.detail && <span className="block pl-6 text-xs">{v.detail}</span>}
                       {(c.retryable || c.resendable) && c.retryUntil && !here(c.id) && (
-                        <span className="block pl-6 text-xs text-ink/70">
+                        <span className="block pl-6 text-xs text-ink/80">
                           {c.retryable ? "Retry" : "Send again"} until {when(c.retryUntil)}
                         </span>
                       )}
@@ -327,7 +327,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                   <span className="block truncate font-semibold" title={first.issueTitle}>
                     {first.issueTitle || first.newsletter}
                   </span>
-                  <time dateTime={first.createdAt} suppressHydrationWarning className="block text-xs text-ink/70">
+                  <time dateTime={first.createdAt} suppressHydrationWarning className="block text-xs text-ink/80">
                     {now === null ? "" : when(first.createdAt)}
                   </time>
                   <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm">

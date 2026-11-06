@@ -609,7 +609,7 @@ export function Picker({
                       return (
                         <span
                           title={label}
-                          className="absolute right-4 top-4 text-ink/60"
+                          className="absolute right-4 top-4 text-ink/75"
                         >
                           {view === "top-clicks" && c.rank && (
                             <span aria-hidden className="font-display text-base leading-none">
