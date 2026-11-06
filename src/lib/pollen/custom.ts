@@ -45,6 +45,8 @@ export function cleanHighlightUrl(raw: unknown): string | null {
 }
 
 const TITLE_MAX = 90;
+/** A highlight this short that is one passage (no link, no line break, no sentence after the first) is the title on its own, shown as big text: it has no description. */
+const QUOTE_MAX = 160;
 
 function shorten(text: string): string {
   if (text.length <= TITLE_MAX) return text;
@@ -82,7 +84,7 @@ export function parseHighlight(text: string, linkText?: string | null): { title:
     const title = /^[!?]/.test(stop) ? `${m[1]}${stop}` : m[1];
     return { title: title.trim(), description: flat.slice(m[0].length).trim() };
   }
-  return flat.length <= TITLE_MAX ? { title: flat, description: "" } : { title: shorten(flat), description: flat };
+  return flat.length <= QUOTE_MAX ? { title: flat, description: "" } : { title: shorten(flat), description: flat };
 }
 
 export type CustomRow = { id: number; text: string; url: string | null; /** The first link's text, if the highlight had a link. */ linkText?: string | null };

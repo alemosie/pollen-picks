@@ -60,6 +60,12 @@ test("a long text with no break gets a short title and keeps everything as the d
   assert.equal(r.description, long);
 });
 
+test("one short passage is all title, with no description, so it can be shown as big text", () => {
+  const q = "Steering, pushing, loading, and building all develop hand-eye coordination, balance, and dexterity.";
+  assert.ok(q.length > 90 && q.length <= 160);
+  assert.deepEqual(parseHighlight(q), { title: q, description: "" });
+});
+
 test("customChunk: its own id range, a flat text, a normalized link", () => {
   const c = customChunk({ id: 3, text: "Pumpkin Patch\nPick one and carve it.", url: "https://www.x.com/p?utm_source=a", linkText: null });
   assert.equal(c.id, CUSTOM_BASE + 3);
