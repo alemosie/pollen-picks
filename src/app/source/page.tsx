@@ -31,19 +31,17 @@ async function StartContent() {
   return (
     <main className="mx-auto max-w-5xl px-6 pb-32 pt-6">
       <PageHeader current={1} />
-      <div className="mb-10">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-          <h1 className="mb-3 text-4xl sm:text-5xl">
+      <div className="mb-10 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
+          <h1 className="mb-3 col-span-2 row-start-2 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
             Choose your newsletter <StepWord>source</StepWord>
           </h1>
-          <div className="sm:mt-2">
-            <ShareLinkButton />
-          </div>
-        </div>
-        <p className="mb-0 max-w-2xl text-lg">
+          <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
           Buffer is connected. Now choose where the content comes from. You can
           switch any time.
         </p>
+          <div className="col-span-2 row-start-1 mb-2 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:self-start sm:row-span-2 sm:mt-2">
+            <ShareLinkButton />
+          </div>
       </div>
 
       <ServerTimings report={t.report()} />

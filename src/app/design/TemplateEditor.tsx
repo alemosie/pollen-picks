@@ -104,22 +104,20 @@ export function TemplateEditor({
     <>
       {showLoader && <FlowLoader instant label="Setting up your carousel…" />}
       <div className={slidesReady ? undefined : "invisible"} aria-busy={!slidesReady}>
-        <div className="mb-6">
-          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-            <h1 className="mb-3 text-4xl sm:text-5xl">
+        <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
+          <h1 className="mb-3 col-span-2 row-start-2 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
               <StepWord>Design</StepWord> your carousel
             </h1>
-            <div className="flex shrink-0 items-center gap-3 sm:mt-2">
+          <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
+            Use the standard layout, or build your own slides.
+          </p>
+          <div className="relative flex shrink-0 items-center gap-3 col-span-2 row-start-1 mb-2 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:self-start sm:row-span-2 sm:mt-2">
               <SavedFlash />
               <ShareLinkButton
                 getUrl={shareUrl}
                 title={demo ? "Anyone with this link can open this demo, no account needed" : undefined}
               />
             </div>
-          </div>
-          <p className="mb-0 max-w-2xl text-lg">
-            Use the standard layout, or build your own slides.
-          </p>
         </div>
 
         <div className="mb-6 flex flex-wrap items-center gap-x-5 gap-y-2">
@@ -143,7 +141,7 @@ export function TemplateEditor({
               </label>
             ))}
           </div>
-          <p className="m-0 flex-1 text-sm">
+          <p className="m-0 basis-full text-sm sm:flex-1 sm:basis-0">
             {custom
               ? "Drag picks into your own slides, and click any slide to edit its text."
               : "Pollen Picks' default layout and wording."}
@@ -190,13 +188,26 @@ export function TemplateEditor({
           next={custom && (placed === 0 || extra.length > SPEC_WARN) ? null : { href: next }}
           back={{ href: stepUrl(mode, "pick"), label: "Pick" }}
           status={
-            custom
-              ? extra.length > SPEC_WARN
-                ? "Heavy customization: trim some text"
-                : placed === 0
-                  ? "Drag at least one pick onto a slide"
-                  : `${slideCount + 2} slides · ${placed} of ${picks.length} picks placed`
-              : `${standard.length} slides · ${picks.length} ${picks.length === 1 ? "pick" : "picks"}`
+            <>
+              <span className="sm:hidden">
+                {custom
+                  ? extra.length > SPEC_WARN
+                    ? "Trim some text"
+                    : placed === 0
+                      ? "Place a pick"
+                      : `${placed}/${picks.length} placed`
+                  : `${standard.length} slides`}
+              </span>
+              <span className="hidden sm:inline">
+                {custom
+                  ? extra.length > SPEC_WARN
+                    ? "Heavy customization: trim some text"
+                    : placed === 0
+                      ? "Drag at least one pick onto a slide"
+                      : `${slideCount + 2} slides · ${placed} of ${picks.length} picks placed`
+                  : `${standard.length} slides · ${picks.length} ${picks.length === 1 ? "pick" : "picks"}`}
+              </span>
+            </>
           }
         >
           {custom && (placed === 0 || extra.length > SPEC_WARN) ? (

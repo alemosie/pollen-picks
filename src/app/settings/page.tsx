@@ -63,7 +63,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
           <h1 className="mb-3 text-4xl sm:text-5xl">
             <StepWord>Settings</StepWord>
           </h1>
-          <div className="flex shrink-0 items-center gap-3 sm:mt-2">
+          <div className="relative flex shrink-0 items-center gap-3 sm:mt-2">
             <SavedFlash />
             <Link
               href="/source"

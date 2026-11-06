@@ -71,16 +71,11 @@ async function PickContent({
       {fresh && <FreshRunDone />}
       <Track event="pick_reached" />
       <PageHeader current={2} hrefs={{ 1: "/source" }} />
-      <div className="mb-6">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1">
-          <h1 className="mb-3 text-4xl sm:text-5xl">
+      <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
+          <h1 className="mb-3 col-start-1 row-start-1 min-w-0 text-3xl sm:text-5xl">
             <StepWord>Pick</StepWord> what to post
           </h1>
-          <div className="sm:mt-2">
-            <ShareLinkButton kind="pick" mode={String(mode ?? "")} />
-          </div>
-        </div>
-        <p className="mb-0 max-w-2xl text-lg">
+          <p className="col-span-2 row-start-2 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1">
           Picking from{" "}
           <a
             href={issue.url}
@@ -104,6 +99,9 @@ async function PickContent({
             <span className="sr-only"> (opens in a new tab)</span>
           </a>
         </p>
+          <div className="col-start-2 row-start-1 self-start sm:row-span-2 sm:mt-2">
+            <ShareLinkButton kind="pick" mode={String(mode ?? "")} />
+          </div>
       </div>
       <Picker
         key={`${String(mode ?? "")}|${issue.url}`}

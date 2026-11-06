@@ -56,14 +56,14 @@ export function ShareLinkButton({
       type="button"
       onClick={copy}
       title={title}
-      className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
+      className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 sm:px-4 ${copied ? "bg-sage" : "bg-surface"}`}
     >
       {copied ? (
-        <Check aria-hidden className="size-4" strokeWidth={3} />
+        <Check aria-hidden className="size-5 sm:size-4" strokeWidth={3} />
       ) : (
-        <Link2 aria-hidden className="size-4" />
+        <Link2 aria-hidden className="size-5 sm:size-4" />
       )}
-      <span role="status">{copied ? "Link copied" : "Copy share link"}</span>
+      <span role="status" className="sr-only sm:not-sr-only">{copied ? "Link copied" : "Copy share link"}</span>
     </button>
   );
 }

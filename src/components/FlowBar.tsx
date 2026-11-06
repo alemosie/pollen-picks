@@ -44,13 +44,14 @@ export function FlowBar({
     <div ref={bar} className="fixed inset-x-0 bottom-0 z-30 bg-ink text-cream pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(0,0,0,0.18)]">
       <div className="mx-auto flex max-w-5xl items-center gap-3 px-6 py-3">
         {back && (
-          <Link href={back.href} className="shrink-0 rounded-xl px-4 py-3 font-bold ring-1 ring-cream/40 hover:bg-cream/15">
-            <span aria-hidden>←</span> {back.label}
+          <Link href={back.href} className="shrink-0 rounded-xl px-3.5 py-3 font-bold ring-1 ring-cream/40 hover:bg-cream/15 sm:px-4">
+            <span aria-hidden>←</span>
+            <span className="sr-only sm:not-sr-only sm:ml-1">{back.label}</span>
           </Link>
         )}
         <div className="min-w-0 flex-1" />
         {status && (
-          <div className="min-w-0 text-right text-sm font-semibold" aria-live="polite">
+          <div className="min-w-0 text-right text-xs font-semibold leading-tight sm:text-sm" aria-live="polite">
             {status}
           </div>
         )}

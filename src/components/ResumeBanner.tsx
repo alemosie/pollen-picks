@@ -52,7 +52,7 @@ export function ResumeBanner({
   // On the source step there is no "Start over": choosing a source is the start of a new run, and clears the last one.
   if (inline)
     return (
-      <span>
+      <span className="whitespace-nowrap">
         Go back to{" "}
         <Link href={saved.href} className="underline decoration-coral decoration-[3px] underline-offset-4">
           {STEP_NAMES[saved.step - 1]}
