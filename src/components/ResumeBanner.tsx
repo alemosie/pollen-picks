@@ -33,14 +33,14 @@ export function ResumeBanner({
   if (!saved) return null;
   if (bar)
     return (
-      <FlowBar status={`You left off at ${STEP_NAMES[saved.step - 1]}.`}>
+      <FlowBar status={<span className="hidden sm:inline">{`You left off at ${STEP_NAMES[saved.step - 1]}.`}</span>}>
         <button
           type="button"
           onClick={() => {
             clearProgress();
             setSaved(null);
           }}
-          className="font-semibold underline underline-offset-4"
+          className="rounded-xl px-4 py-3 font-bold ring-1 ring-cream/40 hover:bg-cream/15"
         >
           Start over
         </button>

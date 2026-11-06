@@ -5,6 +5,8 @@ import { normalizeUrl } from "./url";
 const clean = (s: string) => s.replace(/ /g, " ").replace(/\s+/g, " ").replace(/ ([.,;:!?])/g, "$1").trim();
 
 /** Separators left at the start of a description where the title and date line were cut out ("— ", ": ", "· "). Opening quotes and brackets stay. */
+/** First letter upper case ("the museum's wells" -> "The museum's wells"); a leading digit, emoji or quote is left alone. */
+const capitalize = (s: string) => s.replace(/^\p{Ll}/u, (c) => c.toUpperCase());
 const LEAD_PUNCT = /^[\s\p{Pd}\p{Pe}\p{Pf}:;,.·•|/\\*~]+/u;
 
 export type Chunk = {
@@ -146,7 +148,7 @@ export function parseChunks(html: string): Chunk[] {
       text,
       when,
       place,
-      blurb: clean(rest).replace(LEAD_PUNCT, ""),
+      blurb: capitalize(clean(rest).replace(LEAD_PUNCT, "")),
       url,
       key: url ? normalizeUrl(url) : null,
     });

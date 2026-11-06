@@ -136,3 +136,8 @@ test("a paragraph with a link inside a sentence is not merged with the next one"
   const c = parseChunks(`<h2>News</h2><p>Read <a href="https://ex.com/a">this long story about trams</a> and weep for the commute.</p><p>And a second paragraph that stands alone here.</p>`);
   assert.equal(c.length, 2);
 });
+
+test("a description starts with an upper case letter", () => {
+  const c = parseChunks(`<h2>Events</h2><ul><li><a href="https://ex.com/a">Gatti's Music Hall</a> — the museum's deep ice wells become a music hall.</li></ul>`);
+  assert.equal(c[0].blurb, "The museum's deep ice wells become a music hall.");
+});
