@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { PollenSpinner } from "@/components/PollenSpinner";
 import type { HistoryEntry } from "@/lib/postHistory";
 
 /** Buffer's statuses that won't change again. */
@@ -147,17 +146,4 @@ export function HistoryProvider({ initial, filterQuery, children }: { initial: H
 
 function isQueuedAny(rows: HistoryEntry[]) {
   return rows.some(isQueued);
-}
-
-const HEADER_BUTTON = "inline-flex shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 disabled:opacity-60";
-
-/** "Check Buffer for updates", for the top of the page. */
-export function HistoryCheckButton() {
-  const { check, checking } = useHistory();
-  return (
-    <button type="button" onClick={check} disabled={checking} className={HEADER_BUTTON}>
-      {checking && <PollenSpinner className="size-4" />}
-      {checking ? "Checking Buffer…" : "Check Buffer for updates"}
-    </button>
-  );
 }
