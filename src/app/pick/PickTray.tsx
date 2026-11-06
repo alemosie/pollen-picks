@@ -85,7 +85,7 @@ export function PickTray({
           </button>
         </div>
         <div className={`${visible} overflow-hidden rounded-t-2xl rounded-tl-none border-[3px] border-b-0 border-blush bg-surface pt-3 shadow-lg`}>
-          <div className="max-h-[calc(100dvh-15rem)] overflow-y-auto px-3 pb-24">
+          <div className="max-h-[calc(100dvh-15rem)] overflow-y-auto px-3 pb-24 pt-1">
             {meter && (
               <p className={`mb-3 mt-0 text-sm font-semibold ${near ? "text-ink-deep" : ""}`}>
                 {meter.words} of {meter.maxWords} words. The demo holds up to {meter.maxCount} highlights.

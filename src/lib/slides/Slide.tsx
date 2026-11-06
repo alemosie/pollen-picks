@@ -199,7 +199,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
 
 const SIZES = {
   1: { title: 92, titleLines: 4, meta: 44, blurb: 32, blurbLines: 6, pad: 56, gap: 28 },
-  2: { title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, pad: 44, gap: 18 },
+  2: { title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 4, pad: 44, gap: 18 },
   3: { title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, pad: 36, gap: 12 },
   4: { title: 42, titleLines: 2, meta: 26, blurb: 22, blurbLines: 1, pad: 28, gap: 8 },
 } as const;

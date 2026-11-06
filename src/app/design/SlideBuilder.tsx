@@ -338,12 +338,13 @@ export function SlideBuilder({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="m-0 text-2xl">Slides</h2>
           <div className="flex gap-4 text-sm font-semibold">
+            {/* On wide screens this lives under "Your picks"; the picks panel is not shown on phones. */}
             <button
               type="button"
               onClick={autoFill}
-              className="underline underline-offset-4"
+              className="underline underline-offset-4 lg:hidden"
             >
-              Fill from standard layout
+              Fill all slides
             </button>
             {placed > 0 && (
               <button
@@ -709,6 +710,16 @@ export function SlideBuilder({
             );
           })}
         </ul>
+        <div className="px-5 pb-5">
+          <button
+            type="button"
+            onClick={autoFill}
+            title="Lay all your picks out on slides, the way the standard template would"
+            className="text-sm font-semibold underline underline-offset-4"
+          >
+            Fill all slides
+          </button>
+        </div>
       </aside>
 
       {selecting != null && (

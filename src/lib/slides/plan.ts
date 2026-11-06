@@ -55,7 +55,7 @@ const CONTENT_W = 1080 - 2 * 72;
 const BODY_H = 1350 - 2 * 72 - 64 - 64 - 2 * 28;
 const CARD_GAP = 28;
 const Z = {
-  2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 2, gap: 18 },
+  2: { pad: 44, title: 64, titleLines: 3, meta: 36, blurb: 30, blurbLines: 4, gap: 18 },
   3: { pad: 36, title: 50, titleLines: 2, meta: 30, blurb: 26, blurbLines: 1, gap: 12 },
 } as const;
 /** The @handle line on a card is this much smaller than the card's date line. */

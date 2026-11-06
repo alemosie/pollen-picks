@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { ArrowUpRight, Check, Palette, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   SPEC_LIMITS,
@@ -212,6 +212,17 @@ export function EditSlideModal({
     (key === "title" ? byId.get(id)?.title : byId.get(id)?.[key]) ??
     "";
 
+  const groups = ids.map((id) => value(id, "group"));
+  const mixedGroups = groups.some((g) => g !== groups[0]);
+  const sharedGroup = mixedGroups ? "" : (groups[0] ?? "");
+  /** One label for the whole slide: it becomes each pick's own category label, so it stays with the pick. */
+  const setSlideGroup = (v: string) =>
+    setDraft((d) => {
+      const edits = { ...d.edits };
+      for (const id of ids) edits[id] = { ...edits[id], group: v };
+      return { ...d, edits };
+    });
+
   const title =
     target.kind === "cover"
       ? "Edit the cover"
@@ -249,6 +260,48 @@ export function EditSlideModal({
               height={675}
               className="aspect-[4/5] w-full rounded-2xl bg-surface ring-1 ring-ink/10"
             />
+            <div role="group" aria-labelledby="bg-heading" className="grid gap-2">
+              <div className="flex items-center gap-1.5">
+                <span id="bg-heading" className="text-sm font-semibold">
+                  {target.kind === "slide" ? "Slide background" : "Background"}
+                </span>
+                <a
+                  href="/settings?section=colors"
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Edit your palette in settings"
+                  aria-label="Edit your palette in settings (opens in a new tab)"
+                  className="grid size-6 place-items-center rounded-full hover:bg-ink/10"
+                >
+                  <ArrowUpRight aria-hidden className="size-4" strokeWidth={2.5} />
+                </a>
+              </div>
+              <Swatches
+                palette={palette}
+                value={currentBg}
+                fallback={defaultBg}
+                onPick={setBg}
+                label="Background"
+                size="sm"
+              />
+            </div>
+
+            {target.kind === "slide" && ids.length > 0 && (
+              <label className="grid gap-1 text-sm font-semibold">
+                Slide category label
+                <input
+                  value={sharedGroup}
+                  maxLength={SPEC_LIMITS.group}
+                  placeholder={mixedGroups ? "Mixed" : "None"}
+                  aria-describedby="slide-group-hint"
+                  onChange={(e) => setSlideGroup(e.target.value)}
+                  className={input}
+                />
+                <span id="slide-group-hint" className="text-xs font-normal">
+                  Fills in the category label of every pick on this slide. Each pick keeps its label if you move it.
+                </span>
+              </label>
+            )}
             {target.kind === "slide" && ids.some((id) => byId.get(id)?.tag) && (
               <div>
                 <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
@@ -279,27 +332,6 @@ export function EditSlideModal({
               The header and footer are part of the template. Everything else on
               the slide is yours to change.
             </p>
-
-            <fieldset className="m-0 grid gap-2 border-0 p-0">
-              <legend className="mb-1 p-0 text-sm font-semibold">
-                {target.kind === "slide" ? "Slide background" : "Background"}
-              </legend>
-              <Swatches
-                palette={palette}
-                value={currentBg}
-                fallback={defaultBg}
-                onPick={setBg}
-                label="Background"
-              />
-              <a
-                href="/settings"
-                target="_blank"
-                rel="noreferrer"
-                className="w-fit text-sm font-semibold underline underline-offset-4"
-              >
-                Edit your palette in Settings
-              </a>
-            </fieldset>
 
             {target.kind === "cover" && (
               <>
@@ -367,7 +399,16 @@ export function EditSlideModal({
                   className={`grid gap-3 rounded-2xl p-4 transition-colors ${blends(cardColor(id, i)) ? "ring-2 ring-current" : ""}`}
                 >
                   <legend className="sr-only">Pick {i + 1}</legend>
-                  <h3 className="m-0 text-2xl">Pick {i + 1}</h3>
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="m-0 text-2xl">Pick {i + 1}</h3>
+                    <CardColor
+                      palette={palette}
+                      value={draft.edits?.[id]?.bg}
+                      fallback={i % 2 === 0 ? DEFAULT_COLORS.card : DEFAULT_COLORS.accent}
+                      onPick={(v) => setEdit(id, "bg", v)}
+                      label={`Card color for pick ${i + 1}`}
+                    />
+                  </div>
                   <label className="grid gap-1 text-sm font-semibold">
                     Title
                     <input
@@ -387,21 +428,6 @@ export function EditSlideModal({
                       className={input}
                     />
                   </label>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="text-sm font-semibold">Card color</span>
-                    <Swatches
-                      palette={palette}
-                      value={draft.edits?.[id]?.bg}
-                      fallback={
-                        i % 2 === 0
-                          ? DEFAULT_COLORS.card
-                          : DEFAULT_COLORS.accent
-                      }
-                      onPick={(v) => setEdit(id, "bg", v)}
-                      label={`Card color for pick ${i + 1}`}
-                      size="sm"
-                    />
-                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1 text-sm font-semibold">
                       Date &amp; time
@@ -505,6 +531,8 @@ export function Swatches({
   size?: "sm" | "md";
 }) {
   const dim = size === "sm" ? "size-7" : "size-9";
+  const firstMatch = palette.find((hex) => sameColor(hex, fallback));
+  const hiddenDefault = firstMatch !== undefined;
   return (
     <div
       role="group"
@@ -512,10 +540,13 @@ export function Swatches({
       className="flex flex-wrap items-center gap-2"
     >
       {[
-        { hex: "", label: "Default" },
+        // The default is only listed when no palette color is already that color (it would be a second, identical circle).
+        ...(palette.some((hex) => sameColor(hex, fallback)) ? [] : [{ hex: "", label: "Default" }]),
         ...palette.map((hex) => ({ hex, label: hex })),
       ].map((o) => {
-        const on = (value ?? "").toLowerCase() === o.hex;
+        const on = value
+          ? value.toLowerCase() === o.hex
+          : o.hex === "" || (hiddenDefault && sameColor(o.hex, fallback) && o.hex === firstMatch);
         const shown = o.hex || fallback;
         return (
           <button
@@ -528,7 +559,6 @@ export function Swatches({
             style={{ background: shown }}
             className={`grid ${dim} place-items-center rounded-full text-xs font-bold ring-1 ring-ink/20 ${on ? "outline-2 outline-offset-2 outline-current" : "hover:ring-ink/50"}`}
           >
-            {!o.hex && <span style={{ color: textOn(shown) }}>A</span>}
             {on && o.hex && (
               <Check
                 aria-hidden
@@ -540,6 +570,73 @@ export function Swatches({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+/** A card's color: one circle (its current color) that opens the palette. */
+function CardColor({
+  palette,
+  value,
+  fallback,
+  onPick,
+  label,
+}: {
+  palette: string[];
+  value?: string;
+  fallback: string;
+  onPick: (hex: string) => void;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", away);
+    return () => document.removeEventListener("pointerdown", away);
+  }, [open]);
+  const shown = value || fallback;
+  return (
+    <div
+      ref={box}
+      className="relative shrink-0"
+      onKeyDown={(e) => {
+        if (open && e.key === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label={label}
+        title="Card color"
+        style={{ background: shown }}
+        className="grid size-9 place-items-center rounded-full ring-2 ring-current hover:opacity-80"
+      >
+        <Palette aria-hidden className="size-4" strokeWidth={2.25} style={{ color: textOn(shown) }} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-10 mt-2 w-max max-w-[16rem] rounded-xl bg-page p-3 text-ink shadow-lg ring-1 ring-ink/15">
+          <Swatches
+            palette={palette}
+            value={value}
+            fallback={fallback}
+            onPick={(v) => {
+              onPick(v);
+              setOpen(false);
+            }}
+            label={label}
+            size="sm"
+          />
+        </div>
+      )}
     </div>
   );
 }
