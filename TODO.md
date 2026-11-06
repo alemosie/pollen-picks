@@ -80,7 +80,7 @@ Migrations: `0014_sent_posts.sql` and `0015_post_history.sql` (renames the table
 
 ## Captions per network (built 6 Nov; typecheck, lint and unit tests pass; not yet looked at in a browser)
 
-Three captions now: Instagram, Base (long, with the link: LinkedIn, Facebook) and Short (X, Bluesky, Threads, Mastodon: a few titles with their day, then the link). A tab shows only for a network family the account has connected (usable channels, not only the ticked ones).
+Three captions now: Instagram, Long (with the link: LinkedIn, Facebook) and Short (X, Bluesky, Threads, Mastodon: a few titles with their day, then the link). A tab shows only for a network family the account has connected (usable channels, not only the ticked ones).
 
 - [x] Limits per network (`CHAR_LIMITS` in `src/lib/caption.ts`, from Buffer's docs): Instagram 2,196, LinkedIn 3,000, Facebook 5,000, X 280 (always the free limit), Bluesky 300, Threads 500, Mastodon 500. A caption's room is the tightest limit among the connected networks that use it, so one text fits all of them. `MAX_CAPTION_CHARS` is now 2,196.
 - [x] The link is counted in full. Live counter on Write ("1,234 / 3,000 characters (the limit of LinkedIn)"), a warning over the limit, and the "won't fit, left out" note uses the right limit.
