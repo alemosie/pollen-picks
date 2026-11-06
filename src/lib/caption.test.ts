@@ -5,6 +5,21 @@ import { buildCaption, captionLeftOut, captionLength, dayLabel, effectiveIntent,
 const it = (title: string, o: Partial<CaptionItem> = {}): CaptionItem => ({ title, when: null, place: null, rank: null, date: null, ...o });
 const base = { newsletter: "Just a Phase", link: "https://jap.example/p/49" } as const;
 
+test("photo credits go in the caption: once each, only for picks that are in it, and not in the short caption", () => {
+  const items = [it("A", { rank: 1, photoCredit: "@venue" }), it("B", { rank: 2, photoCredit: "@VENUE" }), it("C", { rank: 3, photoCredit: "luma.com" }), it("D", { rank: 4 })];
+  for (const variant of ["instagram", "link"] as const) {
+    const text = buildCaption(items, { ...base, order: "clicks", variant });
+    assert.match(text, /\n📷 Photos: @venue, luma\.com\n/, variant);
+    assert.ok(text.indexOf("📷 Photos") > text.indexOf("D"), "after the list");
+  }
+  assert.ok(!buildCaption(items, { ...base, order: "clicks", variant: "short" }).includes("📷"));
+  assert.ok(!buildCaption([it("A"), it("B")], { ...base, order: "clicks", variant: "instagram" }).includes("📷"));
+  // A pick cut from a tight caption takes its credit with it.
+  const long = [it("First", { rank: 1, photoCredit: "@first" }), it("Last " + "x".repeat(300), { rank: 2, photoCredit: "@last" })];
+  const tight = buildCaption(long, { ...base, order: "clicks", variant: "instagram", limit: 230 });
+  assert.ok(tight.includes("@first") && !tight.includes("@last") && tight.includes("…and 1 more"), tight);
+});
+
 test("dayLabel", () => {
   assert.equal(dayLabel("2026-10-20"), "Tue 20 Oct");
   assert.equal(dayLabel("2027-01-01"), "Fri 1 Jan");

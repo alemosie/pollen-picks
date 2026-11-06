@@ -3,7 +3,7 @@ import { stripEmoji } from "./slides/plan";
 import type { PostIntent } from "./bufferPost";
 
 /** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
-export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string };
+export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string; /** Who to credit for the picture on this pick's slide ("@handle", a site's name). Goes in the caption, not on the slide. */ photoCredit?: string };
 export type CaptionOrder = "clicks" | "alpha" | "date";
 /** `bullet` starts every line of that ordering's caption; change them here. */
 export const CAPTION_ORDERS: { id: CaptionOrder; label: string; bullet: string; hint: string }[] = [
@@ -152,9 +152,20 @@ function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; le
     const other = all.slice(datedCount, n);
     return other.length ? `${dated}${dated ? "\n\n" : ""}Other picks:\n\n${other.join("\n")}` : dated;
   };
+  // Who to credit for the pictures on the slides (each once), for the picks that made it into the caption. Short captions have no room for it.
+  const credits = (n: number) => {
+    const seen = new Set<string>();
+    return opts.variant === "short"
+      ? []
+      : sorted
+          .slice(0, n)
+          .map((i) => (i.photoCredit ? cleanText(i.photoCredit) : ""))
+          .filter((c) => c && !seen.has(c.toLowerCase()) && !!seen.add(c.toLowerCase()));
+  };
   const build = (n: number) => {
     const more = all.length - n;
-    return [head, "", list(n) + (more > 0 ? `\n…and ${more} more` : ""), "", foot].join("\n");
+    const credited = credits(n);
+    return [head, "", list(n) + (more > 0 ? `\n…and ${more} more` : ""), "", ...(credited.length ? [`📷 Photos: ${credited.join(", ")}`, ""] : []), foot].join("\n");
   };
   // Every pick goes in while the caption fits; otherwise as many as fit, then "…and N more". At least one always stays.
   const limit = opts.limit ?? DEFAULT_LIMIT[opts.variant];
