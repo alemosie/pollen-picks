@@ -125,6 +125,8 @@ export type PlanOptions = {
   moreInNewsletter?: number;
   /** A hand-built carousel; when set, picks per slide and packing come from it. */
   spec?: CustomSpec;
+  /** The id of the issue's own preview image: the cover's background when the design doesn't choose a picture (or "None") for it. */
+  defaultCoverPhoto?: string;
   /** Keep each pick's Instagram tag on its card. On unless false: then the tags are dropped here, before packing. (A hand-built slide can also hide its own, see CustomSpec.hideTags.) */
   showTags?: boolean;
 };
@@ -139,12 +141,13 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
     if (!e) return base;
     return {
       ...base,
-      title: e.title?.trim() || base.title,
+      title: e.title !== undefined ? e.title.trim() : base.title, // emptied on purpose = no title
       when: e.when !== undefined ? e.when.trim() || null : base.when,
       place: e.place !== undefined ? e.place.trim() || null : base.place,
       blurb: e.blurb !== undefined ? e.blurb.trim() || undefined : base.blurb,
       group: e.group !== undefined ? e.group.trim() || undefined : base.group,
       bg: e.bg || undefined,
+      photoId: e.photo || undefined,
     };
   };
   const placedSlides = spec.slides
@@ -156,8 +159,21 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
     .slice(0, MAX_IMAGES - 2);
   const groups = placedSlides.map((x) => x.g);
   const count = groups.reduce((n, g) => n + g.length, 0);
+  const carouselTitle = spec.cover?.title !== undefined ? spec.cover.title.trim() : opts.heading || "This week's picks";
   return [
-    { kind: "cover", bg: spec.cover?.bg, title: spec.cover?.title?.trim() || opts.heading || "This week's picks", subtitle: spec.cover?.subtitle?.trim() || `${count} ${count === 1 ? "pick" : "picks"} from ${opts.newsletter}` },
+    // A field the user emptied on purpose stays empty (the slide is laid out without it); one never touched keeps its default.
+    {
+      kind: "cover",
+      bg: spec.cover?.bg,
+      title: carouselTitle,
+      subtitle: spec.cover?.subtitle !== undefined ? spec.cover.subtitle.trim() : `${count} ${count === 1 ? "pick" : "picks"} from ${opts.newsletter}`,
+      ...(spec.cover?.photo
+        ? { photoId: spec.cover.photo, photoMode: spec.cover.photoMode ?? "section" }
+        : opts.defaultCoverPhoto && !spec.cover?.noPhoto
+          ? { photoId: opts.defaultCoverPhoto, photoMode: "background" as const }
+          : {}),
+      ...(spec.cover?.puff ? { puff: true } : {}),
+    },
     ...groups.map((g, i): Slide => ({
       kind: "picks",
       bg: placedSlides[i].bg,
@@ -165,13 +181,14 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
       group: g.every((x) => x.group === g[0].group) ? g[0].group : undefined,
       page: i + 1,
       pages: groups.length,
+      carouselTitle,
     })),
     {
       kind: "closing",
       bg: spec.closing?.bg,
-      title: spec.closing?.title?.trim() || opts.closingTitle || "Want the full list?",
-      line: spec.closing?.line?.trim() || opts.closingLine || `Read every pick in ${opts.newsletter}`,
-      cta: spec.closing?.cta?.trim() || opts.cta,
+      title: spec.closing?.title !== undefined ? spec.closing.title.trim() : opts.closingTitle || "Want the full list?",
+      line: spec.closing?.line !== undefined ? spec.closing.line.trim() : opts.closingLine || `Read every pick in ${opts.newsletter}`,
+      cta: spec.closing?.cta !== undefined ? spec.closing.cta.trim() : opts.cta, // "" = no button
       more: opts.moreInNewsletter ?? 0,
     },
   ];
@@ -201,13 +218,19 @@ export function planSlides(raw: SlideItem[], opts: PlanOptions): Slide[] {
   groups = groups.slice(0, MAX_IMAGES - 2);
   const shown = groups.reduce((n, g) => n + g.length, 0);
   const slides: Slide[] = [
-    { kind: "cover", title: opts.heading ?? "This week's picks", subtitle: `${items.length} ${items.length === 1 ? "pick" : "picks"} from ${opts.newsletter}` },
+    {
+      kind: "cover",
+      title: opts.heading ?? "This week's picks",
+      subtitle: `${items.length} ${items.length === 1 ? "pick" : "picks"} from ${opts.newsletter}`,
+      ...(opts.defaultCoverPhoto ? { photoId: opts.defaultCoverPhoto, photoMode: "background" as const } : {}),
+    },
     ...groups.map((g, i): Slide => ({
       kind: "picks",
       items: g,
       group: g.every((x) => x.group === g[0].group) ? g[0].group : undefined,
       page: i + 1,
       pages: groups.length,
+      carouselTitle: opts.heading ?? "This week's picks",
     })),
     { kind: "closing", title: opts.closingTitle ?? "Want the full list?", line: opts.closingLine ?? `Read every pick in ${opts.newsletter}`, cta: opts.cta, more: (opts.moreInNewsletter ?? 0) + (items.length - shown) },
   ];

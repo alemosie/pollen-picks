@@ -3,7 +3,7 @@ import { BRAND_NAME, contrast, sameColor } from "@/lib/brand";
 import { MARK_SVG } from "./mark";
 import { BODY_H, CARD_GAP, CONTENT_W, TAG_SHRINK, lines, shortBlurb } from "./plan";
 import type { Slot } from "./style";
-import { SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types";
+import { PHOTO_MAX_PICKS, SLIDE_H, SLIDE_W, type Kit, type Slide, type SlideItem } from "./types";
 
 // Satori (next/og) renders this: flexbox only, inline styles, no Tailwind.
 const DISPLAY_FONT = "Madimi One";
@@ -11,6 +11,44 @@ const BODY_FONT = "DM Sans";
 // Satori only honours lineClamp on display:block elements, so the clamp sets it (spread after the element's own display).
 const clamp = (n: number) => ({ lineClamp: n, display: "block" }) as CSSProperties;
 const P = 72;
+const TEXT_W = SLIDE_W - 2 * P;
+/** The cover's picture, when it is a section (not the background), takes the room between the name and the text, up to this tall. */
+const COVER_PHOTO_MAX_H = 640;
+/** Height of the cover's corner dandelion. */
+const PUFF_H = 160;
+
+/** The largest font size from `from` down to `to` (steps of 4) at which `text` fits `height` when wrapped to the text width. Rough, like the card model. */
+const fitFont = (text: string, em: number, height: number, from: number, to: number, lh: number) => {
+  const longest = Math.max(1, ...text.split(/\s+/).map((w) => w.length));
+  for (let s = from; s > to; s -= 4) if (longest * s * em <= TEXT_W && wrapLines(text, s, em, TEXT_W) * s * lh <= height) return s;
+  return to;
+};
+
+type TextSizes = { title: number; titleLines: number; body: number; bodyLines: number };
+
+/**
+ * Sizes for a slide's title and its text. Empty ones are simply not drawn, and the other takes the room: a title alone grows to
+ * fill the slide, a text alone is as big as it can be while all of it fits (so a long one is small). With both, the title keeps its
+ * size and the text shrinks only if it would not fit below it.
+ */
+function textSizes(title: string, body: string, o: { title: number; titleMax: number; titleLh: number; body: number; bodyMax: number; bodyMin: number; room: number }): TextSizes {
+  const T = 0.62; // average character width in ems: the display font, then the body font
+  const B = 0.56;
+  const GAP = 28;
+  const lines = (text: string, size: number, em: number) => wrapLines(text, size, em, TEXT_W);
+  if (title && !body) {
+    const s = fitFont(title, T, o.room, o.titleMax, o.title, o.titleLh);
+    return { title: s, titleLines: lines(title, s, T) + 1, body: o.body, bodyLines: 1 };
+  }
+  if (!title && body) {
+    const s = fitFont(body, B, o.room, o.bodyMax, o.bodyMin, 1.3);
+    return { title: o.title, titleLines: 1, body: s, bodyLines: Math.max(1, Math.floor(o.room / (s * 1.3))) };
+  }
+  const t = fitFont(title, T, o.room * 0.6, o.title, 64, o.titleLh);
+  const left = Math.max(o.room - Math.min(4, lines(title, t, T)) * t * o.titleLh - GAP, o.bodyMin * 1.3);
+  const s = body ? fitFont(body, B, left, o.body, o.bodyMin, 1.3) : o.body;
+  return { title: t, titleLines: 4, body: s, bodyLines: Math.max(1, Math.floor(left / (s * 1.3))) };
+}
 
 function Brand({ kit, size, logo, fontSize, stacked, color }: { kit: Kit; size: number; logo?: string; fontSize: number; stacked?: boolean; color?: string }) {
   if (stacked && kit.nameLines) {
@@ -60,8 +98,8 @@ function CornerSlot({ kind, kit, logoSize, fontSize, color, maxWidth, lines = 1 
   const id = kit.identity;
   const empty = <div style={{ display: "flex" }} />;
   if (!id || kind === "none") return empty;
-  if (kind === "title" || kind === "date") {
-    const text = kind === "title" ? id.title : id.date;
+  if (kind === "title" || kind === "carousel" || kind === "date") {
+    const text = kind === "title" ? id.title : kind === "carousel" ? id.carouselTitle : id.date;
     return text ? (
       <div style={{ display: "flex", maxWidth, fontSize, fontWeight: 700, color }}>
         <div style={{ lineHeight: 1.1, ...clamp(lines) }}>{text}</div>
@@ -97,30 +135,64 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   // A custom background recolors the slide itself; text on it flips between ink and cream. Cards keep their own ink text.
   const custom = slide.bg ? slide.bg : undefined;
   const fg = custom ? textOn(custom, baseKit.colors.text) : undefined;
-  const kit: Kit = custom ? { ...baseKit, onBackground: fg, nameOnBackground: fg } : baseKit;
+  const styled: Kit = custom ? { ...baseKit, onBackground: fg, nameOnBackground: fg } : baseKit;
+  // The "Carousel title" corner shows the cover's title, which only the plan knows.
+  const kit: Kit = slide.kind === "picks" && styled.identity ? { ...styled, identity: { ...styled.identity, carouselTitle: slide.carouselTitle ?? "" } } : styled;
   const c = kit.colors;
   const DISPLAY = kit.fonts?.display ?? DISPLAY_FONT;
   const DW = kit.fonts ? 700 : 400;
   const base: CSSProperties = { width: SLIDE_W, height: SLIDE_H, display: "flex", flexDirection: "column", fontFamily: kit.fonts?.body ?? BODY_FONT, color: c.text };
   if (slide.kind === "cover") {
+    const bgPhoto = slide.photo && slide.photoMode === "background" ? slide.photo : undefined;
+    const boxPhoto = slide.photo && slide.photoMode !== "background" ? slide.photo : undefined;
+    // On a picture the text is always light, over a darkening layer, whatever the slide color would have chosen.
+    const ink = bgPhoto ? CREAM : (fg ?? c.text);
+    const coverKit: Kit = bgPhoto ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
+    // The corner dandelion hangs below the top margin; the picture starts below it rather than under it.
+    const brandH = kit.logoOnAccent ?? kit.logo ? 150 : kit.nameLines ? 124 : 42;
+    const puffClear = slide.puff && boxPhoto ? Math.max(0, P + PUFF_H + 28 - (P + brandH + 48)) : 0;
+    const sz = textSizes(slide.title, slide.subtitle, { title: kit.coverTitleSize ?? 168, titleMax: 300, titleLh: 1, body: 44, bodyMax: 72, bodyMin: 28, room: boxPhoto ? 360 : 780 });
     return (
-      <div style={{ ...base, background: custom ?? c.accent, color: fg ?? c.text, padding: P, justifyContent: "space-between", position: "relative" }}>
-        <Brand kit={kit} size={150} logo={kit.logoOnAccent ?? kit.logo} fontSize={kit.nameLines ? 56 : 34} stacked />
-        <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-          <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: DW, fontSize: kit.coverTitleSize ?? 168, lineHeight: 1, ...clamp(4) }}>{slide.title}</div>
-          <div style={{ display: "flex", fontSize: 44, fontWeight: 500 }}>{slide.subtitle}</div>
-        </div>
+      <div style={{ ...base, background: custom ?? c.accent, color: ink, position: "relative" }}>
+        {bgPhoto && (
+          <>
+            {/* An <img> with object-fit: the renderer does not honor background-size: cover (the picture tiles instead). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bgPhoto} width={SLIDE_W} height={SLIDE_H} alt="" style={{ position: "absolute", top: 0, left: 0, objectFit: "cover" }} />
+            <div style={{ position: "absolute", top: 0, left: 0, width: SLIDE_W, height: SLIDE_H, display: "flex", backgroundImage: "linear-gradient(rgba(20,28,25,0.38), rgba(20,28,25,0.66))" }} />
+          </>
+        )}
+        {slide.puff && (
+          // A static dandelion, half faded, in the corner opposite the name: the mark the "Created with" credit uses, in the text color.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={`data:image/svg+xml;base64,${Buffer.from(MARK_SVG.replaceAll("__FILL__", ink)).toString("base64")}`} width={Math.round((PUFF_H * 404) / 608)} height={PUFF_H} alt="" style={{ position: "absolute", top: P, right: P, opacity: 0.5 }} />
+        )}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: P, width: SLIDE_W, height: SLIDE_H, ...(boxPhoto ? { gap: 48 } : {}) }}>
+        <Brand kit={coverKit} size={150} logo={kit.logoOnAccent ?? kit.logo} fontSize={kit.nameLines ? 56 : 34} stacked />
+        {boxPhoto && (
+          <div style={{ display: "flex", flex: 1, minHeight: 280, maxHeight: COVER_PHOTO_MAX_H, borderRadius: 44, overflow: "hidden", marginTop: puffClear }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={boxPhoto} width="100%" height="100%" alt="" style={{ objectFit: "cover" }} />
+          </div>
+        )}
+        {(slide.title || slide.subtitle) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            {slide.title && <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: DW, fontSize: sz.title, lineHeight: 1, ...clamp(sz.titleLines) }}>{slide.title}</div>}
+            {slide.subtitle && <div style={{ display: "flex", fontSize: sz.body, fontWeight: 500, lineHeight: 1.3, ...clamp(sz.bodyLines) }}>{slide.subtitle}</div>}
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14, fontSize: 34, fontWeight: 700 }}>
             Swipe
             <svg width="56" height="28" viewBox="0 0 56 28">
-              <path d="M3 14h48M38 3l13 11-13 11" stroke={fg ?? c.text} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+              <path d="M3 14h48M38 3l13 11-13 11" stroke={ink} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
           </div>
-          {slide.images?.length ? <CoverImages images={slide.images} /> : <Credit kit={kit} color={fg} />}
+          {slide.images?.length ? <CoverImages images={slide.images} /> : <Credit kit={kit} color={ink} />}
         </div>
-        {slide.images?.length ? <Credit kit={kit} color={fg} /> : null}
+        {slide.images?.length ? <Credit kit={kit} color={ink} /> : null}
+        </div>
         </div>
       </div>
     );
@@ -128,6 +200,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   if (slide.kind === "closing") {
     const dark = !!slide.dark;
     const fgClosing = custom ? fg! : dark ? (kit.onBackground ?? c.text) : c.text;
+    const csz = textSizes(slide.title, slide.line, { title: 132, titleMax: 240, titleLh: 1.02, body: 46, bodyMax: 72, bodyMin: 30, room: 700 - (slide.more > 0 ? 90 : 0) - (slide.link ? 70 : 0) });
     return (
       <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: fgClosing, padding: P, justifyContent: "space-between" }}>
         <Brand kit={kit} size={140} logo={dark ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={dark ? kit.nameOnBackground : undefined} />
@@ -137,15 +210,19 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
               +{slide.more} more
             </div>
           )}
-          <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: DW, fontSize: 132, lineHeight: 1.02, ...clamp(3) }}>{slide.title}</div>
-          <div style={{ display: "flex", fontSize: 46, fontWeight: 500, ...clamp(3) }}>{slide.line}</div>
+          {slide.title && <div style={{ display: "flex", fontFamily: DISPLAY, fontWeight: DW, fontSize: csz.title, lineHeight: 1.02, ...clamp(Math.max(3, csz.titleLines)) }}>{slide.title}</div>}
+          {slide.line && <div style={{ display: "flex", fontSize: csz.body, fontWeight: 500, lineHeight: 1.3, ...clamp(Math.max(3, csz.bodyLines)) }}>{slide.line}</div>}
           {slide.link && <div style={{ display: "flex", fontSize: 46, fontWeight: 700, color: c.accent }}>{slide.link}</div>}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: dark && !custom ? c.accent : fgClosing, color: dark && !custom ? c.background : (custom ?? c.card), borderRadius: 999, padding: "16px 36px" }}>
-            {slide.cta ?? "Subscribe · link in bio"}
-          </div>
+          {slide.cta !== "" ? (
+            <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: dark && !custom ? c.accent : fgClosing, color: dark && !custom ? c.background : (custom ?? c.card), borderRadius: 999, padding: "16px 36px" }}>
+              {slide.cta ?? "Subscribe · link in bio"}
+            </div>
+          ) : (
+            <div style={{ display: "flex" }} />
+          )}
           {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : <Credit kit={kit} color={fg} />}
         </div>
         {slide.images?.length ? <Credit kit={kit} color={fg} /> : null}
@@ -234,25 +311,33 @@ const TITLE_MAX = { 1: 300, 2: 190, 3: 110, 4: 84 } as const;
 
 const LOGO_H = { 1: 100, 2: 72, 3: 56, 4: 44 } as const;
 
+/** Height of the picture banner at the top of a card (only slides with 1 or 2 picks have room for one). */
+const PHOTO_H = { 1: 320, 2: 120 } as const;
+
 /** A card the same color as its slide would vanish; swap it for the kit background (or, if that is the slide color, the other card tone). */
 const cardTone = (tone: string, bg: string | undefined, fallback: string) => (bg && tone.toLowerCase() === bg.toLowerCase() ? (fallback.toLowerCase() === bg.toLowerCase() ? "#fffaf3" : fallback) : tone);
 
 function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; display: string; dw: number; text: string; outline?: boolean }) {
   const z = SIZES[n as 1 | 2 | 3 | 4];
+  const photoH = item.photo && n <= PHOTO_MAX_PICKS ? PHOTO_H[n as 1 | 2] : 0;
   // The description gets whatever height is left after everything else on the card (chip, title, date line, @handle), so the
   // @handle and the date line are never squeezed or pushed over the text. A rough model, like the one that packs picks onto slides.
   const blurbLines = (() => {
     if (!item.blurb) return 0;
     const width = CONTENT_W - 2 * z.pad;
     const meta = [item.when, item.place].filter(Boolean).join(" · ");
-    let fixed = 2 * z.pad + Math.min(z.titleLines, lines(item.title, z.title, 0.6, width)) * z.title * 1.08;
-    let parts = 2; // the title and the description
+    let fixed = 2 * z.pad + (item.title ? Math.min(z.titleLines, lines(item.title, z.title, 0.6, width)) * z.title * 1.08 : 0);
+    let parts = item.title ? 2 : 1; // the title (when there is one) and the description
     if (showGroup && item.group) {
       fixed += (z.meta - 8) * 1.2 + 8;
       parts++;
     }
     if (item.logo) {
       fixed += LOGO_H[n as 1 | 2 | 3 | 4];
+      parts++;
+    }
+    if (photoH) {
+      fixed += photoH;
       parts++;
     }
     if (meta) {
@@ -266,12 +351,13 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
     const room = (BODY_H - (n - 1) * CARD_GAP) / n - fixed - (parts - 1) * z.gap + 8; // 8: the bottom padding can give a little
     // With one or two picks per slide the description may use every line that is left; with more, a short one-liner is the design.
     const fits = Math.floor(room / (z.blurb * 1.35));
-    return Math.max(0, n <= 2 ? fits : Math.min(z.blurbLines, fits));
+    // Without a title the description is the card: it may use every line that is left, however many picks share the slide.
+    return Math.max(0, n <= 2 || !item.title ? fits : Math.min(z.blurbLines, fits));
   })();
   // No description: the title takes the room it would have had, as large as it fits (same rough model as above: lines from the character
   // count, and no single word wider than the card).
   const title = (() => {
-    if (item.blurb) return { size: z.title, lines: z.titleLines };
+    if (item.blurb || !item.title) return { size: z.title, lines: z.titleLines };
     const width = CONTENT_W - 2 * z.pad;
     const meta = [item.when, item.place].filter(Boolean).join(" · ");
     let other = 0;
@@ -282,6 +368,10 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
     }
     if (item.logo) {
       other += LOGO_H[n as 1 | 2 | 3 | 4];
+      parts++;
+    }
+    if (photoH) {
+      other += photoH;
       parts++;
     }
     if (meta) {
@@ -302,6 +392,10 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
   })();
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, background: tone, color: text, borderRadius: 44, padding: outline ? z.pad - 4 : z.pad, gap: z.gap, justifyContent: "center", overflow: "hidden", ...(outline ? { border: `4px solid ${text}` } : {}) }}>
+      {photoH > 0 && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.photo} width={CONTENT_W - 2 * z.pad} height={photoH} alt="" style={{ borderRadius: 28, objectFit: "cover", flexShrink: 0 }} />
+      )}
       {showGroup && item.group && (
         <div style={{ display: "flex", alignSelf: "flex-start", background: chip, borderRadius: 999, padding: "4px 20px", fontSize: z.meta - 8, fontWeight: 700 }}>{item.group}</div>
       )}
@@ -318,11 +412,11 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
           )}
         </div>
       )}
-      <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: title.size, lineHeight: 1.08, flexShrink: 0, ...clamp(title.lines) }}>{item.title}</div>
+      {item.title && <div style={{ display: "flex", fontFamily: display, fontWeight: dw, fontSize: title.size, lineHeight: 1.08, flexShrink: 0, ...clamp(title.lines) }}>{item.title}</div>}
       {(item.when || item.place) && (
         <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, flexShrink: 0, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
-      {blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(blurbLines) }}>{n >= 3 ? shortBlurb(item.blurb) : item.blurb}</div>}
+      {blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(blurbLines) }}>{n >= 3 && item.title ? shortBlurb(item.blurb) : item.blurb}</div>}
       {item.tag && <div style={{ display: "flex", fontSize: z.meta - TAG_SHRINK, fontWeight: 700, flexShrink: 0, ...clamp(1) }}>{`@${item.tag}`}</div>}
     </div>
   );

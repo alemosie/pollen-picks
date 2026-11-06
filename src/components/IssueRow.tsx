@@ -1,32 +1,16 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { BeehiivMark } from "./BeehiivLogo";
+import { STOCK_IMAGES } from "@/lib/slides/stock";
 import { sized } from "@/lib/cdn";
 
-/** A post's preview image, or a quiet placeholder when it has none or fails to load. */
-function Thumb({ url, puff = false }: { url?: string | null; puff?: boolean }) {
+/** A post's preview image, or the standard placeholder (plain gray with the Pollen Picks mark) when it has none or fails to load. */
+function Thumb({ url }: { url?: string | null }) {
   const [failed, setFailed] = useState(false);
-  if ((!url || failed) && puff) {
-    return (
-      <span aria-hidden className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-honey/40">
-        {[
-          ["12%", "20%", 12, "#f6bd60"],
-          ["46%", "58%", 9, "#f28482"],
-          ["70%", "18%", 7, "#f5cac3"],
-          ["78%", "64%", 11, "#f6bd60"],
-          ["24%", "70%", 6, "#fff8ee"],
-        ].map(([l, t, d, c], i) => (
-          <span key={i} className="absolute rounded-full" style={{ left: l as string, top: t as string, width: d as number, height: d as number, background: c as string }} />
-        ))}
-      </span>
-    );
-  }
   if (!url || failed) {
     return (
-      <span aria-hidden className="grid h-14 w-20 shrink-0 place-items-center rounded-lg bg-ink/5">
-        <BeehiivMark className="h-5 w-auto text-ink/30" />
-      </span>
+      // eslint-disable-next-line @next/next/no-img-element
+      <img aria-hidden src={STOCK_IMAGES[0].src} alt="" width={80} height={56} className="h-14 w-20 shrink-0 rounded-lg object-cover" />
     );
   }
   return (
@@ -47,7 +31,6 @@ export function IssueRow({
   checked = true,
   onChange,
   value,
-  puff = false,
 }: {
   title: string;
   detail: ReactNode;
@@ -56,15 +39,13 @@ export function IssueRow({
   checked?: boolean;
   onChange?: () => void;
   value?: string;
-  /** Without an image, show a few grains of pollen instead of the beehiiv mark (for a post that is not from beehiiv). */
-  puff?: boolean;
 }) {
   return (
     <label
       className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl bg-surface px-3 py-3 ring-1 ring-ink/10 outline-offset-2 sm:px-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink ${checked ? "shadow-[0_0_0_3px_var(--color-ink)]" : "hover:ring-ink/40"}`}
     >
       <input type="radio" name="post" value={value} checked={checked} onChange={onChange ?? (() => {})} readOnly={!onChange} className="size-4 shrink-0 accent-ink" />
-      <Thumb url={image} puff={puff} />
+      <Thumb url={image} />
       <span className="min-w-0 flex-1">
         <span className="block truncate font-semibold">{title}</span>
         <span className="flex items-center gap-2 text-sm">

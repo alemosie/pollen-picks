@@ -129,7 +129,6 @@ export function DemoSourcePicker({ demoIssue }: { demoIssue: DemoIssue }) {
           <div className="mt-4">
             <IssueRow
               value="pasted"
-              puff
               title={post.title}
               image={post.image}
               detail={[post.site || hostOf(post.url), post.author, post.publishedAt ? date(post.publishedAt) : null].filter(Boolean).join(" · ")}

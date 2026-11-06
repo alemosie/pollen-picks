@@ -174,7 +174,6 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
           <div className="mt-4">
             <IssueRow
               value="pasted"
-              puff
               title={post.title}
               image={post.image}
               detail={[post.site || hostOf(post.url), post.author, post.publishedAt ? fmtDate(post.publishedAt) : null].filter(Boolean).join(" · ")}

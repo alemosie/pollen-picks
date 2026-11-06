@@ -1,3 +1,6 @@
+import { isImageId } from "@/lib/pollen/imageIds";
+import { PHOTO_MAX_PICKS } from "./types";
+
 /** Template choices from the Design step. Empty object = the standard template. They travel as URL params. */
 export type TemplateOptions = {
   /** Picks per slide; omitted = automatic (fewer picks get more room). */
@@ -21,6 +24,10 @@ export type PickEdit = {
   /** Category label shown as a pill on the card (and in the header when a whole slide shares it). An empty string removes it. */
   group?: string;
   /** Card color, e.g. "#f6bd60". */ bg?: string;
+  /** A picture from the issue (an IssueImage id) shown on the card. An empty string means none. */
+  photo?: string;
+  /** Who to credit for that picture ("@handle", a site's name), drawn as a small label on it. Empty = no credit. */
+  photoCredit?: string;
 };
 
 /** A hand-built carousel. Slides hold chunk ids (1-4 each); the cover and closing slide come from `cover` / `closing`. */
@@ -29,6 +36,14 @@ export type CustomSpec = {
     title?: string;
     subtitle?: string;
     /** Background hex, e.g. "#f6bd60". */ bg?: string;
+    /** A picture from the issue (an IssueImage id). */
+    photo?: string;
+    /** Where the picture goes. Missing = "section". */
+    photoMode?: "section" | "background";
+    /** "None" was chosen on purpose: no picture, not even the issue's own preview image that the cover uses when nothing is chosen. */
+    noPhoto?: boolean;
+    /** A faded dandelion in the top right corner. */
+    puff?: boolean;
   };
   closing?: { title?: string; line?: string; cta?: string; bg?: string };
   slides: number[][];
@@ -39,6 +54,16 @@ export type CustomSpec = {
   edits?: Record<number, PickEdit>;
 };
 
+/**
+ * The picks' edits as the caption should see them: a picture (and so its credit) only counts where it is drawn, which is on a slide with
+ * at most PHOTO_MAX_PICKS picks. A pick left on a fuller slide, or on no slide, keeps its other edits but loses photo and credit.
+ */
+export function pickEditsFor(spec: CustomSpec | undefined): Record<number, PickEdit> | undefined {
+  if (!spec?.edits) return undefined;
+  const roomy = new Set(spec.slides.filter((g) => g.length <= PHOTO_MAX_PICKS).flat());
+  return Object.fromEntries(Object.entries(spec.edits).map(([id, e]) => [id, roomy.has(Number(id)) ? e : { ...e, photo: undefined, photoCredit: undefined }]));
+}
+
 export const MAX_PER_SLIDE = 4;
 export const MAX_CUSTOM_SLIDES = 18;
 export const SPEC_LIMITS = {
@@ -47,8 +72,9 @@ export const SPEC_LIMITS = {
   place: 60,
   blurb: 700,
   group: 40,
+  photoCredit: 60,
   coverTitle: 60,
-  coverSubtitle: 80,
+  coverSubtitle: 400,
   closingTitle: 60,
   closingLine: 100,
   cta: 40,
@@ -86,6 +112,10 @@ export function encodeSpec(spec: CustomSpec): string {
       t: spec.cover.title,
       s: spec.cover.subtitle,
       g: hex6(spec.cover.bg),
+      p: spec.cover.photo || undefined,
+      m: spec.cover.photo && spec.cover.photoMode === "background" ? "b" : undefined,
+      d: spec.cover.puff ? 1 : undefined,
+      n: spec.cover.noPhoto && !spec.cover.photo ? 1 : undefined,
     },
     x: spec.closing && {
       t: spec.closing.title,
@@ -103,7 +133,7 @@ export function encodeSpec(spec: CustomSpec): string {
       Object.fromEntries(
         Object.entries(spec.edits).map(([id, e]) => [
           id,
-          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg) },
+          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg), o: e.photo || undefined, r: e.photo ? e.photoCredit || undefined : undefined },
         ]),
       ),
   };
@@ -146,6 +176,8 @@ export function decodeSpec(
         blurb: str(e.b, SPEC_LIMITS.blurb),
         group: str(e.c, SPEC_LIMITS.group),
         bg: withHash(e.g),
+        photo: isImageId(e.o) ? e.o : undefined,
+        photoCredit: isImageId(e.o) ? str(e.r, SPEC_LIMITS.photoCredit) : undefined,
       };
       (Object.keys(edit) as (keyof PickEdit)[]).forEach(
         (k) => edit[k] === undefined && delete edit[k],
@@ -158,6 +190,10 @@ export function decodeSpec(
             title: str(w.c.t, SPEC_LIMITS.coverTitle),
             subtitle: str(w.c.s, SPEC_LIMITS.coverSubtitle),
             bg: withHash(w.c.g),
+            // Only an id from the issue is accepted, never an address.
+            ...(isImageId(w.c.p) ? { photo: w.c.p, photoMode: w.c.m === "b" ? ("background" as const) : ("section" as const) } : {}),
+            ...(w.c.d === 1 ? { puff: true } : {}),
+            ...(w.c.n === 1 && !isImageId(w.c.p) ? { noPhoto: true } : {}),
           }
         : undefined,
       closing: w.x
