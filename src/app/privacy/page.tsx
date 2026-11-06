@@ -8,7 +8,7 @@ export const metadata = { title: "Privacy · Pollen Picks" };
 
 // Keep this in step with what the app really stores. When a new connection or data store lands (beehiiv API key,
 // brand logo uploads, ...), add its line to the matching section below and bump UPDATED.
-const UPDATED = "4 November 2026";
+const UPDATED = "6 November 2026";
 
 type Section = { id: string; title: string; body: ReactNode };
 
@@ -31,7 +31,12 @@ const sections: Section[] = [
             caption or the posts.
           </li>
           <li>
-            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. The slide images are never stored.
+            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. The slide images themselves are never stored: they are drawn from your design each time Buffer or your screen asks for them.
+          </li>
+          <li>
+            Links to pictures you add for your slides, only if you add any: just the web address, never a copy of the picture. Only you can use
+            them. You can keep 50, and remove any at any time in Settings &gt; Photos. Deleting your account removes them all. The picture itself stays on the
+            site it came from and is fetched when a slide is drawn, as are the pictures Pollen Picks finds in your issue or on the pages your picks link to.
           </li>
         </ul>
         <p>If you connect your newsletter, Pollen Picks also stores:</p>
