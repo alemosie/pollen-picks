@@ -13,7 +13,7 @@ import { captionItemsFor } from "@/lib/slides/items";
 import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
 import { WriteView } from "@/app/write/WriteView";
 
-export const metadata = { title: "Demo: write · Pollen Picks" };
+export const metadata = { title: "Demo: Write · Pollen Picks" };
 
 export default function DemoWrite(props: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

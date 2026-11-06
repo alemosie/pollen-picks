@@ -12,7 +12,7 @@ import { slideItemsFor } from "@/lib/slides/items";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { TemplateEditor } from "@/app/design/TemplateEditor";
 
-export const metadata = { title: "Demo: design · Pollen Picks" };
+export const metadata = { title: "Demo: Design · Pollen Picks" };
 
 export default function DemoDesign(props: PageProps<"/demo/design">) {
   return (

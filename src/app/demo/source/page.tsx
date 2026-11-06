@@ -7,7 +7,7 @@ import { stepUrl } from "@/lib/flow";
 import { PublicSourceBody, SourceLogos } from "@/components/PublicSource";
 import { DemoSourcePicker } from "./DemoSourcePicker";
 
-export const metadata = { title: "Demo: choose a source · Pollen Picks" };
+export const metadata = { title: "Demo: Choose a source · Pollen Picks" };
 
 type Source = { id: string; title: string; tag: string; logos: ReactNode; body: ReactNode; tone: string; href?: string; link?: boolean };
 

@@ -15,7 +15,7 @@ import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/
 import { planSlides } from "@/lib/slides/plan";
 import { SendConfirm } from "@/app/send/SendConfirm";
 
-export const metadata = { title: "Demo: send · Pollen Picks" };
+export const metadata = { title: "Demo: Send · Pollen Picks" };
 
 export default function DemoSend(props: PageProps<"/demo/send">) {
   return (
