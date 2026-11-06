@@ -24,13 +24,13 @@ export function SavedFlash() {
     return () => clearTimeout(t);
   }, [show, n]);
 
+  // The chip always takes its full width, just invisible until something is saved, so showing it never pushes its neighbours around.
   return (
     <span role="status" aria-live="polite" className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-3.5 py-1.5 text-sm font-bold text-cream transition-opacity duration-300 ${show ? "opacity-100" : "opacity-0"}`}>
-      {show && (
-        <>
-          <Check aria-hidden className="size-4" strokeWidth={3} /> Saved!
-        </>
-      )}
+      <span className="sr-only">{show ? "Saved!" : ""}</span>
+      <span aria-hidden className="inline-flex items-center gap-1.5">
+        <Check className="size-4" strokeWidth={3} /> Saved!
+      </span>
     </span>
   );
 }
