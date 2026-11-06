@@ -93,7 +93,7 @@ export function FeedbackForm() {
         <h2 className="mb-3 text-3xl">Thanks for your feedback!</h2>
         <p className="mb-4 text-lg leading-relaxed">
           Every visitor and bit of feedback is super important to us. It&rsquo;s how we can iterate and put our best foot
-          forward when we submit this project for Buffer Commit (a chance at up to $25,000 to be used for nonprofit
+          forward when we submit this project for Buffer Commit (a chance at up to $25,600 to be used for nonprofit
           funding!) on 13 Nov ❤️
         </p>
         <p className="mb-6 leading-relaxed">

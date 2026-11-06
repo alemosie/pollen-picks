@@ -94,7 +94,7 @@ export default function Home() {
         >
           leave feedback
         </Link>{" "}
-        to help our self-funded nonprofit win up to $25,000!
+        to help our self-funded nonprofit win up to $25,600!
       </div>
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <Logo height={56} />

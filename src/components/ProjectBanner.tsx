@@ -21,7 +21,7 @@ function Strip() {
       >
         Leave feedback
       </Link>{" "}
-      to help our self-funded nonprofit win up to $25,000!
+      to help our self-funded nonprofit win up to $25,600!
     </div>
   );
 }
