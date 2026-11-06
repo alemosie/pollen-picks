@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Highlighter, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isDemo } from "@/lib/flow";
 import {
   CUSTOM_BASE,
@@ -89,13 +89,14 @@ export function ManualPane({
     q.addEventListener("change", set);
     return () => q.removeEventListener("change", set);
   }, []);
-  // Desktop Safari doesn't show the Pick button for highlighted text (Chrome and Firefox do), so there the + buttons are the way to pick.
-  const safari = useSyncExternalStore(
-    () => () => {},
-    () => !touch && /Safari\//.test(navigator.userAgent) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Firefox/.test(navigator.userAgent),
-    () => false,
-  );
   const cleanup = useRef<() => void>(() => {});
+  // The document the selection listeners are on. The frame's document can be replaced (or its load event missed) without a new onLoad
+  // reaching `attach`, and then highlights would do nothing until a refresh. So the frame is checked again whenever the pointer enters it.
+  const attachedTo = useRef<Document | null>(null);
+  const ensureAttached = () => {
+    const doc = frame.current?.contentDocument;
+    if (doc?.body && doc.readyState === "complete" && attachedTo.current !== doc) attach();
+  };
   const [blocks, setBlocks] = useState<Block[]>([]);
   const picked = new Set(highlights.map((h) => flat(h.text)));
   const hasSel = sel !== null;
@@ -159,6 +160,12 @@ export function ManualPane({
     };
   }, [mode, demo]);
   useEffect(() => () => cleanup.current(), []);
+  useEffect(() => {
+    if (html === null) return;
+    const t = window.setTimeout(ensureAttached, 400);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [html]);
 
   // The iframe is same-origin but has no scripts, so this page reads its selection and sizes it from outside.
   function attach() {
@@ -166,6 +173,7 @@ export function ManualPane({
     const el = frame.current;
     const doc = el?.contentDocument;
     if (!el || !doc?.body) return;
+    attachedTo.current = doc;
     // The page's own styles can make elements as tall as the frame (min-height: 100vh, and the like), and that includes stylesheets we
     // can't rewrite. Measured at the frame's current size, such a page is always a little taller than the frame, so the frame grows
     // after every measurement, without end. So it is measured at a small size, where only the real content is taller, and the frame
@@ -258,7 +266,25 @@ export function ManualPane({
       doc.addEventListener(t, later);
     doc.addEventListener("selectionchange", later);
     doc.addEventListener("click", noLinks);
+    // WebKit (Safari, and every browser on an iPhone) does not run listeners from this page on a frame that is sandboxed without scripts,
+    // so the events above never arrive there. Reading the selection from here still works, so it is also checked a few times a second,
+    // and `check` runs whenever it has changed.
+    let seen = "";
+    const poll = window.setInterval(() => {
+      const s = doc.getSelection();
+      const key = s && !s.isCollapsed && s.rangeCount > 0 ? `${s.anchorOffset}:${s.focusOffset}:${s.toString()}` : "";
+      if (key === seen) return;
+      seen = key;
+      check();
+    }, 200);
+    // A link tapped in the frame must not open inside it. The sandbox gives it no window to open in, so a link with a target goes nowhere.
+    // (The click listener above does the same, but not in WebKit.)
+    const base = doc.createElement("base");
+    base.target = "_blank";
+    doc.head?.prepend(base);
     cleanup.current = () => {
+      window.clearInterval(poll);
+      base.remove();
       ro?.disconnect();
       for (const t of ["mouseup", "keyup", "touchend"])
         doc.removeEventListener(t, later);
@@ -373,28 +399,23 @@ export function ManualPane({
             </>
           ) : (
             <>
-              {!safari && (
-                <li className="flex items-start gap-2.5">
-                  <Highlighter aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
-                  <span>
-                    Select any text in the issue below, then press <strong>Pick</strong>.
-                  </span>
-                </li>
-              )}
+              <li className="flex items-start gap-2.5">
+                <Highlighter aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
+                <span>
+                  Select any text in the issue below, then press <strong>Pick</strong>.
+                </span>
+              </li>
               <li className="flex items-start gap-2.5">
                 <Plus aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.25} />
                 <span>
-                  {safari ? "Press " : "Or press "}
+                  Or press 
                   <strong>+</strong> beside a paragraph or heading to pick all of it, and again to take it back.
                 </span>
               </li>
             </>
           )}
         </ul>
-        <p className="mb-0 mt-2 text-sm italic">
-          Links aren&rsquo;t clickable here.
-          {safari && " Switch to Chrome or Firefox to pick with highlights."}
-        </p>
+        <p className="mb-0 mt-2 text-sm italic">Links aren&rsquo;t clickable here.</p>
       </div>
 
       {note && (
@@ -422,6 +443,7 @@ export function ManualPane({
             sandbox="allow-same-origin"
             srcDoc={html}
             onLoad={attach}
+            onPointerEnter={ensureAttached}
             style={{ height }}
             className="block w-full rounded-xl bg-white ring-1 ring-ink/10"
           />
