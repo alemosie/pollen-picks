@@ -14,7 +14,7 @@ import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
 import { currentStyleVersion } from "@/lib/slideStyleStore";
-import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams, pickEditsFor } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import { SendConfirm } from "./SendConfirm";
 
@@ -81,6 +81,7 @@ async function SendContent({
         }}
       />
       <SendConfirm
+        key={`${mode}|${issue.url}|${q}|${extra}`}
         urls={slides.map(
           (_, i) =>
             `/api/slide/preview?picks=${q}&n=${i}${extra ? `&${extra}` : ""}${previewMode(mode)}`,
@@ -96,7 +97,7 @@ async function SendContent({
             ? tpl.spec.slides.flat().filter((id) => ids.includes(id))
             : ids,
           issue.publishedAt.slice(0, 10),
-          tpl.spec?.edits,
+          pickEditsFor(tpl.spec),
           known,
         )}
         newsletter={issue.newsletter}

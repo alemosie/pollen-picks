@@ -14,7 +14,7 @@ import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor } from "@/lib/slides/items";
 import { currentStyleVersion } from "@/lib/slideStyleStore";
-import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams, pickEditsFor } from "@/lib/slides/options";
 import { WriteView } from "./WriteView";
 
 export const metadata = { title: "Write · Pollen Picks" };
@@ -76,6 +76,7 @@ async function WriteContent({
         }}
       />
       <WriteView
+        key={`${mode}|${issue.url}|${q}|${extra}`}
         channels={channels}
         picks={ids}
         template={extra}
@@ -86,7 +87,7 @@ async function WriteContent({
             ? tpl.spec.slides.flat().filter((id) => ids.includes(id))
             : ids,
           issue.publishedAt.slice(0, 10),
-          tpl.spec?.edits,
+          pickEditsFor(tpl.spec),
           known,
         )}
         newsletter={issue.newsletter}

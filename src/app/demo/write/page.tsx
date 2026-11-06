@@ -10,7 +10,7 @@ import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor } from "@/lib/slides/items";
-import { coverTitle, parseTemplateFromPage, templateParams } from "@/lib/slides/options";
+import { coverTitle, parseTemplateFromPage, templateParams, pickEditsFor } from "@/lib/slides/options";
 import { WriteView } from "@/app/write/WriteView";
 
 export const metadata = { title: "Demo: Write · Pollen Picks" };
@@ -67,7 +67,7 @@ async function DemoWriteContent({
           issue.chunks,
           tpl.spec ? tpl.spec.slides.flat().filter((id) => ids.includes(id)) : ids,
           issue.publishedAt.slice(0, 10),
-          tpl.spec?.edits,
+          pickEditsFor(tpl.spec),
           known,
         )}
         newsletter={issue.newsletter}
