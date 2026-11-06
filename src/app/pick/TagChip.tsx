@@ -1,4 +1,8 @@
+"use client";
+
+import { useRef, useState } from "react";
 import { ChannelIcon } from "@/components/ChannelIcon";
+import { useDismiss } from "@/components/useDismiss";
 
 /**
  * What a pick shows about its Instagram tag. `handle`: the account to tag. `loading` / `missing` / `failed`: a post link whose
@@ -25,13 +29,7 @@ export function TagChip({ state, small = false, className = "" }: { state: TagSt
   const icon = small ? "size-3" : "size-3.5";
   const base = `inline-flex w-fit max-w-full items-center gap-1.5 rounded-full text-xs font-bold ${size} ${className}`;
   if (state.kind === "handle") {
-    return (
-      <span title={`Your Instagram caption credits this with “From @${state.handle}”, which tags the account.`} className={`${base} bg-ink/10`}>
-        <ChannelIcon service="instagram" className={`${icon} shrink-0`} />
-        <span className="sr-only">Instagram account: </span>
-        <span className="truncate">@{state.handle}</span>
-      </span>
-    );
+    return <HandleChip handle={state.handle} base={base} icon={icon} />;
   }
   if (state.kind === "loading") {
     return (
@@ -67,6 +65,42 @@ export function TagChip({ state, small = false, className = "" }: { state: TagSt
           {state.kind === "failed" ? "Try again" : state.kind === "limit" ? "Add your Apify token" : "Update token"}
         </button>
       )}
+    </span>
+  );
+}
+
+/**
+ * The account to tag. What it means shows on hover or keyboard focus, and on tap (a tap elsewhere closes it): a phone has no hover.
+ * It is a button so a tap here doesn't toggle the pick it sits in.
+ */
+function HandleChip({ handle, base, icon }: { handle: string; base: string; icon: string }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useDismiss(open, box, () => setOpen(false));
+  return (
+    <span ref={box} className="group/tip relative inline-flex w-fit max-w-full">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className={`${base} bg-ink/10 outline-offset-2`}
+      >
+        <ChannelIcon service="instagram" className={`${icon} shrink-0`} />
+        <span className="sr-only">Instagram account: </span>
+        <span className="truncate">@{handle}</span>
+      </button>
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute left-0 top-full z-20 mt-1 w-60 max-w-[80vw] rounded-lg bg-ink px-3 py-2 text-left text-xs font-normal text-cream shadow-lg ${
+          open ? "block" : "hidden group-hover/tip:block group-focus-within/tip:block"
+        }`}
+      >
+        Your Instagram caption credits this with &ldquo;From @{handle}&rdquo;, which tags the account.
+      </span>
     </span>
   );
 }

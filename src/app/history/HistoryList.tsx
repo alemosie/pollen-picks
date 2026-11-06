@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useDismiss } from "@/components/useDismiss";
 import { Check, ChevronRight, CircleHelp, FileText, RefreshCw } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import { PollenSpinner } from "@/components/PollenSpinner";
@@ -444,15 +445,15 @@ function EntryStatus({ c, label }: { c: HistoryEntry; label: string }) {
 /** An icon that says what it means: on hover or keyboard focus, and on tap (a tap elsewhere closes it). */
 function IconTip({ label, children }: { label: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const box = useRef<HTMLSpanElement>(null);
+  useDismiss(open, box, () => setOpen(false));
   return (
-    <span className="group/tip relative inline-flex">
+    <span ref={box} className="group/tip relative inline-flex">
       <button
         type="button"
         aria-label={label}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        onBlur={() => setOpen(false)}
-        onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
         className="inline-flex rounded-full outline-offset-2"
       >
         {children}
