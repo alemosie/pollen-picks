@@ -6,6 +6,8 @@ import { StepWord } from "@/components/StepWord";
 import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
+import { RunAutosave } from "@/components/RunAutosave";
+import { SaveCreationButton } from "@/components/SaveCreationButton";
 import { isDemo, previewMode, stepUrl } from "@/lib/flow";
 import {
   saveTemplate,
@@ -21,6 +23,7 @@ import { planSlides } from "@/lib/slides/plan";
 import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
 import { SlideBuilder } from "./SlideBuilder";
+import { SlidesReadyGate } from "./SlidesReadyGate";
 import { SlidePreview } from "./SlidePreview";
 
 /** URLs longer than this risk being refused by servers or proxies. */
@@ -101,7 +104,8 @@ export function TemplateEditor({
 
   const standard = planSlides(items, { newsletter });
   return (
-    <>
+    // The step stays behind the loading animation until every slide preview has been drawn, so a refresh never shows frames that look like lost slides.
+    <SlidesReadyGate layoutKnown={layoutKnown}>
       <div>
         <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 sm:gap-x-4">
           <h1 className="mb-3 col-span-2 row-start-2 min-w-0 text-3xl sm:col-span-1 sm:col-start-1 sm:row-start-1 sm:text-5xl">
@@ -181,6 +185,7 @@ export function TemplateEditor({
           </ol>
         )}
 
+        <RunAutosave source={mode} picks={picks} template={extra} step={3} enabled={!demo && picks.length > 0 && extra.length <= SPEC_WARN} />
         <FlowBar
           next={custom && (placed === 0 || extra.length > SPEC_WARN) ? null : { href: next }}
           back={{ href: stepUrl(mode, "pick"), label: "Pick" }}
@@ -207,6 +212,7 @@ export function TemplateEditor({
             </>
           }
         >
+          {!demo && <SaveCreationButton source={mode} picks={picks} template={extra} step={3} />}
           {custom && (placed === 0 || extra.length > SPEC_WARN) ? (
             <span aria-disabled className={primaryDisabled}>
               Continue
@@ -218,6 +224,6 @@ export function TemplateEditor({
           )}
         </FlowBar>
       </div>
-    </>
+    </SlidesReadyGate>
   );
 }

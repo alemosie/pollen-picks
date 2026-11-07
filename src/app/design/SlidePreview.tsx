@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { STOCK_IMAGES } from "@/lib/slides/stock";
+import { SlidesReadyContext, type SlideSlot } from "./SlidesReadyGate";
 
 // The standard placeholder (plain gray with the Pollen Picks mark), scaled to fill the frame, so the same one fits a small thumbnail and a large card.
 const PLACEHOLDER = `url("${STOCK_IMAGES[0].src}")`;
@@ -10,6 +11,8 @@ const PLACEHOLDER = `url("${STOCK_IMAGES[0].src}")`;
  * A slide preview that is never an empty box. Slides are drawn on the server and can take a few seconds, so a quiet gray
  * placeholder with the Pollen Picks mark is there from the first paint and the picture fades in when it arrives. Once a picture has been shown it stays
  * until the next one is ready, so editing a slide swaps the image instead of blanking it.
+ * Inside a SlidesReadyGate it also reports when its picture has loaded or failed, so the page can wait for all of them, and it loads at once (not as
+ * you scroll) until then.
  */
 export function SlidePreview({
   src,
@@ -30,6 +33,21 @@ export function SlidePreview({
 }) {
   const [loaded, setLoaded] = useState(false);
   const shown = loaded && !hold;
+  const gate = useContext(SlidesReadyContext);
+  const add = gate?.add;
+  const img = useRef<HTMLImageElement | null>(null);
+  const slot = useRef<SlideSlot | null>(null);
+  useEffect(() => {
+    if (!src || !add) return;
+    const s = add();
+    slot.current = s;
+    // A picture that finished (or failed) before this ran is already `complete`; its load event has come and gone.
+    if (img.current?.complete) s.done();
+    return () => {
+      s.remove();
+      slot.current = null;
+    };
+  }, [src, add]);
   return (
     <span
       className={
@@ -44,15 +62,20 @@ export function SlidePreview({
         <img
           // A picture that finished loading before React attached (it is in the server's HTML) has already fired its load event.
           ref={(el) => {
+            img.current = el;
             if (el?.complete && el.naturalWidth > 0) setLoaded(true);
           }}
           src={src}
           alt={alt}
           width={540}
           height={675}
-          loading={eager ? "eager" : "lazy"}
+          loading={eager || (gate && !gate.ready) ? "eager" : "lazy"}
           decoding="async"
-          onLoad={() => setLoaded(true)}
+          onLoad={() => {
+            setLoaded(true);
+            slot.current?.done();
+          }}
+          onError={() => slot.current?.done()}
           className={`absolute inset-0 size-full object-cover motion-safe:transition-opacity motion-safe:duration-300 ${shown ? "opacity-100" : "opacity-0"}`}
         />
       )}
