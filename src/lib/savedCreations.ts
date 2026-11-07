@@ -3,7 +3,7 @@
 
 import { db } from "./db";
 import { CUSTOM_BASE } from "./pollen/custom";
-import { cleanFormat, sameCreation, type CreationInput, type OpenedCreation, type RunStep, type SavedCreationSummary } from "./savedCreationShape";
+import { cleanFormat, keepStoredCaptions, sameCreation, type CreationInput, type OpenedCreation, type RunStep, type SavedCreationSummary } from "./savedCreationShape";
 
 const SUMMARY = "id, source, newsletter, title, picks, step, updated_at, format";
 type SummaryRow = { id: string; source: string; newsletter: string; title: string; picks: number[]; step: number; updated_at: string; format: { edited?: Record<string, string> } | null };
@@ -51,7 +51,9 @@ export async function updateCreation(userId: string, id: string, c: CreationInpu
   const same = sameCreation({ source: row.source, picks: row.picks, template: row.template, format: cleanFormat(row.format) }, c);
   if (!force && stale && !same) return { conflict: row.updated_at };
   const updatedAt = new Date().toISOString();
-  const { data, error } = await db().from("saved_creations").update({ ...fields(c), updated_at: updatedAt }).eq("user_id", userId).eq("id", id).select("id");
+  // Not the writer's own latest copy: keep the stored captions this screen doesn't have (see keepStoredCaptions).
+  const kept = stale ? keepStoredCaptions(cleanFormat(row.format), c.format) : c.format;
+  const { data, error } = await db().from("saved_creations").update({ ...fields({ ...c, format: kept }), updated_at: updatedAt }).eq("user_id", userId).eq("id", id).select("id");
   if (error) throw new Error(`Could not save: ${error.message}`);
   return (data ?? []).length > 0 ? { updatedAt } : "gone";
 }

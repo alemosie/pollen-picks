@@ -3,7 +3,7 @@
 // It holds the caption text while the run is in progress (the privacy page says so).
 
 import { db } from "./db";
-import { decideRunWrite, sameCreation, cleanFormat, type CreationInput, type OpenedCreation } from "./savedCreationShape";
+import { decideRunWrite, keepStoredCaptions, sameCreation, cleanFormat, type CreationInput, type OpenedCreation } from "./savedCreationShape";
 import { getCreationBySource, saveCreation, toStep } from "./savedCreations";
 
 type Row = { source: string; link: string; picks: number[]; template: string; format: unknown; step: number; newsletter: string; title: string; saved_id: string | null; updated_at: string };
@@ -42,6 +42,9 @@ export async function putRun(userId: string, c: CreationInput, opts: { ifUpdated
   // A browser that has no memory of the stored run (cleared storage, a new device) but holds exactly what is stored loses nothing by writing: no question to ask.
   const sameContent = Boolean(row && sameCreation(row, c));
   if (decideRunWrite({ existing, source: c.source, ifUpdatedAt: opts.ifUpdatedAt, force: opts.force, sameContent }) === "conflict") return { conflict: existing!.updatedAt };
+  // Not the writer's own latest copy (see keepStoredCaptions): the stored captions stay unless this screen has captions of its own.
+  const stale = !opts.ifUpdatedAt || !row || new Date(row.updatedAt!).getTime() !== new Date(opts.ifUpdatedAt).getTime();
+  const format = row && stale ? keepStoredCaptions(row.format, c.format) : c.format;
   let savedId: string | null = null;
   if (opts.savedId) {
     const mine = await getCreationBySource(userId, c.source);
@@ -51,7 +54,7 @@ export async function putRun(userId: string, c: CreationInput, opts: { ifUpdated
   const { error } = await db()
     .from("current_runs")
     .upsert(
-      { user_id: userId, source: c.source, link: c.link, picks: c.picks, template: c.template, format: c.format, step: c.step, newsletter: c.newsletter, title: c.title, saved_id: savedId, updated_at: updatedAt },
+      { user_id: userId, source: c.source, link: c.link, picks: c.picks, template: c.template, format, step: c.step, newsletter: c.newsletter, title: c.title, saved_id: savedId, updated_at: updatedAt },
       { onConflict: "user_id" },
     );
   if (error) throw new Error(`Could not save your run: ${error.message}`);

@@ -78,6 +78,20 @@ export function cleanFormat(v: unknown): FormatState | null {
   return JSON.stringify(clean).length > MAX_FORMAT_CHARS ? null : clean;
 }
 
+const noSv = (sig: string) => sig.replace(/&sv=\d+/g, "");
+
+/**
+ * A write that did not see the stored copy's latest change (a new device, cleared browser storage, or "use this screen" after a conflict) must not
+ * wipe the caption text the stored copy holds just because this screen has none of its own: the device never had it. Captions the incoming copy
+ * does have win; the ones it lacks are kept, when both are for the same picks and design (the style version in the design does not count).
+ */
+export function keepStoredCaptions(stored: FormatState | null, incoming: FormatState | null): FormatState | null {
+  if (!stored || !incoming || noSv(stored.sig) !== noSv(incoming.sig)) return incoming;
+  const edited = { ...incoming.edited };
+  for (const [k, v] of Object.entries(stored.edited)) if (!(k in edited) || edited[k] === "") edited[k] = v;
+  return { ...incoming, edited };
+}
+
 /** Checks a request body. Returns the cleaned input, or the reason in words the person can read. */
 export function parseCreationInput(body: unknown, steps: readonly RunStep[] = SAVED_STEPS): CreationInput | { error: string } {
   const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanFormat, isCreationId, isSavableSource, parseCreationInput, type CreationInput } from "./savedCreationShape";
+import { cleanFormat, isCreationId, keepStoredCaptions, isSavableSource, parseCreationInput, type CreationInput } from "./savedCreationShape";
 
 const PUB = "pub_00000000-0000-0000-0000-000000000001";
 const POST = "post_00000000-0000-0000-0000-000000000002";
@@ -111,4 +111,15 @@ test("the run slot: an empty slot is written, a different issue takes it, the sa
 test("a run can be at Pick; a saved creation can't", () => {
   assert.equal((parseCreationInput({ source: own, picks: [1], template: "", step: 2 }, [2, 3, 4, 5]) as CreationInput).step, 2);
   assert.equal((parseCreationInput({ source: own, picks: [1], template: "", step: 2 }) as CreationInput).step, 4, "saved: falls back to Write");
+});
+
+test("keepStoredCaptions keeps stored captions the writer lacks, but never overrides its own", () => {
+  const stored = { sig: "l|1,2|spec=x&sv=1", order: "date", tab: "instagram", edited: { instagram: "mine", facebook: "fb" } };
+  const none = { sig: "l|1,2|spec=x&sv=2", order: "date", tab: "instagram", edited: {} };
+  assert.deepEqual(keepStoredCaptions(stored, none)!.edited, { instagram: "mine", facebook: "fb" });
+  assert.equal(keepStoredCaptions(stored, none)!.sig, none.sig);
+  const own = { ...none, edited: { instagram: "newer" } };
+  assert.deepEqual(keepStoredCaptions(stored, own)!.edited, { instagram: "newer", facebook: "fb" });
+  assert.deepEqual(keepStoredCaptions(stored, { ...none, sig: "l|1,3|spec=x" })!.edited, {});
+  assert.equal(keepStoredCaptions(null, none), none);
 });
