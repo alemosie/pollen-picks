@@ -10,9 +10,11 @@ import { PaletteSync } from "@/components/PaletteSync";
 import { StepWord } from "@/components/StepWord";
 import { requireSession } from "@/lib/auth";
 import { listHistory } from "@/lib/postHistory";
+import { listCreations } from "@/lib/savedCreations";
 import { currentSlideSettings } from "@/lib/slideStyleStore";
 import { HistoryList } from "./HistoryList";
 import { HistoryProvider } from "./HistoryProvider";
+import { SavedCreations } from "./SavedCreations";
 
 export const metadata = { title: "History · Pollen Picks" };
 
@@ -27,7 +29,7 @@ export default function History() {
 async function HistoryContent() {
   await connection();
   const session = await requireSession("/history");
-  const [{ palette }, entries] = await Promise.all([currentSlideSettings(), listHistory(session.userId).catch(() => null)]);
+  const [{ palette }, entries, saved] = await Promise.all([currentSlideSettings(), listHistory(session.userId).catch(() => null), listCreations(session.userId).catch(() => null)]);
   return (
     <HistoryProvider initial={entries ?? []} filterQuery="">
     <main className="mx-auto max-w-5xl px-6 pb-24 pt-6">
@@ -52,10 +54,20 @@ async function HistoryContent() {
           </div>
         </div>
         <p className="mb-0 max-w-2xl text-lg">
-          Every draft and post Pollen Picks has tried to create in Buffer for you, including any that failed. Each one has its link to open it in Buffer and, once a post is out, its live link. Posts that are still publishing update here on their own.
+          Your saved creations, then every draft and post Pollen Picks has tried to create in Buffer for you, including any that failed. Each one has its link to open it in Buffer and, once a post is out, its live link. Posts that are still publishing update here on their own.
         </p>
       </div>
-      {entries !== null && entries.length > 0 && <FeedbackPrompt className="mb-6" />}
+      {entries !== null && entries.length > 0 && <FeedbackPrompt className="mb-8" />}
+      {saved === null ? (
+        <p role="alert" className="mb-8 border-l-4 border-coral pl-3 text-sm font-semibold">
+          Couldn&rsquo;t load your saved creations. Reload the page to try again.
+        </p>
+      ) : (
+        <SavedCreations items={saved} />
+      )}
+      <h2 id="sent-history" className="mb-3 text-2xl">
+        Sent to Buffer
+      </h2>
       <section aria-label="History">
         {entries === null ? (
           <p role="alert" className="m-0 border-l-4 border-coral pl-3 text-sm font-semibold">

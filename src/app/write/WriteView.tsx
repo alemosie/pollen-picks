@@ -6,6 +6,8 @@ import { ShareLinkButton } from "@/components/ShareLinkButton";
 import { StepWord } from "@/components/StepWord";
 import Link from "next/link";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
+import { RunAutosave } from "@/components/RunAutosave";
+import { SaveCreationButton } from "@/components/SaveCreationButton";
 import { loadFormat, saveFormat } from "@/lib/progress";
 import { Check, Copy, Info, X } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
@@ -58,6 +60,7 @@ const list = (items: string[]) =>
  */
 export function WriteView({
   channels,
+  source,
   picks,
   captionItems,
   newsletter,
@@ -71,6 +74,8 @@ export function WriteView({
   demo = false,
 }: {
   channels: Channel[];
+  /** The flow mode that names the issue (the sample issue has no saving). */
+  source?: string;
   picks: number[];
   captionItems: CaptionItem[];
   newsletter: string;
@@ -320,7 +325,9 @@ export function WriteView({
         />
       )}
 
+      {!demo && source && <RunAutosave source={source} picks={picks} template={template} step={4} />}
       <FlowBar next={visible.length === 0 ? null : { href: nextHref }} back={{ href: backHref, label: "Design" }}>
+        {!demo && source && <SaveCreationButton source={source} picks={picks} template={template} step={4} />}
         {visible.length === 0 ? (
           <span aria-disabled className={primaryDisabled}>
             Continue

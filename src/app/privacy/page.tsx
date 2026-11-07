@@ -34,6 +34,18 @@ const sections: Section[] = [
             History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. The slide images themselves are never stored: they are drawn from your design each time Buffer or your screen asks for them.
           </li>
           <li>
+            Your current run: while you work (Pick, Design, Write, Send), Pollen Picks keeps one copy of where you are on its server, so you can carry on from another device. It holds
+            which issue, which picks you chose, your slide design, the caption as you wrote or edited it, and the issue&rsquo;s title and newsletter name. There is one per
+            account. It is saved automatically a moment after each change and replaced when you start a new run. It is deleted when you send, when you discard it, and
+            when you delete your account. Images are never stored.
+          </li>
+          <li>
+            Saved creations, only if you press <i>Save</i> on the Design, Write or Send step: the same things as the current run (picks, slide design, caption text, issue and
+            newsletter name), kept for each issue you save until you delete it under <i>Saved creations</i> on the <Link href="/history#saved-creations">History</Link> page, or
+            delete your account. After you save an issue, further changes to it are saved into it automatically. Images are never stored. If a saved creation uses highlights you made
+            on the Manual tab, those highlights are kept with it, even when you start a new run.
+          </li>
+          <li>
             Links to pictures you add for your slides, only if you add any: just the web address, never a copy of the picture. Only you can use
             them. You can keep 50, and remove any at any time in Settings &gt; Photos. Deleting your account removes them all. The picture itself stays on the
             site it came from and is fetched when a slide is drawn, as are the pictures Pollen Picks finds in your issue or on the pages your picks link to.
@@ -188,7 +200,7 @@ const sections: Section[] = [
           </li>
           <li>
             <b>Delete your data.</b> Press <i>Delete my data</i> under Account in <Link href="/settings">Settings</Link> and your
-            account, brand settings, history, highlights and stored tokens are deleted straight away. Anything you wrote in the{" "}
+            account, brand settings, history, saved creations, current run, highlights and stored tokens are deleted straight away. Anything you wrote in the{" "}
             <Link href="/feedback">feedback form</Link> is kept but no longer linked to you.
           </li>
         </ul>

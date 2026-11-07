@@ -25,6 +25,7 @@ import { PickTray, type TrayItem } from "./PickTray";
 import { MAX_DEMO_WORDS, demoWords } from "@/lib/pollen/demoHighlights";
 import { CUSTOM_BASE } from "@/lib/pollen/custom";
 import type { View } from "./picking";
+import { RunAutosave } from "@/components/RunAutosave";
 
 type Chunk = {
   id: number;
@@ -719,6 +720,7 @@ export function Picker({
         </dialog>
       )}
 
+      <RunAutosave source={mode} picks={picked} template="" step={2} enabled={restored && !demoMode && picked.length > 0} />
       <FlowBar
         next={picked.length > 0 ? { href: stepUrl(mode, "design", `picks=${picked.join(",")}`) } : null}
         back={{ href: "/source", label: "Source" }}

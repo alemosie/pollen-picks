@@ -4,6 +4,7 @@ import { effectiveIntent } from "@/lib/caption";
 import { fakeMode, type PostIntent } from "@/lib/bufferPost";
 import { requireSession } from "@/lib/guard";
 import { loadAppIssue } from "@/lib/sources";
+import { deleteRun } from "@/lib/currentRun";
 import { enqueue, processQueue } from "@/lib/sendQueue";
 
 /**
@@ -55,6 +56,8 @@ export async function POST(req: NextRequest) {
         return { id: c.id, service: c.service, name: String(c.name ?? ""), caption, intent: effectiveIntent(c.service, caption, intent) };
       }),
     });
+    // The run is sent, so its copy on the server (which holds the caption) goes. The queue keeps the caption only as long as it needs it. A saved creation stays.
+    await deleteRun(g.session.userId, body.source).catch((e) => console.error("discarding the sent run failed:", (e as Error).message));
     // Start sending now; whatever doesn't fit in this request is picked up by the page's progress checks and by the scheduled worker.
     const userId = g.session.userId;
     after(() => processQueue({ userId, limit: 6, deadlineMs: 8_000 }).then(() => undefined));

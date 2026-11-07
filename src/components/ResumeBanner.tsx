@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FlowBar, primaryButton } from "@/components/FlowBar";
+import { useReplaceRun } from "@/components/useReplaceRun";
+import { applyOpened, loadSync } from "@/lib/runSync";
+import type { OpenedCreation } from "@/lib/savedCreationShape";
 import {
   clearProgress,
   loadProgress,
@@ -21,25 +24,46 @@ export function ResumeBanner({
   bar?: boolean;
 }) {
   const [saved, setSaved] = useState<Progress | null>(null);
+  const { guard, dialog } = useReplaceRun();
   useEffect(() => {
+    const show = (p: Progress | null) => setSaved(p && p.step >= 2 && p.href.startsWith("/") ? p : null);
     const p = loadProgress();
     // Defer so the first client render matches the server HTML.
-    const t = setTimeout(
-      () => setSaved(p && p.step >= 2 && p.href.startsWith("/") ? p : null),
-      0,
-    );
-    return () => clearTimeout(t);
+    const t = setTimeout(() => show(p), 0);
+    // The run on the server is the latest if another device wrote it since this browser last wrote or loaded it: then it replaces what this browser had.
+    // A signed-out visitor (or the demo) gets a 401 and nothing changes. Only a run that differs from what this browser knows is read in full.
+    let live = true;
+    void (async () => {
+      try {
+        const res = await fetch("/api/run", { cache: "no-store" });
+        if (!res.ok) return;
+        const s = (await res.json()) as { run: { updatedAt: string } | null };
+        if (!s.run || s.run.updatedAt === loadSync().runUpdatedAt) return;
+        const full = await fetch("/api/run?open=1", { cache: "no-store" });
+        if (!full.ok) return;
+        const c = ((await full.json()) as { creation?: OpenedCreation }).creation;
+        if (!c || !live) return;
+        applyOpened(c, "run");
+        show(loadProgress());
+      } catch {}
+    })();
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
   }, []);
   if (!saved) return null;
   if (bar)
     return (
+      <>
+      {dialog}
       <FlowBar status={<span className="hidden sm:inline">{`You left off at ${STEP_NAMES[saved.step - 1]}.`}</span>}>
         <button
           type="button"
-          onClick={() => {
+          onClick={() => void guard(() => {
             clearProgress();
             setSaved(null);
-          }}
+          })}
           className="rounded-xl px-4 py-3 font-bold ring-1 ring-cream/40 hover:bg-cream/15"
         >
           Start over
@@ -48,6 +72,7 @@ export function ResumeBanner({
           Continue
         </Link>
       </FlowBar>
+      </>
     );
   // On the source step there is no "Start over": choosing a source is the start of a new run, and clears the last one.
   if (inline)
@@ -76,14 +101,15 @@ export function ResumeBanner({
       </Link>
       <button
         type="button"
-        onClick={() => {
+        onClick={() => void guard(() => {
           clearProgress();
           setSaved(null);
-        }}
+        })}
         className="font-semibold underline underline-offset-4"
       >
         Start over
       </button>
+      {dialog}
     </div>
   );
 }

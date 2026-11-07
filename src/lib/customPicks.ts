@@ -1,6 +1,7 @@
 // Server-only: the user's highlights, stored in public.custom_picks (see db/supabase/0004_custom_picks.sql).
 
 import { db } from "./db";
+import { savedHighlightIds } from "./savedCreations";
 import { CUSTOM_BASE, MAX_HIGHLIGHTS_PER_ISSUE, customChunk, type CustomRow } from "./pollen/custom";
 
 type DbRow = { id: number; text: string; url: string | null; link_text: string | null };
@@ -24,9 +25,15 @@ export async function addCustomChunk(userId: string, issue: string, text: string
   return customChunk(fromDb(data as DbRow));
 }
 
-/** Deletes all of the user's highlights: a new source starts a new run, and the last run's highlights are not carried into it. */
+/**
+ * Deletes the user's highlights: a new source starts a new run, and the last run's highlights are not carried into it.
+ * Highlights that one of the user's saved creations uses stay, so that creation can still be opened later.
+ */
 export async function clearCustomChunks(userId: string): Promise<void> {
-  const { error } = await db().from("custom_picks").delete().eq("user_id", userId);
+  const keep = await savedHighlightIds(userId);
+  let q = db().from("custom_picks").delete().eq("user_id", userId);
+  if (keep.length > 0) q = q.not("id", "in", `(${keep.join(",")})`);
+  const { error } = await q;
   if (error) throw new Error(`Could not clear highlights: ${error.message}`);
 }
 

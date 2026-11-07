@@ -52,7 +52,7 @@ export function DeleteMyData() {
         <div role="group" aria-label="Confirm deleting your data" className="grid gap-3 rounded-2xl bg-coral/20 p-4">
           <p className="m-0 font-bold">Delete everything Pollen Picks holds about you?</p>
           <p className="m-0 text-sm">
-            This removes your account, your beehiiv key and Buffer access, your settings and slide style, your history and anything still waiting to send,
+            This removes your account, your beehiiv key and Buffer access, your settings and slide style, your history, your saved creations, your current run and anything still waiting to send,
             and the text you highlighted. It can&rsquo;t be undone. It doesn&rsquo;t touch anything in Buffer or beehiiv: drafts and posts already created
             there stay where they are.
           </p>

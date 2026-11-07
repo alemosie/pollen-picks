@@ -78,6 +78,7 @@ async function WriteContent({
       <WriteView
         key={`${mode}|${issue.url}|${q}|${extra}`}
         channels={channels}
+        source={mode}
         picks={ids}
         template={extra}
         link={issue.url}

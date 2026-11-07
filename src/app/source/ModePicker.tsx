@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BeehiivConnect, type BeehiivState } from "@/components/BeehiivConnect";
 import { FlowBar, primaryButton } from "@/components/FlowBar";
 import { IssueRow } from "@/components/IssueRow";
@@ -8,6 +9,7 @@ import { PollenDots } from "@/components/PollenDots";
 import { PublicLinkForm, SourceLogos } from "@/components/PublicSource";
 import { SquiggleIfOneLine } from "@/components/SquiggleIfOneLine";
 import { ResumeBanner } from "@/components/ResumeBanner";
+import { useReplaceRun } from "@/components/useReplaceRun";
 import type { BeehiivIssue } from "@/lib/beehiiv";
 import { ownMode, stepUrl } from "@/lib/flow";
 import { startFreshRun } from "@/lib/progress";
@@ -140,6 +142,9 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
 
   const useIssue = !(choice === "post" && post);
   let cta = "Paste a link or connect beehiiv";
+  // Choosing a source starts a new run, which replaces the current one: if that holds unsaved work, the person is asked first.
+  const router = useRouter();
+  const { guard, dialog: replaceDialog } = useReplaceRun();
   let href: string | undefined;
   if (!useIssue && post) {
     href = stepUrl(post.mode, "pick", "picking=manual");
@@ -150,6 +155,16 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
   } else if (beehiiv) {
     cta = loading ? "Loading your issues…" : "Choose a post to continue";
   }
+  // Both the button and the progress indicator's link come here. The new run starts only once the person has answered.
+  const begin = (e?: { preventDefault: () => void }) => {
+    if (!href) return;
+    e?.preventDefault();
+    const to = href;
+    void guard(() => {
+      startFreshRun();
+      router.push(to);
+    });
+  };
 
   return (
     <div className="space-y-8">
@@ -254,9 +269,10 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
         )}
       </section>
 
-      <FlowBar next={href ? { href, onNavigate: startFreshRun } : null} status={<ResumeBanner inline />}>
+      {replaceDialog}
+      <FlowBar next={href ? { href, onNavigate: begin } : null} status={<ResumeBanner inline />}>
         {href ? (
-          <Link href={href} onClick={startFreshRun} className={`inline-flex items-center gap-2 ${primaryButton}`}>
+          <Link href={href} onClick={begin} className={`inline-flex items-center gap-2 ${primaryButton}`}>
             {cta}
             <Arrow />
           </Link>

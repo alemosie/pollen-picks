@@ -1,7 +1,7 @@
 import { db } from "./db";
 
 /** Tables that hold one row per thing a user did, keyed by `user_id`. Removed before the user row itself, which they point at. */
-const OWNED = ["custom_picks", "draft_log", "instagram_lookups", "post_history", "public_sources", "slide_styles", "brand_profiles", "user_photo_links"] as const;
+const OWNED = ["current_runs", "custom_picks", "draft_log", "instagram_lookups", "post_history", "public_sources", "saved_creations", "slide_styles", "brand_profiles", "user_photo_links"] as const;
 
 /**
  * Deletes everything Pollen Picks holds for one account: the saved tokens and keys (also from Vault), settings, history and the queue of

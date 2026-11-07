@@ -10,6 +10,8 @@ import { PollenSpinner } from "@/components/PollenSpinner";
 import { ChannelPicker, useChannelSelection, type Channel } from "@/components/ChannelPicker";
 import { DemoGate } from "@/components/DemoGate";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
+import { RunAutosave } from "@/components/RunAutosave";
+import { SaveCreationButton } from "@/components/SaveCreationButton";
 import {
   CAPTION_VARIANTS,
   buildCaption,
@@ -871,6 +873,8 @@ export function SendConfirm({
         </div>
       </dialog>
 
+      {/* Not once a send has begun: the run is deleted when the send is queued, and must not come back with its caption. */}
+      {!demo && source && <RunAutosave source={source} picks={picks} template={template} step={5} enabled={!started} />}
       <FlowBar
         back={{ href: backHref, label: "Write" }}
         status={
@@ -891,6 +895,7 @@ export function SendConfirm({
         }
         statusHiddenOnPhone={!started}
       >
+        {!demo && source && <SaveCreationButton source={source} picks={picks} template={template} step={5} />}
         {demo ? (
           <DemoGate signedIn={demo.signedIn} label="Finish demo" className={finishButton} onOpen={pollenBurst} />
         ) : n === 0 && !started ? (
