@@ -1,4 +1,5 @@
 import { isImageId } from "@/lib/pollen/imageIds";
+import { cleanHandle } from "@/lib/pollen/url";
 import { PHOTO_MAX_PICKS } from "./types";
 
 /** Template choices from the Design step. Empty object = the standard template. They travel as URL params. */
@@ -28,6 +29,8 @@ export type PickEdit = {
   photo?: string;
   /** Who to credit for that picture ("@handle", a site's name), drawn as a small label on it. Empty = no credit. */
   photoCredit?: string;
+  /** Instagram handle (no "@") to tag on this pick, whether or not its link points to Instagram. It replaces the one found in the link; an empty string removes that one. It goes on the slide and, as "From @handle", into the Instagram caption. */
+  tag?: string;
 };
 
 /** A hand-built carousel. Slides hold chunk ids (1-4 each); the cover and closing slide come from `cover` / `closing`. */
@@ -133,7 +136,7 @@ export function encodeSpec(spec: CustomSpec): string {
       Object.fromEntries(
         Object.entries(spec.edits).map(([id, e]) => [
           id,
-          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg), o: e.photo || undefined, r: e.photo ? e.photoCredit || undefined : undefined },
+          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg), o: e.photo || undefined, r: e.photo ? e.photoCredit || undefined : undefined, a: e.tag },
         ]),
       ),
   };
@@ -182,6 +185,8 @@ export function decodeSpec(
         bg: withHash(e.g),
         photo: isImageId(e.o) ? e.o : undefined,
         photoCredit: isImageId(e.o) ? str(e.r, SPEC_LIMITS.photoCredit) : undefined,
+        // "" is kept on purpose: it removes the tag found in the pick's link. Anything that is not a handle is dropped.
+        tag: e.a === "" ? "" : (cleanHandle(e.a) ?? undefined),
       };
       (Object.keys(edit) as (keyof PickEdit)[]).forEach(
         (k) => edit[k] === undefined && delete edit[k],

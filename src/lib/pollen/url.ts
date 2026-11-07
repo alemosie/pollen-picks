@@ -69,6 +69,18 @@ export function instagramHandle(raw: string | null | undefined): string | null {
   return handle;
 }
 
+/**
+ * An Instagram handle typed or pasted by a person ("@name", "name", or a profile link), in the form the app keeps it: lower case, no "@". Null when it
+ * is not one: 1 to 30 letters, digits, periods and underscores, with no leading, trailing or doubled period.
+ */
+export function cleanHandle(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const fromLink = instagramHandle(raw.trim());
+  if (fromLink) return fromLink;
+  const h = raw.trim().replace(/^@+/, "").toLowerCase();
+  return /^(?!\.)(?!.*\.\.)(?!.*\.$)[a-z0-9._]{1,30}$/.test(h) ? h : null;
+}
+
 /** Handles resolved from post links, keyed by `instagramPostKey` (the cached post -> account answers). */
 export type KnownHandles = Record<string, string>;
 

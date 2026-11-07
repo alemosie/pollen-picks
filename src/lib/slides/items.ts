@@ -27,6 +27,6 @@ export function captionItemsFor(chunks: (Chunk & { rank?: number | null })[], id
       const when = e?.when !== undefined ? e.when || null : c.when;
       // A pick without a date line (other newsletters write it as plain text, and a highlight has none) sorts by a date at the start or end of its text.
       const p = when ? parseWhen(when, reference) : chunkDates(c, reference);
-      return { title: e?.title?.trim() || c.title, when, place: e?.place !== undefined ? e.place || null : c.place, rank: c.rank ?? null, date: p?.dates[0] ?? null, time: p?.startTime, tag: instagramTag(c.url, known), photoCredit: e?.photo ? e.photoCredit?.trim() || undefined : undefined, group: (e?.group !== undefined ? e.group.trim() : c.group?.trim()) || undefined };
+      return { title: e?.title?.trim() || c.title, when, place: e?.place !== undefined ? e.place || null : c.place, rank: c.rank ?? null, date: p?.dates[0] ?? null, time: p?.startTime, tag: e?.tag !== undefined ? e.tag || null : instagramTag(c.url, known), photoCredit: e?.photo ? e.photoCredit?.trim() || undefined : undefined, group: (e?.group !== undefined ? e.group.trim() : c.group?.trim()) || undefined };
     });
 }

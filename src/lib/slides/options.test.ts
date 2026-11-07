@@ -111,3 +111,16 @@ test("choosing no cover picture on purpose survives the round trip, and never al
   assert.equal(both.noPhoto, undefined);
   assert.equal(decodeSpec(encodeSpec({ slides: [[1]], cover: { title: "Hi" } }))!.cover!.noPhoto, undefined);
 });
+
+test("a hand-set Instagram tag travels with the pick; an empty one (remove) is kept; anything that is not a handle is dropped", () => {
+  const spec: CustomSpec = { slides: [[1], [2], [3]], edits: { 1: { tag: "justaphase" }, 2: { tag: "" } } };
+  const back = decodeSpec(encodeSpec(spec))!;
+  assert.equal(back.edits![1].tag, "justaphase");
+  assert.equal(back.edits![2].tag, "", "removing the tag found in the link is an edit too");
+  const wire = (o: unknown) => btoa(JSON.stringify(o)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const raw = decodeSpec(wire({ s: [[1], [2], [3], [4]], e: { 1: { a: "@Some.One" }, 2: { a: "not a handle!" }, 3: { a: 42 }, 4: { a: "x".repeat(40) } } }))!;
+  assert.equal(raw.edits![1].tag, "some.one", "cleaned");
+  assert.equal(raw.edits?.[2], undefined, "dropped");
+  assert.equal(raw.edits?.[3], undefined);
+  assert.equal(raw.edits?.[4], undefined, "too long");
+});

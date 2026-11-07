@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hostOf, instagramHandle, instagramPostCode, instagramPostKey, instagramTag, looseKey, normalizeUrl } from "./url";
+import { cleanHandle, hostOf, instagramHandle, instagramPostCode, instagramPostKey, instagramTag, looseKey, normalizeUrl } from "./url";
 
 test("normalizeUrl drops tracking and tidies the link", () => {
   assert.equal(normalizeUrl("https://www.Example.com/Path/?utm_source=x&b=2&a=1#top"), "https://example.com/Path?a=1&b=2");
@@ -62,4 +62,14 @@ test("post links: key, shortcode, and the tag from a looked-up owner", () => {
   assert.equal(instagramTag(url), null);
   assert.equal(instagramTag(url, { "https://instagram.com/p/DemVpYZoY-v": "theowner" }), "theowner");
   assert.equal(instagramTag("https://instagram.com/direct.account"), "direct.account");
+});
+
+test("cleanHandle: what a person types or pastes becomes a handle, or nothing", () => {
+  assert.equal(cleanHandle("@Amsterdam.Parent_Project"), "amsterdam.parent_project");
+  assert.equal(cleanHandle("  justaphase "), "justaphase");
+  assert.equal(cleanHandle("@@twice"), "twice");
+  assert.equal(cleanHandle("https://www.instagram.com/justaphase/?hl=en"), "justaphase", "a profile link");
+  assert.equal(cleanHandle("https://www.instagram.com/p/ABC123/"), null, "a post link is not an account");
+  for (const bad of ["", "@", "has space", "a..b", ".lead", "trail.", "x".repeat(31), "emoji🙂", "slash/inside", 5, null, undefined]) assert.equal(cleanHandle(bad), null, String(bad));
+  assert.equal(cleanHandle("x".repeat(30)), "x".repeat(30));
 });

@@ -11,6 +11,7 @@ import {
 } from "@/lib/slides/options";
 import { sized } from "@/lib/cdn";
 import type { IssueImage } from "@/lib/pollen/imageIds";
+import { cleanHandle } from "@/lib/pollen/url";
 import { MAX_PHOTO_LINKS, PHOTO_MAX_PICKS, type SlideItem } from "@/lib/slides/types";
 import { oneLineLimit } from "@/lib/slides/plan";
 import { usePalette } from "@/components/usePalette";
@@ -120,6 +121,13 @@ export function EditSlideModal({
         const v = e[k];
         if (v === undefined) continue;
         const original = k === "title" ? base?.title : k === "photoCredit" ? "" : (base?.[k] ?? "");
+        if (k === "tag") {
+          // Typed by hand: only a real handle counts. Emptied on purpose it stays empty, which removes the one found in the pick's link.
+          const handle = v === "" ? "" : cleanHandle(v);
+          if (handle === null || handle === original) continue;
+          out[k] = handle;
+          continue;
+        }
         if (v === original) continue;
         out[k] = v;
       }
@@ -341,7 +349,7 @@ export function EditSlideModal({
                 </span>
               </label>
             )}
-            {target.kind === "slide" && ids.some((id) => byId.get(id)?.tag) && (
+            {target.kind === "slide" && ids.some((id) => value(id, "tag")) && (
               <div>
                 <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
                   <input
@@ -361,7 +369,7 @@ export function EditSlideModal({
                   Credit Instagram accounts
                 </label>
                 <p id="tags-hint" className="mb-0 mt-1 text-xs">
-                  Shows @handle on this slide&rsquo;s picks that link to an Instagram account.
+                  Shows @handle on this slide&rsquo;s picks that have an Instagram tag. The caption keeps the tags either way.
                 </p>
               </div>
             )}
@@ -548,6 +556,41 @@ export function EditSlideModal({
                       onChange={(e) => setEdit(id, "group", e.target.value)}
                       className={input}
                     />
+                  </label>
+                  <label className="grid gap-1 text-sm font-semibold">
+                    Instagram tag
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden className="text-lg font-bold">
+                        @
+                      </span>
+                      <input
+                        value={value(id, "tag")}
+                        maxLength={100}
+                        placeholder="None"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        aria-invalid={Boolean(value(id, "tag")) && !cleanHandle(value(id, "tag"))}
+                        aria-describedby={`tag-hint-${id}`}
+                        onChange={(e) => setEdit(id, "tag", e.target.value.replace(/\s/g, "").replace(/^@+/, ""))}
+                        // A pasted profile link becomes its handle once you leave the field.
+                        onBlur={(e) => {
+                          const h = cleanHandle(e.target.value);
+                          if (h && h !== e.target.value) setEdit(id, "tag", h);
+                        }}
+                        className={`${input} min-w-0 flex-1`}
+                      />
+                    </span>
+                    {value(id, "tag") && !cleanHandle(value(id, "tag")) ? (
+                      <span id={`tag-hint-${id}`} role="alert" className="mt-1 text-xs font-bold">
+                        That isn&rsquo;t an Instagram handle. Use letters, numbers, periods and underscores (up to 30), or paste the profile link. It is left out until it is.
+                      </span>
+                    ) : (
+                      <span id={`tag-hint-${id}`} className="mt-1 text-xs font-normal">
+                        Shown on this pick&rsquo;s card and added to the Instagram caption as &ldquo;From @handle&rdquo;.
+                        {byId.get(id)?.tag ? ` Found in the link: @${byId.get(id)!.tag}. Clear the field to leave it out.` : ""}
+                      </span>
+                    )}
                   </label>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label className="grid gap-1 text-sm font-semibold">

@@ -146,6 +146,7 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
       place: e.place !== undefined ? e.place.trim() || null : base.place,
       blurb: e.blurb !== undefined ? e.blurb.trim() || undefined : base.blurb,
       group: e.group !== undefined ? e.group.trim() || undefined : base.group,
+      tag: e.tag !== undefined ? e.tag || undefined : base.tag, // set by hand, or removed on purpose ("")
       bg: e.bg || undefined,
       photoId: e.photo || undefined,
     };

@@ -130,3 +130,17 @@ test("the cover's background defaults to the issue's preview image, unless a pic
   assert.equal(cover(planSlides([it(1)], opts)).photoId, undefined);
   assert.equal(cover(planCustom([it(1)], { slides: [[1]] }, opts)).photoId, undefined);
 });
+
+test("planCustom: a tag set by hand replaces the one from the link, and an empty one removes it", () => {
+  const items = [it(1), it(2, { tag: "from.link" }), it(3, { tag: "from.link" })];
+  const slides = planCustom(items, { slides: [[1, 2, 3]], edits: { 1: { tag: "by.hand" }, 2: { tag: "" }, 3: { tag: "other" } } }, opts);
+  const p = slides[1];
+  assert.ok(p.kind === "picks");
+  assert.deepEqual(p.items.map((x) => x.tag), ["by.hand", undefined, "other"]);
+  // Left alone, a pick keeps the tag from its link.
+  const same = planCustom(items, { slides: [[2]] }, opts)[1];
+  assert.ok(same.kind === "picks" && same.items[0].tag === "from.link");
+  // A slide that hides tags hides these too.
+  const hidden = planCustom(items, { slides: [[1]], hideTags: [true], edits: { 1: { tag: "by.hand" } } }, opts)[1];
+  assert.ok(hidden.kind === "picks" && hidden.items[0].tag === undefined);
+});
