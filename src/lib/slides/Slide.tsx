@@ -98,6 +98,7 @@ function CornerSlot({ kind, kit, logoSize, fontSize, color, maxWidth, lines = 1 
   const id = kit.identity;
   const empty = <div style={{ display: "flex" }} />;
   if (!id || kind === "none") return empty;
+  if (kind === "attribution") return kit.attribution === false ? empty : <Credit kit={kit} size={Math.max(20, fontSize - 4)} color={color} />;
   if (kind === "title" || kind === "carousel" || kind === "date") {
     const text = kind === "title" ? id.title : kind === "carousel" ? id.carouselTitle : id.date;
     return text ? (
@@ -233,8 +234,24 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   const n = slide.items.length;
   // When the publication and the organization have the same name, it only appears once: bottom left, with the top left left empty.
   const nameOf = (k: Slot | undefined) => (k === "publication" ? kit.identity?.publication.name : k === "organization" ? kit.identity?.organization.name : undefined)?.trim().toLowerCase();
-  const bottomName = nameOf(kit.slots?.bottom);
-  const topKind = kit.slots && bottomName && nameOf(kit.slots.top) === bottomName ? "none" : kit.slots?.top;
+  // A name only appears once, in the first of these corners to show it: bottom left, then bottom right, then top left.
+  const seen = new Set<string>();
+  const once = (k: Slot | undefined): Slot => {
+    const name = nameOf(k);
+    if (!k) return "none";
+    if (!name) return k;
+    if (seen.has(name)) return "none";
+    seen.add(name);
+    return k;
+  };
+  const bottomKind = once(kit.slots?.bottom);
+  const bottomRightKind = once(kit.slots?.bottomRight);
+  const topKind = once(kit.slots?.top);
+  const hasImage = slide.items.length === 1 && !!slide.items[0].image;
+  // The left and right corners of the footer share one row (the single pick's picture takes the right end too): each gets what is left.
+  const bothBelow = bottomKind !== "none" && bottomRightKind !== "none";
+  const leftW = bothBelow ? 440 : hasImage ? 470 : 560;
+  const rightW = bothBelow ? (hasImage ? 330 : 440) : hasImage ? 470 : 560;
   // Without a saved style (the demo, or before one is chosen) the bottom left repeats the plain name when there is no logo or "Swipe": show it there only.
   const nameOnlyBelow = !kit.slots && !kit.swipe && !kit.logo;
   return (
@@ -261,8 +278,8 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: slide.items.length === 1 && slide.items[0].image ? 104 : 64 }}>
         {kit.slots ? (
-          // The credit (and a single pick's picture) sit on the right, so this is all the room the left corner has. Two lines of 28px still fit the 64px footer.
-          <CornerSlot kind={kit.slots.bottom} kit={kit} logoSize={56} fontSize={28} color={kit.onBackground} maxWidth={slide.items.length === 1 && slide.items[0].image ? 470 : 560} lines={2} />
+          // Two lines of 28px still fit the 64px footer.
+          <CornerSlot kind={bottomKind} kit={kit} logoSize={56} fontSize={28} color={kit.onBackground} maxWidth={leftW} lines={2} />
         ) : kit.swipe ? (
           <Swipe color={kit.onBackground ?? c.text} />
         ) : kit.logo ? (
@@ -271,7 +288,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
           <Brand kit={kit} size={56} logo={undefined} fontSize={28} />
         )}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Credit kit={kit} size={24} color={fg} />
+          {kit.slots ? <CornerSlot kind={bottomRightKind} kit={kit} logoSize={56} fontSize={28} color={kit.onBackground} maxWidth={rightW} lines={2} /> : <Credit kit={kit} size={24} color={fg} />}
           {slide.items.length === 1 && slide.items[0].image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={slide.items[0].image} width={104} height={104} alt="" style={{ borderRadius: 22, objectFit: "cover" }} />

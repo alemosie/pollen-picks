@@ -152,14 +152,16 @@ export async function withPhotos(items: SlideItem[], images: IssueImage[] | unde
 const dataUriAspect = (uri: string): number | undefined => imageAspect(Buffer.from(uri.slice(uri.indexOf(",") + 1), "base64")) ?? undefined;
 
 /** The kit fields a saved style adds: fonts, which corner shows what, and the facts to show. */
-export async function styleKit(style: SlideStyle, issue: IssueData): Promise<Pick<Kit, "fonts" | "slots" | "identity">> {
-  const uses = (s: "publication" | "organization") => style.top === s || style.bottom === s;
+export async function styleKit(style: SlideStyle, issue: IssueData): Promise<Pick<Kit, "fonts" | "slots" | "identity" | "attribution">> {
+  const uses = (s: "publication" | "organization") => style.top === s || style.bottom === s || style.bottomRight === s;
   const pubUrl = issue.publication?.logo;
   const pub = uses("publication") && pubUrl ? await fetchLogo(sized(pubUrl, 256)) : null;
   const orgLogo = uses("organization") ? style.orgLogo : null;
   return {
     fonts: fontPair(style.font),
-    slots: { top: style.top, bottom: style.bottom },
+    slots: { top: style.top, bottom: style.bottom, bottomRight: style.bottomRight },
+    // The credit is drawn only where the person put it (the cover and closing slides show it when any corner has it).
+    attribution: [style.top, style.bottom, style.bottomRight].includes("attribution"),
     identity: {
       publication: { name: issue.newsletter, logo: pub?.src, logoAspect: pub?.aspect },
       // An organization name left empty in Settings falls back to the one beehiiv gives for the publication.

@@ -6,6 +6,7 @@ import { verifyPreview } from "@/lib/previewSig";
 import { loadAppIssue } from "@/lib/sources";
 import { DEFAULT_COLORS } from "@/lib/brand";
 import { loadSlideStyle } from "@/lib/slideStyleStore";
+import { DEFAULT_STYLE } from "@/lib/slides/style";
 import { styleKit, withCoverPhoto, withPhotos } from "@/lib/slides/kit";
 import { linkImagesFor } from "@/lib/pollen/linkImages";
 import { photoLinkUrl } from "@/lib/userPhotoLinks";
@@ -38,14 +39,14 @@ export async function GET(req: NextRequest) {
   // demo addresses never use it, or a CDN could hand one person's organization name and logo to everyone.
   const uid = signedUid ?? (mode && !isDemo(mode) ? await sessionUserId() : null);
   const saved = uid ? await loadSlideStyle(uid) : null;
-  // A row that only holds a palette is not a saved slide style: those slides keep the standard look.
+  // Someone who has not chosen a slide style (a row that only holds a palette or an organization is not one) gets the standard look: DEFAULT_STYLE.
   const slide = slides[n];
   // A picture link the user saved is theirs alone: only looked up where the address belongs to them (uid).
   const savedLink = uid ? (id: string) => photoLinkUrl(uid, id) : undefined;
   const drawn = slide.kind === "picks" ? { ...slide, items: await withPhotos(slide.items, issue.images, mode && !isDemo(mode) ? (id) => linkImagesFor(issue.chunks.find((c) => c.id === id)?.url) : undefined, savedLink) } : await withCoverPhoto(slide, issue.images, savedLink);
   // On-screen previews ask for a smaller WebP (fmt=web). Signed links are what Buffer downloads, so they always stay full-size PNG.
   const web = q.get("fmt") === "web" && !q.has("sig") ? { width: Math.min(1080, Math.max(200, Number(q.get("w")) || 540)) } : undefined;
-  const res = await renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...(saved?.styled ? await styleKit(saved.style, issue) : {}) }, web);
+  const res = await renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...(uid ? await styleKit(saved?.styled ? saved.style : { ...DEFAULT_STYLE, orgName: saved?.style.orgName ?? "", orgLogo: saved?.style.orgLogo ?? null }, issue) : {}) }, web);
   if (!mode || isDemo(mode)) {
     // In the demo the address says only which picks (numbers) and which template. What those picks say comes from this visitor's cookies (the page
     // they pasted, the text they highlighted), so the same address can mean different slides. The browser keeps nothing across visits, and Netlify's

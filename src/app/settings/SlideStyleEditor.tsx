@@ -29,7 +29,7 @@ function SlotSelect({ id, label, value, onChange }: { id: string; label: string;
 }
 
 /**
- * Settings > Slide style: what goes in the header's and footer's left corner, and the font. Every change saves at once and the
+ * Settings > Slide style: what goes in the header's left corner and the footer's two corners, and the font. Every change saves at once and the
  * preview slide redraws with it. The organization itself (name, logo) is set on its own screen; this one only points to it.
  */
 export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: SlideStyle; previews: [string, string]; orgFallback?: string }) {
@@ -51,7 +51,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
       const res = await fetch("/api/settings/slide-style", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ top: next.top, bottom: next.bottom, font: next.font }),
+        body: JSON.stringify({ top: next.top, bottom: next.bottom, bottomRight: next.bottomRight, font: next.font }),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string; previews?: string[] };
       if (mine !== seq.current) return; // a newer change is already on its way
@@ -91,9 +91,9 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
   }
 
   // Organization is chosen for a corner but nothing is set up for it.
-  const orgChosen = style.top === "organization" || style.bottom === "organization";
+  const orgChosen = style.top === "organization" || style.bottom === "organization" || style.bottomRight === "organization";
   const orgSet = !!style.orgName.trim() || !!style.orgLogo;
-  const standard = style.top === DEFAULT_STYLE.top && style.bottom === DEFAULT_STYLE.bottom && style.font === DEFAULT_STYLE.font;
+  const standard = style.top === DEFAULT_STYLE.top && style.bottom === DEFAULT_STYLE.bottom && style.bottomRight === DEFAULT_STYLE.bottomRight && style.font === DEFAULT_STYLE.font;
 
   return (
     <section aria-labelledby="slide-style" className="rounded-2xl bg-card p-4 sm:p-6">
@@ -112,6 +112,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
           <div className="grid gap-4">
             <SlotSelect id="slot-top" label="Header, top left" value={style.top} onChange={(top) => change({ top })} />
             <SlotSelect id="slot-bottom" label="Footer, bottom left" value={style.bottom} onChange={(bottom) => change({ bottom })} />
+            <SlotSelect id="slot-bottom-right" label="Footer, bottom right" value={style.bottomRight} onChange={(bottomRight) => change({ bottomRight })} />
           </div>
           {orgChosen && !orgSet && (
             <p className="m-0 -mt-3 border-l-4 border-honey pl-3 text-sm font-semibold">
@@ -122,7 +123,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
               .
             </p>
           )}
-          <p className="m-0 -mt-3 text-sm">The page number and &ldquo;Created with Pollen Picks&rdquo; stay where they are. A slide with a category label (like &ldquo;West&rdquo;) shows that in the header instead.</p>
+          <p className="m-0 -mt-3 text-sm">The page number stays top right. A slide with a category label (like &ldquo;West&rdquo;) shows that in the header instead. &ldquo;Created with Pollen Picks&rdquo; is off unless you choose it for a corner; it is also shown on the first and last slide when you do.</p>
 
           <fieldset className="m-0 grid min-w-0 gap-2 border-0 p-0">
             <legend className="mb-1 p-0 font-bold">Font</legend>

@@ -8,6 +8,7 @@ import { DEFAULT_STYLE, type SlideStyle } from "./slides/style";
 type Row = {
   top: SlideStyle["top"];
   bottom: SlideStyle["bottom"];
+  bottom_right: SlideStyle["bottomRight"];
   font: SlideStyle["font"];
   org_name: string;
   org_logo: string | null;
@@ -35,11 +36,11 @@ const cleanPalette = (v: unknown): string[] | null =>
 /** The user's saved settings, or null when they have none. A database problem also reads as null. */
 export async function loadSlideStyle(userId: string): Promise<SlideSettings | null> {
   try {
-    const { data, error } = await db().from("slide_styles").select("top, bottom, font, org_name, org_logo, palette, styled, updated_at").eq("user_id", userId).maybeSingle();
+    const { data, error } = await db().from("slide_styles").select("top, bottom, bottom_right, font, org_name, org_logo, palette, styled, updated_at").eq("user_id", userId).maybeSingle();
     if (error) throw new Error(error.message);
     const r = data as Row | null;
     return r
-      ? { style: { ...DEFAULT_STYLE, top: r.top, bottom: r.bottom, font: r.font, orgName: r.org_name, orgLogo: r.org_logo }, styled: r.styled, palette: cleanPalette(r.palette), version: versionOf(r.updated_at) }
+      ? { style: { ...DEFAULT_STYLE, top: r.top, bottom: r.bottom, bottomRight: r.bottom_right, font: r.font, orgName: r.org_name, orgLogo: r.org_logo }, styled: r.styled, palette: cleanPalette(r.palette), version: versionOf(r.updated_at) }
       : null;
   } catch (e) {
     console.error("reading the slide settings failed:", (e as Error).message);
@@ -52,7 +53,7 @@ export async function saveSlideStyle(userId: string, s: SlideStyle): Promise<str
   const updated_at = new Date().toISOString();
   const { error } = await db()
     .from("slide_styles")
-    .upsert({ user_id: userId, top: s.top, bottom: s.bottom, font: s.font, org_name: s.orgName, org_logo: s.orgLogo, styled: true, updated_at }, { onConflict: "user_id" });
+    .upsert({ user_id: userId, top: s.top, bottom: s.bottom, bottom_right: s.bottomRight, font: s.font, org_name: s.orgName, org_logo: s.orgLogo, styled: true, updated_at }, { onConflict: "user_id" });
   if (error) throw new Error(`Could not save the slide style: ${error.message}`);
   return versionOf(updated_at);
 }
@@ -67,7 +68,7 @@ export async function resetSlideStyle(userId: string): Promise<string | undefine
     const updated_at = new Date().toISOString();
     const { error } = await db()
       .from("slide_styles")
-      .update({ top: DEFAULT_STYLE.top, bottom: DEFAULT_STYLE.bottom, font: DEFAULT_STYLE.font, styled: false, updated_at })
+      .update({ top: DEFAULT_STYLE.top, bottom: DEFAULT_STYLE.bottom, bottom_right: DEFAULT_STYLE.bottomRight, font: DEFAULT_STYLE.font, styled: false, updated_at })
       .eq("user_id", userId);
     if (error) throw new Error(`Could not reset the slide style: ${error.message}`);
     return versionOf(updated_at);

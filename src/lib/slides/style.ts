@@ -1,7 +1,7 @@
-// The slide style a user sets in Settings > Slide style: what goes in the header's and footer's left corner, and the font.
+// The slide style a user sets in Settings > Slide style: what goes in the header's left corner and the footer's two corners, and the font.
 // Shared by the Settings screen, the server that stores it and the slide renderer, so it holds no server-only code.
 
-export const SLOTS = ["publication", "organization", "title", "carousel", "date", "none"] as const;
+export const SLOTS = ["publication", "organization", "title", "carousel", "date", "attribution", "none"] as const;
 export type Slot = (typeof SLOTS)[number];
 export const SLOT_LABEL: Record<Slot, string> = {
   publication: "Publication name + logo",
@@ -9,6 +9,7 @@ export const SLOT_LABEL: Record<Slot, string> = {
   title: "Issue title",
   carousel: "Carousel title",
   date: "Issue date",
+  attribution: "\u201CCreated with Pollen Picks\u201D",
   none: "Nothing",
 };
 
@@ -26,9 +27,10 @@ export const FONT_NOTE: Record<SlideFont, string> = {
 export const fontPair = (f: SlideFont): { display: string; body: string } | undefined =>
   f === "dmsans" ? { display: "DM Sans", body: "DM Sans" } : f === "quicksand" ? { display: "Quicksand", body: "Quicksand" } : undefined;
 
-export type SlideStyle = { top: Slot; bottom: Slot; font: SlideFont; orgName: string; /** A small PNG or JPEG as a data URI. */ orgLogo: string | null };
+export type SlideStyle = { top: Slot; bottom: Slot; bottomRight: Slot; font: SlideFont; orgName: string; /** A small PNG or JPEG as a data URI. */ orgLogo: string | null };
 
-export const DEFAULT_STYLE: SlideStyle = { top: "publication", bottom: "publication", font: "madimi", orgName: "", orgLogo: null };
+/** The standard look: nothing top left, the publication bottom left, the organization bottom right, and no "Created with" credit. */
+export const DEFAULT_STYLE: SlideStyle = { top: "none", bottom: "publication", bottomRight: "organization", font: "madimi", orgName: "", orgLogo: null };
 
 export const MAX_ORG_NAME = 80;
 export const MAX_LOGO_CHARS = 250_000;
@@ -46,8 +48,9 @@ export function cleanStyle(raw: unknown, base: SlideStyle): SlideStyle | null {
   const r = raw as Record<string, unknown>;
   const top = r.top === undefined ? base.top : oneOf(SLOTS, r.top);
   const bottom = r.bottom === undefined ? base.bottom : oneOf(SLOTS, r.bottom);
+  const bottomRight = r.bottomRight === undefined ? base.bottomRight : oneOf(SLOTS, r.bottomRight);
   const font = r.font === undefined ? base.font : oneOf(FONTS, r.font);
-  if (!top || !bottom || !font) return null;
+  if (!top || !bottom || !bottomRight || !font) return null;
   if (r.orgName !== undefined && typeof r.orgName !== "string") return null;
   const orgName = typeof r.orgName === "string" ? r.orgName.replace(/\s+/g, " ").trim().slice(0, MAX_ORG_NAME) : base.orgName;
   let orgLogo = base.orgLogo;
@@ -56,7 +59,7 @@ export function cleanStyle(raw: unknown, base: SlideStyle): SlideStyle | null {
     if (typeof r.orgLogo !== "string" || r.orgLogo.length > MAX_LOGO_CHARS || !LOGO_RE.test(r.orgLogo)) return null;
     orgLogo = r.orgLogo;
   }
-  return { top, bottom, font, orgName, orgLogo };
+  return { top, bottom, bottomRight, font, orgName, orgLogo };
 }
 
 /** "5 Nov 2026" from an ISO date or timestamp, or "" when it isn't one. */

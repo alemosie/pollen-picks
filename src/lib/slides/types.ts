@@ -39,7 +39,7 @@ export type Slide =
 export type Kit = {
   name: string;
   colors: KitColors;
-  /** "Created with Pollen Picks" credit at the bottom of every slide. On by default. */
+  /** "Created with Pollen Picks" credit at the bottom of every slide. On by default; with `slots` it is on only where a corner is set to it. */
   attribution?: boolean;
   /** Optional logo (data URI) shown beside the name; `logoOnAccent` is used on the cover, whose background is the accent color. */
   logo?: string;
@@ -58,7 +58,7 @@ export type Kit = {
   /** Cover headline size in px (default 168). */
   coverTitleSize?: number;
   /** What goes in the left corner of the header and the footer of pick slides (Settings > Slide style). Without it the slides keep their built-in header and footer. */
-  slots?: { top: Slot; bottom: Slot };
+  slots?: { top: Slot; bottom: Slot; bottomRight: Slot };
   /** The facts those slots can show. A logo is a data URI; its aspect is width / height. */
   identity?: {
     publication: { name: string; logo?: string; logoAspect?: number };
