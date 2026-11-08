@@ -6,7 +6,7 @@ import { connection } from "next/server";
 import { cookies } from "next/headers";
 import { FreshRunDone } from "@/components/FreshRunDone";
 import { clearCustomChunks } from "@/lib/customPicks";
-import { FRESH_COOKIE } from "@/lib/progress";
+import { FRESH_COOKIE, readFreshId } from "@/lib/progress";
 import { ServerTimings } from "@/components/ServerTimings";
 import { timer } from "@/lib/timing";
 import { redirect } from "next/navigation";
@@ -49,7 +49,8 @@ async function PickContent({
   const t = timer("/pick");
   const session = await t.step("session", requireSession(`/pick?mode=${encodeURIComponent(String(mode ?? ""))}`));
   // Coming from the source step: a new run. The last run's highlights go before this one's issue is loaded.
-  const fresh = (await cookies()).get(FRESH_COOKIE)?.value === "1";
+  const freshId = readFreshId((await cookies()).get(FRESH_COOKIE)?.value);
+  const fresh = freshId !== "";
   if (fresh) {
     try {
       await t.step("fresh start", clearCustomChunks(session.userId));
@@ -106,7 +107,7 @@ async function PickContent({
       {/* A fresh run gets its own Picker. With cacheComponents the page left a moment ago stays alive (hidden), so without a new key it would
           come back with the old run's picks in its state, ignore the cleared storage, and autosave them to the server again. */}
       <Picker
-        key={pickerKey(String(mode ?? ""), issue.url, fresh)}
+        key={pickerKey(String(mode ?? ""), issue.url, freshId)}
         mode={String(mode ?? "")}
         issueKey={issue.url}
         chunks={issue.chunks}
