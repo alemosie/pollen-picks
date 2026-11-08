@@ -10,6 +10,7 @@ export const DEMO_EVENTS = [
   "write_reached",
   "send_reached",
   "gate_opened",
+  "demo_downloaded",
   "login_clicked",
   "feedback_clicked",
 ] as const;

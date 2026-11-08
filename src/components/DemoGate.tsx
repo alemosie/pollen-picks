@@ -2,23 +2,27 @@
 
 import { X } from "lucide-react";
 import { useId, useRef } from "react";
+import { DemoDownloadLink, type DemoDownload } from "@/components/DemoDownloadLink";
 import { primaryButton } from "@/components/FlowBar";
 import { track } from "@/lib/events";
 
 /**
  * The last step of the demo. Where the real flow creates drafts in Buffer, the demo asks for an account instead:
  * the sample issue is never sent. Already signed in? Point them at their own content.
+ * `download`: what the demo made, offered as a soft link under the buttons for people who would rather post it by hand.
  */
 export function DemoGate({
   signedIn,
   label = "Send to Buffer",
   className = primaryButton,
   onOpen,
+  download,
 }: {
   signedIn: boolean;
   label?: string;
   className?: string;
   onOpen?: (button: HTMLButtonElement) => void;
+  download?: DemoDownload;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -54,7 +58,7 @@ export function DemoGate({
             Now, create your own
           </h2>
           <p className="mb-6 text-lg leading-relaxed">
-            You&rsquo;ve done the demo — now it&rsquo;s time to create posts from your own content! Log into Pollen Picks to get started with beehiiv, Substack, personal blog, and more.
+            You&rsquo;ve done the demo — now it&rsquo;s time to create and send real social posts from your own content! Log into Pollen Picks to get started with beehiiv, Substack, personal blog, and more.
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <a
@@ -72,6 +76,7 @@ export function DemoGate({
               Leave us feedback
             </a>
           </div>
+          {download && <DemoDownloadLink {...download} />}
         </div>
       </dialog>
     </>

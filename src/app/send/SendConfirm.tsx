@@ -23,7 +23,7 @@ import {
   type CaptionOrder,
   type CaptionVariant,
 } from "@/lib/caption";
-import { imageLimit, unsupportedReason } from "@/lib/channels";
+import { imageLimit, serviceLabel, unsupportedReason } from "@/lib/channels";
 import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
 import { clearResume, clearSendBatches, loadFormat, loadSendBatches, saveSendBatches } from "@/lib/progress";
@@ -897,7 +897,20 @@ export function SendConfirm({
       >
         {!demo && source && <SaveCreationButton source={source} picks={picks} template={template} step={5} />}
         {demo ? (
-          <DemoGate signedIn={demo.signedIn} label="Finish demo" className={finishButton} onOpen={pollenBurst} />
+          <DemoGate
+            signedIn={demo.signedIn}
+            label="Finish demo"
+            className={finishButton}
+            onOpen={pollenBurst}
+            download={{
+              urls,
+              // One caption per kind of network, named for the demo channels that use it (Instagram, LinkedIn, X), with any edits made on Write.
+              captions: visible.map((v) => ({
+                label: [...new Set(chosen.filter((c) => variantFor(c.service) === v.id).map((c) => serviceLabel(c.service)))].join(" and "),
+                text: captionFor(v.id),
+              })),
+            }}
+          />
         ) : n === 0 && !started ? (
           <>
             <span aria-disabled className={`${primaryDisabled} ${compact}`}>
