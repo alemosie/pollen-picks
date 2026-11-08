@@ -1,11 +1,29 @@
 "use client";
 
 import { useContext, useEffect, useRef, useState } from "react";
-import { STOCK_IMAGES } from "@/lib/slides/stock";
+import { MARK_PATHS } from "@/lib/slides/mark";
 import { SlidesReadyContext, type SlideSlot } from "./SlidesReadyGate";
 
 // The standard placeholder (plain gray with the Pollen Picks mark), scaled to fill the frame, so the same one fits a small thumbnail and a large card.
-const PLACEHOLDER = `url("${STOCK_IMAGES[0].src}")`;
+// It is the same picture as the built-in gray one (lib/slides/stock.ts), drawn inline so the seeds floating off the dandelion can pulse while the slide loads.
+const [DANDELION, ...SEEDS] = MARK_PATHS;
+const K = 540 / 608; // the mark is about half the height of the 1000 x 1000 square
+const MARK_AT = `translate(${(500 - 202 * K).toFixed(1)} ${(500 - 304 * K).toFixed(1)}) scale(${K.toFixed(4)}) translate(-157 -57)`;
+
+/** Plain gray with the Pollen Picks mark. While `busy`, the seeds pulse one after another (still under reduced motion). */
+function Placeholder({ busy }: { busy: boolean }) {
+  return (
+    <svg aria-hidden viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 block size-full">
+      <rect width="1000" height="1000" fill="#d6d6d6" />
+      <g transform={MARK_AT} fill="#f5f5f5" fillRule="evenodd">
+        <path d={DANDELION} />
+        {SEEDS.map((d, i) => (
+          <path key={i} d={d} className={busy ? "pp-seed-pulse" : undefined} style={{ animationDelay: `${i * 0.28}s` }} />
+        ))}
+      </g>
+    </svg>
+  );
+}
 
 /**
  * A slide preview that is never an empty box. Slides are drawn on the server and can take a few seconds, so a quiet gray
@@ -56,7 +74,7 @@ export function SlidePreview({
           : `relative block aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[#d6d6d6] ring-1 ring-ink/10 ${className}`
       }
     >
-      <span aria-hidden className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: PLACEHOLDER }} />
+      <Placeholder busy={!shown} />
       {src && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
