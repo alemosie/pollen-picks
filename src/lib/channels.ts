@@ -19,6 +19,10 @@ export const UNSUPPORTED: Record<string, string> = {
   startpage: "Not supported yet",
 };
 
+/** Networks that refuse a large image, so the slides sent to them are small JPEGs instead of full-size PNGs (Bluesky: 1 MB, and Buffer can't shrink a file for it). */
+export const SMALL_IMAGE_SERVICES = ["bluesky"];
+export const needsSmallImages = (s: string) => SMALL_IMAGE_SERVICES.includes(serviceKey(s));
+
 export const serviceKey = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
 export const unsupportedReason = (s: string) => UNSUPPORTED[serviceKey(s)];
 export const imageLimit = (s: string) => IMAGE_LIMITS[serviceKey(s)] ?? DEFAULT_LIMIT;

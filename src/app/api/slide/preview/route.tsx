@@ -46,7 +46,9 @@ export async function GET(req: NextRequest) {
   const drawn = slide.kind === "picks" ? { ...slide, items: await withPhotos(slide.items, issue.images, mode && !isDemo(mode) ? (id) => linkImagesFor(issue.chunks.find((c) => c.id === id)?.url) : undefined, savedLink) } : await withCoverPhoto(slide, issue.images, savedLink);
   // On-screen previews ask for a smaller WebP (fmt=web). Signed links are what Buffer downloads, so they always stay full-size PNG.
   const web = q.get("fmt") === "web" && !q.has("sig") ? { width: Math.min(1080, Math.max(200, Number(q.get("w")) || 540)) } : undefined;
-  const res = await renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...(uid ? { ...(await styleKit(saved?.styled ? saved.style : { ...DEFAULT_STYLE, orgName: saved?.style.orgName ?? "", orgLogo: saved?.style.orgLogo ?? null }, issue)), ...(saved?.styled ? { styled: true } : {}) } : {}) }, web);
+  // A signed address with fmt=jpg is the small JPEG for networks that refuse large images (see needsSmallImages). Only Buffer-facing links can ask for it.
+  const smallJpeg = q.get("fmt") === "jpg" && Boolean(signedUid);
+  const res = await renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...(uid ? { ...(await styleKit(saved?.styled ? saved.style : { ...DEFAULT_STYLE, orgName: saved?.style.orgName ?? "", orgLogo: saved?.style.orgLogo ?? null }, issue)), ...(saved?.styled ? { styled: true } : {}) } : {}) }, web, { smallJpeg });
   // A signed address always means the same slides (a new send is signed again, so it gets a new address), and it is what Buffer keeps fetching
   // (its own image proxy and thumbnails included): never ask it to check back every few minutes, which re-draws a slide that went cold in the CDN.
   if (signedUid) res.headers.set("Cache-Control", "public, max-age=31536000, immutable");

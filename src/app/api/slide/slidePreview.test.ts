@@ -122,6 +122,31 @@ describe("signed slide addresses", () => {
       else env.NODE_ENV = was;
     }
   });
+  test("a signed link with fmt=jpg is a small JPEG (under Bluesky's 1 MB); without it, the normal PNG", async () => {
+    await account(U1);
+    const png = signPreview(qs({ mode: MODE, picks: "6,3" }), U1);
+    png.set("n", "0");
+    const normal = await get(png);
+    assert.match(normal.headers.get("content-type") ?? "", /image\/png/);
+    const jpg = signPreview(qs({ mode: MODE, picks: "6,3", fmt: "jpg" }), U1);
+    jpg.set("n", "0");
+    const small = await get(jpg);
+    assert.equal(small.status, 200);
+    assert.match(small.headers.get("content-type") ?? "", /image\/jpeg/);
+    const bytes = new Uint8Array(await small.arrayBuffer());
+    assert.ok(bytes.length > 0 && bytes.length <= 900_000, `${bytes.length} bytes`);
+    assert.deepEqual([...bytes.slice(0, 3)], [0xff, 0xd8, 0xff], "a real JPEG");
+  });
+  test("fmt=jpg cannot be added to an existing signed address (the signature covers it), and it means nothing without one", async () => {
+    await account(U1);
+    const p = signPreview(qs({ mode: MODE, picks: "6,3" }), U1);
+    p.set("n", "0");
+    p.set("fmt", "jpg");
+    assert.equal((await get(p)).status, 403);
+    const own = await get(qs({ mode: MODE, picks: "6,3", n: "0", fmt: "jpg" }), U1);
+    assert.equal(own.status, 200);
+    assert.match(own.headers.get("content-type") ?? "", /image\/png/, "a login alone does not turn it on");
+  });
   test("a signed link is always the full-size image: a small preview size is ignored", async () => {
     await account(U1);
     const p = signPreview(qs({ mode: MODE, picks: "6,3", fmt: "web", w: "200" }), U1);

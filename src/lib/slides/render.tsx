@@ -36,11 +36,34 @@ async function draw(slide: Slide, kit: Kit, withEmoji: boolean) {
   return res.arrayBuffer();
 }
 
+/** The most a slide may weigh for a network that refuses large images (Bluesky allows 1,000,000 bytes; this leaves room). */
+export const SMALL_IMAGE_BYTES = 900_000;
+
+/**
+ * A PNG as a JPEG no bigger than `max` bytes: quality steps down first, then the width, until it fits. A photo slide is typically 150-300 KB this way,
+ * where its PNG is several MB. Returns null if `sharp` can't be loaded or nothing fits (the caller then serves the PNG as before).
+ */
+export async function toSmallJpeg(png: ArrayBuffer | Buffer, max = SMALL_IMAGE_BYTES): Promise<Buffer | null> {
+  try {
+    const { default: sharp } = await import("sharp");
+    const src = Buffer.from(png as ArrayBuffer);
+    for (const width of [SLIDE_W, 900, 720]) {
+      for (const quality of [88, 80, 72, 64]) {
+        const out = await sharp(src).resize({ width, withoutEnlargement: true }).flatten({ background: "#ffffff" }).jpeg({ quality }).toBuffer();
+        if (out.length <= max) return out;
+      }
+    }
+  } catch {
+    // keep the PNG
+  }
+  return null;
+}
+
 /**
  * `web` is for slides shown on screen in the design step: a smaller WebP of `web.width` pixels. Posts to Buffer never ask for it
  * and keep the full-size PNG. If sharp can't load (it is a native module), the PNG is served instead, so a preview never breaks.
  */
-export async function renderSlide(slide: Slide, kit: Kit, web?: { width: number }): Promise<Response> {
+export async function renderSlide(slide: Slide, kit: Kit, web?: { width: number }, opts: { smallJpeg?: boolean } = {}): Promise<Response> {
   let png: ArrayBuffer;
   try {
     png = await draw(slide, kit, true);
@@ -56,6 +79,13 @@ export async function renderSlide(slide: Slide, kit: Kit, web?: { width: number 
       type = "image/webp";
     } catch {
       // keep the PNG
+    }
+  }
+  if (opts.smallJpeg && !web) {
+    const jpeg = await toSmallJpeg(png);
+    if (jpeg) {
+      body = new Uint8Array(jpeg);
+      type = "image/jpeg";
     }
   }
   const res = new Response(body, { headers: { "Content-Type": type } });

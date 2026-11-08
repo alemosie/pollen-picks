@@ -14,7 +14,7 @@
 import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { limitNote } from "./caption";
-import { imageLimit, unsupportedReason } from "./channels";
+import { imageLimit, needsSmallImages, unsupportedReason } from "./channels";
 import { siteOrigin } from "./buffer";
 import { createChannelPost, fakeMode } from "./bufferPost";
 import { getValidSession } from "./connections";
@@ -94,9 +94,10 @@ export type Claimed = {
 };
 
 /** What every channel of one send shares: the slide image addresses (signed for this user), or why they can't be made. */
-export type Context = { images: string[] } | { problem: string };
+/** `smallImages` is the same slides as small JPEGs, for the networks that refuse large images (see needsSmallImages); drawn only when a channel needs them. */
+export type Context = { images: string[]; smallImages?: string[] } | { problem: string };
 
-async function warm(urls: string[]): Promise<string | null> {
+export async function warm(urls: string[]): Promise<string | null> {
   const bad = (
     await Promise.all(
       urls.map(async (u, i) => {
@@ -134,7 +135,10 @@ async function buildContext(row: Claimed): Promise<Context> {
     const problem = await warm(images);
     if (problem) return { problem };
   }
-  return { images };
+  // The small JPEG set has its own signature (it names fmt=jpg). It is only drawn when a channel that needs it comes up in the worker.
+  const signedSmall = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", source], ["fmt", "jpg"]]), row.user_id).toString();
+  const smallImages = slides.map((_, i) => `${base}/api/slide/preview?${signedSmall}&n=${i}`);
+  return { images, smallImages };
 }
 
 /**
@@ -145,11 +149,13 @@ export type QueueDeps = {
   db: () => SupabaseClient;
   getValidSession: typeof getValidSession;
   buildContext: (row: Claimed) => Promise<Context>;
+  /** Draws slides ahead of Buffer (see warm); null when all were drawn, else why not. */
+  warmImages: (urls: string[]) => Promise<string | null>;
   createChannelPost: typeof createChannelPost;
   logDrafts: typeof logDrafts;
   fakeMode: () => boolean;
 };
-const realDeps = (): QueueDeps => ({ db, getValidSession, buildContext, createChannelPost, logDrafts, fakeMode });
+const realDeps = (): QueueDeps => ({ db, getValidSession, buildContext, warmImages: warm, createChannelPost, logDrafts, fakeMode });
 
 async function finish(client: SupabaseClient, row: Claimed, patch: Record<string, unknown>) {
   // The caption is only needed until the post exists, so it is erased when the row is done (created). A failed or unknown row keeps it for
@@ -186,6 +192,7 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
   if (claimed.length === 0) return 0;
 
   const contexts = new Map<string, Promise<Context>>();
+  const smallWarmups = new Map<string, Promise<string | null>>();
   const tokens = new Map<string, Promise<string | null>>();
   const tokenFor = (uid: string) => {
     if (!tokens.has(uid)) tokens.set(uid, d.getValidSession(uid).then((s) => s?.accessToken ?? null, () => null));
@@ -214,7 +221,17 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
         await finish(client, row, { status: "failed", error: clip(ctx.problem, 200) });
         continue;
       }
-      const images = ctx.images.slice(0, imageLimit(row.service));
+      // A network that refuses large images gets the small JPEG slides, drawn ahead (once per send) like the others.
+      const small = needsSmallImages(row.service) && ctx.smallImages ? ctx.smallImages : null;
+      if (small && !d.fakeMode()) {
+        if (!smallWarmups.has(key)) smallWarmups.set(key, d.warmImages(small));
+        const problem = await smallWarmups.get(key)!;
+        if (problem) {
+          await finish(client, row, { status: "failed", error: clip(problem, 200) });
+          continue;
+        }
+      }
+      const images = (small ?? ctx.images).slice(0, imageLimit(row.service));
       const out = await d.createChannelPost(token, {
         channelId: row.channel_id ?? "",
         service: row.service,

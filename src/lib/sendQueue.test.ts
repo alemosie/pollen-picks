@@ -123,11 +123,12 @@ class FakeDb {
 
 type Post = ChannelPostInput & { token: string };
 
-function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPostInput, n: number) => ChannelPostOutcome | Promise<ChannelPostOutcome>; context?: (row: Claimed) => Context } = {}) {
+function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPostInput, n: number) => ChannelPostOutcome | Promise<ChannelPostOutcome>; context?: (row: Claimed) => Context; warm?: (urls: string[]) => string | null; fake?: boolean } = {}) {
   const fake = new FakeDb();
   const posts: Post[] = [];
   const logged: { service: string; ok: boolean; error?: string; mode?: string }[] = [];
   const contextCalls: string[] = [];
+  const warmCalls: string[][] = [];
   const sessionCalls: string[] = [];
   let inFlight = 0;
   let maxInFlight = 0;
@@ -143,6 +144,10 @@ function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPos
       contextCalls.push(String(row.batch_id));
       return opts.context ? opts.context(row) : { images: ["https://img.test/0", "https://img.test/1", "https://img.test/2"] };
     },
+    warmImages: async (urls) => {
+      warmCalls.push(urls);
+      return opts.warm ? opts.warm(urls) : null;
+    },
     createChannelPost: async (token, p) => {
       posts.push({ ...p, token });
       const n = posts.length;
@@ -156,9 +161,9 @@ function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPos
       }
     },
     logDrafts: async (_uid, rows) => void logged.push(...rows),
-    fakeMode: () => false,
+    fakeMode: () => opts.fake === true,
   };
-  return { fake, deps, posts, logged, contextCalls, sessionCalls, maxInFlight: () => maxInFlight };
+  return { fake, deps, posts, logged, contextCalls, warmCalls, sessionCalls, maxInFlight: () => maxInFlight };
 }
 
 beforeEach(() => {
@@ -541,5 +546,63 @@ describe("enqueue: writing the rows", () => {
     const fake = new FakeDb();
     fake.insertError = "connection refused";
     await assert.rejects(enqueue("u1", request([{ id: "a", service: "linkedin", name: "A", caption: "x" }]), fake.client as unknown as SupabaseClient), /Could not queue the send: connection refused/);
+  });
+});
+
+describe("networks that refuse large images (Bluesky) get the small JPEG slides", () => {
+  const both = (): Context => ({ images: ["https://img.test/png0", "https://img.test/png1"], smallImages: ["https://img.test/jpg0", "https://img.test/jpg1"] });
+  const rows = (t: ReturnType<typeof setup>, ...services: string[]) => services.forEach((service, i) => t.fake.add(makeRow({ service, channel_id: `c${i}`, batch_id: "b1" })));
+
+  test("Bluesky posts the JPEG set; every other network keeps the full-size set", async () => {
+    const t = setup({ context: both });
+    rows(t, "linkedin", "bluesky", "instagram");
+    await processQueue({}, t.deps);
+    const by = (svc: string) => t.posts.find((p) => p.service === svc)!.images;
+    assert.deepEqual(by("bluesky"), ["https://img.test/jpg0", "https://img.test/jpg1"]);
+    assert.deepEqual(by("linkedin"), ["https://img.test/png0", "https://img.test/png1"]);
+    assert.deepEqual(by("instagram"), ["https://img.test/png0", "https://img.test/png1"]);
+  });
+  test("the JPEG slides are drawn ahead once per send, however many Bluesky channels", async () => {
+    const t = setup({ context: both });
+    rows(t, "bluesky", "bluesky", "bluesky");
+    await processQueue({}, t.deps);
+    assert.equal(t.warmCalls.length, 1);
+    assert.deepEqual(t.warmCalls[0], ["https://img.test/jpg0", "https://img.test/jpg1"]);
+  });
+  test("a send with no Bluesky channel draws nothing extra", async () => {
+    const t = setup({ context: both });
+    rows(t, "linkedin", "instagram", "threads");
+    await processQueue({}, t.deps);
+    assert.equal(t.warmCalls.length, 0);
+  });
+  test("if the JPEG slides can't be drawn only the Bluesky posts fail, with the reason; the others still go", async () => {
+    const t = setup({ context: both, warm: () => "Couldn't draw slide 2, so nothing was sent. Go back to Design and try again." });
+    rows(t, "linkedin", "bluesky");
+    await processQueue({}, t.deps);
+    assert.equal(t.posts.length, 1);
+    assert.equal(t.posts[0].service, "linkedin");
+    const bsky = t.fake.rows.find((r) => r.service === "bluesky")!;
+    assert.equal(bsky.status, "failed");
+    assert.match(String(bsky.error), /Couldn't draw slide 2/);
+  });
+  test("fake mode posts nothing real and draws nothing, but still takes the JPEG set", async () => {
+    const t = setup({ context: both, fake: true });
+    rows(t, "bluesky");
+    await processQueue({}, t.deps);
+    assert.equal(t.warmCalls.length, 0);
+    assert.deepEqual(t.posts[0].images, ["https://img.test/jpg0", "https://img.test/jpg1"]);
+  });
+  test("a context without a JPEG set (nothing to draw it from) falls back to the normal slides", async () => {
+    const t = setup();
+    rows(t, "bluesky");
+    await processQueue({}, t.deps);
+    assert.equal(t.warmCalls.length, 0);
+    assert.deepEqual(t.posts[0].images, ["https://img.test/0", "https://img.test/1", "https://img.test/2"]);
+  });
+  test("the network's own image limit still applies (Bluesky: 4)", async () => {
+    const t = setup({ context: () => ({ images: Array.from({ length: 9 }, (_, i) => `p${i}`), smallImages: Array.from({ length: 9 }, (_, i) => `j${i}`) }) });
+    rows(t, "bluesky");
+    await processQueue({}, t.deps);
+    assert.deepEqual(t.posts[0].images, ["j0", "j1", "j2", "j3"]);
   });
 });
