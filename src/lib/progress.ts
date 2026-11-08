@@ -152,10 +152,17 @@ export function clearSendBatches() {
 // own, because the click that sets it also navigates: the Pick request carries it, so nothing has to be awaited and nothing
 // can arrive late. The Pick page removes it again once it has loaded (see FreshRunDone).
 export const FRESH_COOKIE = "pp_fresh";
+/**
+ * A new value for every fresh start, not just "1": the Pick page uses it in the Picker's React key (see pickerKey). Two fresh starts of the same issue
+ * must not share a Picker, or the page left behind in the background comes back with its old picks and saves them again.
+ */
+const freshId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+/** What the Pick page accepts from the cookie: letters and digits only ("1", from before the id existed, still counts as fresh). */
+export const readFreshId = (cookieValue: string | undefined): string => (cookieValue && /^[a-z0-9]{1,40}$/i.test(cookieValue) ? cookieValue : "");
 export function startFreshRun() {
   clearProgress();
   try {
-    document.cookie = `${FRESH_COOKIE}=1; path=/; max-age=120; SameSite=Lax`;
+    document.cookie = `${FRESH_COOKIE}=${freshId()}; path=/; max-age=120; SameSite=Lax`;
   } catch {}
 }
 export function endFreshRun() {

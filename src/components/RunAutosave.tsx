@@ -156,6 +156,16 @@ export function RunAutosave({ source, picks, template, step, enabled = true }: {
       const j = (await res.json().catch(() => ({}))) as { creation?: OpenedCreation; error?: string };
       if (!res.ok || !j.creation) setError(j.error ?? "Couldn't load it right now. Try again in a moment.");
       else {
+        // A saved creation replaces this browser's run, so the server's run slot goes too (as when one is opened from History): left behind, the next
+        // autosave would be refused for not matching it, and the person would be asked the same question again right after answering it.
+        if (problem.kind === "saved") {
+          const d = await fetch("/api/run", { method: "DELETE" }).catch(() => null);
+          if (!d?.ok) {
+            setError("Couldn't load it right now. Try again in a moment.");
+            setWorking(false);
+            return;
+          }
+        }
         applyOpened(j.creation, problem.kind === "run" ? "run" : "saved");
         // A full load, so every step reads the run that was just put back.
         window.location.assign(openedUrl(j.creation));

@@ -7,11 +7,14 @@ import { forgetRun } from "@/lib/runSync";
 type Status = { run: { source: string; newsletter: string; title: string; picks: number; step: number } | null; unsaved: boolean; hasSavedForIssue: boolean };
 type Pending = { status: Status; go: () => void; intoSource?: string };
 
-/** Throws away the current run on the server and what this browser knew about it. Errors are ignored: the run is replaced by the next autosave anyway. */
+/**
+ * Throws away the current run on the server and what this browser knew about it. Throws if the server did not confirm: a run that is still there would
+ * come back (a "doesn't match this screen" question on the next autosave, and "load the saved run" would bring the old picks back), so the caller must
+ * not go on as if it were gone. The browser keeps what it knew about the run in that case, so a later autosave still matches it.
+ */
 async function discardRun() {
-  try {
-    await fetch("/api/run", { method: "DELETE" });
-  } catch {}
+  const res = await fetch("/api/run", { method: "DELETE" });
+  if (!res.ok) throw new Error(`discarding the run failed (${res.status})`);
   forgetRun();
 }
 
@@ -34,7 +37,8 @@ export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?:
       if (res.ok) status = (await res.json()) as Status;
     } catch {}
     if (!status?.run || !status.unsaved) {
-      await discardRun();
+      // Nothing is lost if this fails (the run is saved, or there is none): go on, and the browser still remembers the run it knew, so autosave matches it.
+      await discardRun().catch(() => {});
       go();
       return;
     }
@@ -67,7 +71,7 @@ export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?:
       setPending(null);
       go();
     } catch {
-      setError("Couldn't reach Pollen Picks. Your run is still there. Check your connection and try again.");
+      setError("Couldn't discard it right now. Your run is still there. Check your connection and try again in a moment.");
     } finally {
       setBusy(false);
     }
