@@ -18,7 +18,7 @@ import { demoUrlFrom, parseLinkMode } from "@/lib/flow";
 import { knownHandles } from "@/lib/instagramHandles";
 import { loadAppIssueResult } from "@/lib/sources";
 import { Picker } from "./Picker";
-import { parsePicking } from "./picking";
+import { parsePicking, pickerKey } from "./picking";
 
 export const metadata = { title: "Pick content · Pollen Picks" };
 
@@ -103,8 +103,10 @@ async function PickContent({
             <ShareLinkButton kind="pick" mode={String(mode ?? "")} />
           </div>
       </div>
+      {/* A fresh run gets its own Picker. With cacheComponents the page left a moment ago stays alive (hidden), so without a new key it would
+          come back with the old run's picks in its state, ignore the cleared storage, and autosave them to the server again. */}
       <Picker
-        key={`${String(mode ?? "")}|${issue.url}`}
+        key={pickerKey(String(mode ?? ""), issue.url, fresh)}
         mode={String(mode ?? "")}
         issueKey={issue.url}
         chunks={issue.chunks}
