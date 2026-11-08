@@ -190,6 +190,7 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
       title: spec.closing?.title !== undefined ? spec.closing.title.trim() : opts.closingTitle || "Want the full list?",
       line: spec.closing?.line !== undefined ? spec.closing.line.trim() : opts.closingLine || `Read every pick in ${opts.newsletter}`,
       cta: spec.closing?.cta !== undefined ? spec.closing.cta.trim() : opts.cta, // "" = no button
+      ...(spec.closing?.photo ? { photoId: spec.closing.photo, photoMode: spec.closing.photoMode ?? "section" } : {}),
       more: opts.moreInNewsletter ?? 0,
     },
   ];

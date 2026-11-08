@@ -48,7 +48,16 @@ export type CustomSpec = {
     /** A faded dandelion in the top right corner. */
     puff?: boolean;
   };
-  closing?: { title?: string; line?: string; cta?: string; bg?: string };
+  closing?: {
+    title?: string;
+    line?: string;
+    cta?: string;
+    bg?: string;
+    /** A picture from the issue (an IssueImage id), a built-in one, or one the user saved. No picture unless one is chosen. */
+    photo?: string;
+    /** Where the picture goes. Missing = "section". */
+    photoMode?: "section" | "background";
+  };
   slides: number[][];
   /** Background hex per pick slide, parallel to `slides` ("" or missing = default). */
   bgs?: string[];
@@ -125,6 +134,8 @@ export function encodeSpec(spec: CustomSpec): string {
       l: spec.closing.line,
       c: spec.closing.cta,
       g: hex6(spec.closing.bg),
+      p: spec.closing.photo || undefined,
+      m: spec.closing.photo && spec.closing.photoMode === "background" ? "b" : undefined,
     },
     s: spec.slides,
     h: spec.hideTags?.some(Boolean) ? spec.slides.map((_, i) => (spec.hideTags![i] ? 1 : 0)) : undefined,
@@ -211,6 +222,8 @@ export function decodeSpec(
             line: str(w.x.l, SPEC_LIMITS.closingLine),
             cta: str(w.x.c, SPEC_LIMITS.cta),
             bg: withHash(w.x.g),
+            // Only an id from the issue is accepted, never an address.
+            ...(isImageId(w.x.p) ? { photo: w.x.p, photoMode: w.x.m === "b" ? ("background" as const) : ("section" as const) } : {}),
           }
         : undefined,
       slides,

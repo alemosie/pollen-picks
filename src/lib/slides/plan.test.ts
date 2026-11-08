@@ -144,3 +144,14 @@ test("planCustom: a tag set by hand replaces the one from the link, and an empty
   const hidden = planCustom(items, { slides: [[1]], hideTags: [true], edits: { 1: { tag: "by.hand" } } }, opts)[1];
   assert.ok(hidden.kind === "picks" && hidden.items[0].tag === undefined);
 });
+
+test("planCustom: the closing slide carries its chosen picture and mode; without one it has neither", () => {
+  const items = [{ id: 1, title: "A" }];
+  const withPhoto = planCustom(items, { slides: [[1]], closing: { photo: "0a1b2c3d", photoMode: "background" } }, { newsletter: "N" });
+  const closing = withPhoto[withPhoto.length - 1];
+  assert.ok(closing.kind === "closing");
+  assert.equal(closing.photoId, "0a1b2c3d");
+  assert.equal(closing.photoMode, "background");
+  const without = planCustom(items, { slides: [[1]] }, { newsletter: "N" }).at(-1)!;
+  assert.ok(without.kind === "closing" && without.photoId === undefined && without.photoMode === undefined);
+});

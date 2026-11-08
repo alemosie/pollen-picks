@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
   const drawn = slide.kind === "picks" ? { ...slide, items: await withPhotos(slide.items, issue.images, mode && !isDemo(mode) ? (id) => linkImagesFor(issue.chunks.find((c) => c.id === id)?.url) : undefined, savedLink) } : await withCoverPhoto(slide, issue.images, savedLink);
   // On-screen previews ask for a smaller WebP (fmt=web). Signed links are what Buffer downloads, so they always stay full-size PNG.
   const web = q.get("fmt") === "web" && !q.has("sig") ? { width: Math.min(1080, Math.max(200, Number(q.get("w")) || 540)) } : undefined;
-  const res = await renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...(uid ? await styleKit(saved?.styled ? saved.style : { ...DEFAULT_STYLE, orgName: saved?.style.orgName ?? "", orgLogo: saved?.style.orgLogo ?? null }, issue) : {}) }, web);
+  const res = await renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...(uid ? { ...(await styleKit(saved?.styled ? saved.style : { ...DEFAULT_STYLE, orgName: saved?.style.orgName ?? "", orgLogo: saved?.style.orgLogo ?? null }, issue)), ...(saved?.styled ? { styled: true } : {}) } : {}) }, web);
   if (!mode || isDemo(mode)) {
     // In the demo the address says only which picks (numbers) and which template. What those picks say comes from this visitor's cookies (the page
     // they pasted, the text they highlighted), so the same address can mean different slides. The browser keeps nothing across visits, and Netlify's

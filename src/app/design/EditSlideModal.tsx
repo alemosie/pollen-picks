@@ -195,6 +195,18 @@ export function EditSlideModal({
   const setCoverPhotoMode = (m: "section" | "background") => setDraft((d) => ({ ...d, cover: { ...d.cover, photo: coverPhoto || undefined, noPhoto: undefined, photoMode: m } }));
   const setClosing = (k: "title" | "line" | "cta", v: string) =>
     setDraft((d) => ({ ...d, closing: { ...d.closing, [k]: v } }));
+  // The button is optional: an empty button text is how the slide is told to leave it out. The checkbox is its own state, so clearing the text while typing doesn't make the field vanish.
+  const [showButton, setShowButton] = useState(() => (draft.closing?.cta ?? DEFAULTS.cta) !== "");
+  const toggleButton = (on: boolean) => {
+    setShowButton(on);
+    setClosing("cta", on ? DEFAULTS.cta : "");
+  };
+  // The closing slide has no picture until one is chosen (unlike the cover, which starts with the issue's own).
+  const closingPhoto = draft.closing?.photo ?? "";
+  const closingMode = draft.closing?.photoMode ?? "section";
+  const setClosingPhoto = (v: string) =>
+    setDraft((d) => ({ ...d, closing: { ...d.closing, photo: v || undefined, photoMode: v ? (d.closing?.photoMode ?? "section") : undefined } }));
+  const setClosingPhotoMode = (m: "section" | "background") => setDraft((d) => ({ ...d, closing: { ...d.closing, photoMode: m } }));
   const setEdit = (id: number, key: keyof PickEdit, v: string) =>
     setDraft((d) => ({
       ...d,
@@ -243,7 +255,11 @@ export function EditSlideModal({
       : target.kind === "closing"
         ? !!nd.closing
         : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex] || !!nd.hideTags?.[slideIndex];
-  const revert = () =>
+  const revert = () => {
+    if (target.kind === "closing") setShowButton(true); // back to the default, which has a button
+    revertDraft();
+  };
+  const revertDraft = () =>
     setDraft((d) => {
       if (target.kind === "cover") return { ...d, cover: undefined };
       if (target.kind === "closing") return { ...d, closing: undefined };
@@ -410,30 +426,7 @@ export function EditSlideModal({
                 {(
                   <>
                     <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} value={coverPhoto} onPick={setCoverPhoto} label="Cover picture" />
-                    {coverPhoto && (
-                      <div role="radiogroup" aria-label="Where the picture goes" className="flex flex-wrap gap-2">
-                        {(
-                          [
-                            ["section", "As a section"],
-                            ["background", "As the background"],
-                          ] as const
-                        ).map(([m, label]) => (
-                          <label
-                            key={m}
-                            className="cursor-pointer rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 has-[:checked]:bg-ink has-[:checked]:text-cream has-[:checked]:ring-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink"
-                          >
-                            <input
-                              type="radio"
-                              name="cover-photo-mode"
-                              checked={coverMode === m}
-                              onChange={() => setCoverPhotoMode(m)}
-                              className="sr-only"
-                            />
-                            {label}
-                          </label>
-                        ))}
-                      </div>
-                    )}
+                    {coverPhoto && <PhotoModeChoice name="cover-photo-mode" value={coverMode} onChange={setCoverPhotoMode} />}
                   </>
                 )}
               </>
@@ -459,15 +452,23 @@ export function EditSlideModal({
                     className={input}
                   />
                 </label>
-                <label className="grid gap-1 text-sm font-semibold">
-                  Button
-                  <input
-                    value={draft.closing?.cta ?? DEFAULTS.cta}
-                    maxLength={SPEC_LIMITS.cta}
-                    onChange={(e) => setClosing("cta", e.target.value)}
-                    className={input}
-                  />
+                <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
+                  <input type="checkbox" checked={showButton} onChange={(e) => toggleButton(e.target.checked)} className="size-5 shrink-0 accent-ink" />
+                  Show a button
                 </label>
+                {showButton && (
+                  <label className="grid gap-1 text-sm font-semibold">
+                    Button text
+                    <input
+                      value={draft.closing?.cta ?? DEFAULTS.cta}
+                      maxLength={SPEC_LIMITS.cta}
+                      onChange={(e) => setClosing("cta", e.target.value)}
+                      className={input}
+                    />
+                  </label>
+                )}
+                <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} value={closingPhoto} onPick={setClosingPhoto} label="Closing picture" />
+                {closingPhoto && <PhotoModeChoice name="closing-photo-mode" value={closingMode} onChange={setClosingPhotoMode} />}
               </>
             )}
 
@@ -723,6 +724,28 @@ function Thumb({ img, on, onPick, n, source, onRemove }: { img: IssueImage; on: 
 
 const TILE = "relative grid size-12 shrink-0 sm:size-16 place-items-center overflow-hidden rounded-lg text-xs font-bold ring-1 ring-current/30 hover:ring-current";
 const TILE_ON = "ring-2 ring-current";
+
+/** Where a cover or closing picture goes: a block between the logo and the text, or the whole slide behind them. */
+function PhotoModeChoice({ name, value, onChange }: { name: string; value: "section" | "background"; onChange: (m: "section" | "background") => void }) {
+  return (
+    <div role="radiogroup" aria-label="Where the picture goes" className="flex flex-wrap gap-2">
+      {(
+        [
+          ["section", "As a section"],
+          ["background", "As the background"],
+        ] as const
+      ).map(([m, label]) => (
+        <label
+          key={m}
+          className="cursor-pointer rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-ink/15 transition hover:ring-ink/40 has-[:checked]:bg-ink has-[:checked]:text-cream has-[:checked]:ring-ink has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink"
+        >
+          <input type="radio" name={name} checked={value === m} onChange={() => onChange(m)} className="sr-only" />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}
 
 /**
  * The pictures to choose from, in one row: "None", then the issue's own, the ones found on the page the pick links to, and the

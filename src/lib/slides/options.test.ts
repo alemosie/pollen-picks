@@ -124,3 +124,14 @@ test("a hand-set Instagram tag travels with the pick; an empty one (remove) is k
   assert.equal(raw.edits?.[3], undefined);
   assert.equal(raw.edits?.[4], undefined, "too long");
 });
+
+test("a closing picture and where it goes survive the round trip; an address or a bad id is dropped", () => {
+  const back = decodeSpec(encodeSpec({ slides: [[1]], closing: { title: "More", photo: "0a1b2c3d", photoMode: "background" } }));
+  assert.equal(back?.closing?.photo, "0a1b2c3d");
+  assert.equal(back?.closing?.photoMode, "background");
+  const section = decodeSpec(encodeSpec({ slides: [[1]], closing: { photo: "0a1b2c3d" } }));
+  assert.equal(section?.closing?.photoMode, "section");
+  const bad = decodeSpec(encodeSpec({ slides: [[1]], closing: { title: "x", photo: "https://example.org/a.png", photoMode: "background" } }));
+  assert.equal(bad?.closing?.photo, undefined);
+  assert.equal(bad?.closing?.photoMode, undefined);
+});

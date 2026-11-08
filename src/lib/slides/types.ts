@@ -34,7 +34,7 @@ export type SlideItem = {
 export type Slide =
   | { kind: "cover"; /** Custom background (hex). */ bg?: string; title: string; subtitle: string; /** Square images (data URIs) shown in a row at the bottom. */ images?: string[]; /** A picture from the issue (an id from extractIssueImages). Only the id travels in the design. */ photoId?: string; /** That picture as a data URI, filled in by the renderer's route just before drawing. */ photo?: string; /** "section": a block between the logo and the text. "background": the whole slide, under a darkening layer. */ photoMode?: "section" | "background"; /** A faded dandelion in the top right corner. */ puff?: boolean }
   | { kind: "picks"; /** Custom background (hex). */ bg?: string; items: SlideItem[]; group?: string; page: number; pages: number; /** The carousel's own title (the cover's), for the "Carousel title" corner option. */ carouselTitle?: string }
-  | { kind: "closing"; /** Custom background (hex). */ bg?: string; title: string; line: string; more: number; /** Button text. Default "Subscribe · link in bio". */ cta?: string; /** Draw the slide on the dark background, with the link line in the accent color. */ dark?: boolean; link?: string; images?: string[] };
+  | { kind: "closing"; /** Custom background (hex). */ bg?: string; title: string; line: string; more: number; /** Button text. Default "Subscribe · link in bio". */ cta?: string; /** Draw the slide on the dark background, with the link line in the accent color. */ dark?: boolean; link?: string; images?: string[]; /** A picture from the issue (an id from extractIssueImages). Only the id travels in the design. */ photoId?: string; /** That picture as a data URI, filled in by the renderer's route just before drawing. */ photo?: string; /** "section": a block between the logo and the text. "background": the whole slide, under a darkening layer. */ photoMode?: "section" | "background" };
 
 export type Kit = {
   name: string;
@@ -57,6 +57,8 @@ export type Kit = {
   nameLines?: [string, string];
   /** Cover headline size in px (default 168). */
   coverTitleSize?: number;
+  /** The person saved a slide style: the cover and the closing slide show its top left choice in their top left corner too. */
+  styled?: boolean;
   /** What goes in the left corner of the header and the footer of pick slides (Settings > Slide style). Without it the slides keep their built-in header and footer. */
   slots?: { top: Slot; bottom: Slot; bottomRight: Slot };
   /** The facts those slots can show. A logo is a data URI; its aspect is width / height. */

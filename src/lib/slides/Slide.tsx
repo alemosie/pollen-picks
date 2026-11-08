@@ -143,6 +143,10 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   const DISPLAY = kit.fonts?.display ?? DISPLAY_FONT;
   const DW = kit.fonts ? 700 : 400;
   const base: CSSProperties = { width: SLIDE_W, height: SLIDE_H, display: "flex", flexDirection: "column", fontFamily: kit.fonts?.body ?? BODY_FONT, color: c.text };
+  // Once a slide style is saved, the top left of the cover and the closing slide shows what the person chose for the header's top left corner (instead of the
+  // publication's name lockup). The credit is then drawn there, not a second time at the bottom.
+  const topChoice = kit.styled && kit.slots ? kit.slots.top : undefined;
+  const endCredit = topChoice === "attribution" ? null : undefined;
   if (slide.kind === "cover") {
     const bgPhoto = slide.photo && slide.photoMode === "background" ? slide.photo : undefined;
     const boxPhoto = slide.photo && slide.photoMode !== "background" ? slide.photo : undefined;
@@ -150,7 +154,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
     const ink = bgPhoto ? CREAM : (fg ?? c.text);
     const coverKit: Kit = bgPhoto ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
     // The corner dandelion hangs below the top margin; the picture starts below it rather than under it.
-    const brandH = kit.logoOnAccent ?? kit.logo ? 150 : kit.nameLines ? 124 : 42;
+    const brandH = topChoice ? 96 : kit.logoOnAccent ?? kit.logo ? 150 : kit.nameLines ? 124 : 42;
     const puffClear = slide.puff && boxPhoto ? Math.max(0, P + PUFF_H + 28 - (P + brandH + 48)) : 0;
     const sz = textSizes(slide.title, slide.subtitle, { title: kit.coverTitleSize ?? 168, titleMax: 300, titleLh: 1, body: 44, bodyMax: 72, bodyMin: 28, room: boxPhoto ? 360 : 780 });
     return (
@@ -169,7 +173,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
           <img src={`data:image/svg+xml;base64,${Buffer.from(MARK_SVG.replaceAll("__FILL__", ink)).toString("base64")}`} width={Math.round((PUFF_H * 404) / 608)} height={PUFF_H} alt="" style={{ position: "absolute", top: P, right: P, opacity: 0.5 }} />
         )}
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: P, width: SLIDE_W, height: SLIDE_H, ...(boxPhoto ? { gap: 48 } : {}) }}>
-        <Brand kit={coverKit} size={150} logo={kit.logoOnAccent ?? kit.logo} fontSize={kit.nameLines ? 56 : 34} stacked />
+        {topChoice ? <CornerSlot kind={topChoice} kit={kit} logoSize={96} fontSize={34} color={ink} maxWidth={760} lines={2} /> : <Brand kit={coverKit} size={150} logo={kit.logoOnAccent ?? kit.logo} fontSize={kit.nameLines ? 56 : 34} stacked />}
         {boxPhoto && (
           <div style={{ display: "flex", flex: 1, minHeight: 280, maxHeight: COVER_PHOTO_MAX_H, borderRadius: 44, overflow: "hidden", marginTop: puffClear }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -190,9 +194,9 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
               <path d="M3 14h48M38 3l13 11-13 11" stroke={ink} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
             </svg>
           </div>
-          {slide.images?.length ? <CoverImages images={slide.images} /> : <Credit kit={kit} color={ink} />}
+          {slide.images?.length ? <CoverImages images={slide.images} /> : endCredit === null ? <div style={{ display: "flex" }} /> : <Credit kit={kit} color={ink} />}
         </div>
-        {slide.images?.length ? <Credit kit={kit} color={ink} /> : null}
+        {slide.images?.length && endCredit !== null ? <Credit kit={kit} color={ink} /> : null}
         </div>
         </div>
       </div>
@@ -201,10 +205,30 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   if (slide.kind === "closing") {
     const dark = !!slide.dark;
     const fgClosing = custom ? fg! : dark ? (kit.onBackground ?? c.text) : c.text;
-    const csz = textSizes(slide.title, slide.line, { title: 132, titleMax: 240, titleLh: 1.02, body: 46, bodyMax: 72, bodyMin: 30, room: 700 - (slide.more > 0 ? 90 : 0) - (slide.link ? 70 : 0) });
+    const bgPhoto = slide.photo && slide.photoMode === "background" ? slide.photo : undefined;
+    const boxPhoto = slide.photo && slide.photoMode !== "background" ? slide.photo : undefined;
+    // On a picture the text is always light, over a darkening layer, whatever the slide color would have chosen.
+    const onPhoto = !!bgPhoto;
+    const ink = onPhoto ? CREAM : fgClosing;
+    const photoKit: Kit = onPhoto ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
+    const csz = textSizes(slide.title, slide.line, { title: 132, titleMax: 240, titleLh: 1.02, body: 46, bodyMax: 72, bodyMin: 30, room: (boxPhoto ? 380 : 700) - (slide.more > 0 ? 90 : 0) - (slide.link ? 70 : 0) });
     return (
-      <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: fgClosing, padding: P, justifyContent: "space-between" }}>
-        <Brand kit={kit} size={140} logo={dark ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={dark ? kit.nameOnBackground : undefined} />
+      <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: ink, padding: P, justifyContent: "space-between", position: "relative", ...(boxPhoto ? { gap: 48 } : {}) }}>
+        {bgPhoto && (
+          <>
+            {/* An <img> with object-fit: the renderer does not honor background-size: cover (the picture tiles instead). */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={bgPhoto} width={SLIDE_W} height={SLIDE_H} alt="" style={{ position: "absolute", top: 0, left: 0, objectFit: "cover" }} />
+            <div style={{ position: "absolute", top: 0, left: 0, width: SLIDE_W, height: SLIDE_H, display: "flex", backgroundImage: "linear-gradient(rgba(20,28,25,0.38), rgba(20,28,25,0.66))" }} />
+          </>
+        )}
+        {topChoice ? <CornerSlot kind={topChoice} kit={kit} logoSize={96} fontSize={34} color={onPhoto ? ink : dark ? kit.nameOnBackground : undefined} maxWidth={760} lines={2} /> : <Brand kit={photoKit} size={140} logo={dark || onPhoto ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={onPhoto ? ink : dark ? kit.nameOnBackground : undefined} />}
+        {boxPhoto && (
+          <div style={{ display: "flex", flex: 1, minHeight: 280, maxHeight: COVER_PHOTO_MAX_H, borderRadius: 44, overflow: "hidden" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={boxPhoto} width="100%" height="100%" alt="" style={{ objectFit: "cover" }} />
+          </div>
+        )}
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {slide.more > 0 && (
             <div style={{ display: "flex", alignSelf: "flex-start", background: c.accent, borderRadius: 999, padding: "10px 28px", fontSize: 40, fontWeight: 700 }}>
@@ -218,15 +242,15 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           {slide.cta !== "" ? (
-            <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: dark && !custom ? c.accent : fgClosing, color: dark && !custom ? c.background : (custom ?? c.card), borderRadius: 999, padding: "16px 36px" }}>
+            <div style={{ display: "flex", fontSize: 38, fontWeight: 700, background: onPhoto ? ink : dark && !custom ? c.accent : fgClosing, color: onPhoto ? "#141c19" : dark && !custom ? c.background : (custom ?? c.card), borderRadius: 999, padding: "16px 36px" }}>
               {slide.cta ?? "Subscribe · link in bio"}
             </div>
           ) : (
             <div style={{ display: "flex" }} />
           )}
-          {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : <Credit kit={kit} color={fg} />}
+          {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : endCredit === null ? <div style={{ display: "flex" }} /> : <Credit kit={kit} color={onPhoto ? ink : fg} />}
         </div>
-        {slide.images?.length ? <Credit kit={kit} color={fg} /> : null}
+        {slide.images?.length && endCredit !== null ? <Credit kit={kit} color={onPhoto ? ink : fg} /> : null}
         </div>
       </div>
     );

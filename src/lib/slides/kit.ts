@@ -119,9 +119,9 @@ async function fetchImage(raw: string, maxBytes: number, cache: Cached, keep: nu
 /** Looks up a picture address the signed-in user saved, by its id: the address, or null when it isn't theirs or is gone. */
 export type SavedPhotoLink = (id: string) => Promise<string | null>;
 
-/** The cover with its chosen picture drawn in. A picture that can't be fetched is left out; the cover is still drawn. */
+/** The cover or closing slide with its chosen picture drawn in. A picture that can't be fetched is left out; the slide is still drawn. */
 export async function withCoverPhoto(slide: Slide, images: IssueImage[] | undefined, saved?: SavedPhotoLink): Promise<Slide> {
-  if (slide.kind !== "cover" || !slide.photoId) return slide;
+  if ((slide.kind !== "cover" && slide.kind !== "closing") || !slide.photoId) return slide;
   // A built-in picture is drawn in code: no issue and no fetch needed.
   const stock = stockSvg(slide.photoId);
   if (stock) return { ...slide, photo: `data:image/svg+xml;base64,${Buffer.from(stock).toString("base64")}` };
