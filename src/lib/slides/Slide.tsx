@@ -213,7 +213,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
     const photoKit: Kit = onPhoto ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
     const csz = textSizes(slide.title, slide.line, { title: 132, titleMax: 240, titleLh: 1.02, body: 46, bodyMax: 72, bodyMin: 30, room: (boxPhoto ? 380 : 700) - (slide.more > 0 ? 90 : 0) - (slide.link ? 70 : 0) });
     return (
-      <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: ink, padding: P, justifyContent: "space-between", position: "relative", ...(boxPhoto ? { gap: 48 } : {}) }}>
+      <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: ink, position: "relative" }}>
         {bgPhoto && (
           <>
             {/* An <img> with object-fit: the renderer does not honor background-size: cover (the picture tiles instead). */}
@@ -222,6 +222,8 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
             <div style={{ position: "absolute", top: 0, left: 0, width: SLIDE_W, height: SLIDE_H, display: "flex", backgroundImage: "linear-gradient(rgba(20,28,25,0.38), rgba(20,28,25,0.66))" }} />
           </>
         )}
+        {/* Padding lives on this inner box: the renderer offsets absolutely placed pictures by the parent's padding. */}
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: P, width: SLIDE_W, height: SLIDE_H, ...(boxPhoto ? { gap: 48 } : {}) }}>
         {topChoice ? <CornerSlot kind={topChoice} kit={kit} logoSize={96} fontSize={34} color={onPhoto ? ink : dark ? kit.nameOnBackground : undefined} maxWidth={760} lines={2} /> : <Brand kit={photoKit} size={140} logo={dark || onPhoto ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={onPhoto ? ink : dark ? kit.nameOnBackground : undefined} />}
         {boxPhoto && (
           <div style={{ display: "flex", flex: 1, minHeight: 280, maxHeight: COVER_PHOTO_MAX_H, borderRadius: 44, overflow: "hidden" }}>
@@ -251,6 +253,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
           {slide.images?.length ? <CoverImages images={slide.images} size={100} /> : endCredit === null ? <div style={{ display: "flex" }} /> : <Credit kit={kit} color={onPhoto ? ink : fg} />}
         </div>
         {slide.images?.length && endCredit !== null ? <Credit kit={kit} color={onPhoto ? ink : fg} /> : null}
+        </div>
         </div>
       </div>
     );
