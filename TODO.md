@@ -1,5 +1,56 @@
 # TODO
 
+## What is actually left (7 Nov, 11:50; read against the code, Supabase and the Notion requirements page)
+
+Contest dates: submit by 12 Nov (target), hard deadline 13 Nov 23:59 PT (= Sat 14 Nov 08:59 Amsterdam). Judging 16-20 Nov: the site must stay up.
+
+### Done since the older lists below (ticked off here, the old lines may still say otherwise)
+- [x] First real post sent with captions (Send now, 7 Nov). Instagram Now is no longer untested. "Coming soon" is gone from the app.
+- [x] "Created with Pollen Picks" is off by default and a choice for any corner (0023 on dev and prod). The cover defaults to the issue's image.
+- [x] Saved creations, the current run, autosave, the caption-survives-a-stale-write fix, the Instagram tag by hand, the design loader, the feedback cutoff (12 Nov 00:00).
+- [x] Send queue with the 429 backoff (20 s up to 300 s, 6 tries), so the "automatic retry on 429" idea is built. Delete my data is built (button, route, `accountDelete.ts`).
+- [x] Dev's leftover `user_photos` table is gone (0021 drops it). Prod has 0020-0023.
+
+### Do first
+- [ ] Commit and deploy today's work (nothing from 7 Nov is committed): Instagram tag, loader, saved creations fixes, bottom-right corner. Then check the deploy has it.
+- [ ] Restart the local dev server so the Instagram tag shows in previews (it served old code).
+- [ ] Prize wording: "up to $25,600" is still on the landing page, the banner and the feedback form. Make it "a $25,600 prize pool shared by up to 16 winners". Also outside the repo: slides and captions that say "up to $25,000".
+- [ ] Decide: hide the landing page's own build-mode banner and the other feedback links at the 12 Nov cutoff too (only the top banner and the History prompt are cut off now).
+- [ ] Switch the prod slide font back to the default in Settings, then look at the next post's slides.
+
+### Submission (12 Nov target)
+- [ ] Demo video, 2 minutes, live API, recorded after 12 Nov 00:00 so the banner is gone. Script: connect Buffer, choose source, carousel, send.
+- [ ] Write-up (about 300 words: problem, audience, Buffer API used, next steps), public URL, Buffer API client ID, names and handles. List what was built 28 Oct to 13 Nov.
+- [ ] Build in the Open posts: #5 final demo (11-12 Nov), #6 learnings (13 Nov, before 11:59 pm PT). Max 5 links count. Refresh the Post #2 plan (rename, fold #3 in, fix the 6-vs-5 warning).
+- [ ] Feedback log: ask both peers the follow-up questions and ask permission before quoting.
+- [ ] Testers: 3-5 real ones, check Buffer sign-in works for a second Buffer account first.
+
+### Check in a browser and on a phone (all built, none looked at)
+- [ ] Whole demo on the live site in a fresh private window (source, pick, design, write, send, finish demo, feedback). Then `demo_events` has `write_reached` with flow `demo`.
+- [ ] Today's new things: saved creations and the Save buttons, the resume banner and the replace-run dialog, autosave across two devices, the Instagram tag in the editor and on the slide, the loader on refresh, the bottom-right corner (a name in two corners shows once; a single pick with a picture plus two footer corners).
+- [ ] The 6 Nov UI changes (palette popover, /source with several publications, pick tray, date lines from text, two-pick slide with a long description, "Fill all slides"), Write and Send with Instagram + LinkedIn + X + Bluesky, the History queue (big send, closing the tab mid-send, filters), pictures from the issue and from links.
+- [ ] Phone pass: History, filters, /source, the Design builder, the iOS selection menu, the landing page.
+- [ ] Delete my data: click through it; add the test that creates a user with a row in every table, deletes, and asserts nothing is left. Check the Vault secrets go too.
+
+### Housekeeping before judging (16-20 Nov)
+- [ ] Ask Buffer (developersupport@buffer.com) for rate-limit headroom for the contest period (the limit is per app, shared by every user).
+- [ ] Delete the test LinkedIn post from 4 Nov.
+- [ ] Keep the prod Supabase project awake through 20 Nov (the free tier pauses an idle project; open it on 15 Nov and again before judging).
+- [ ] Watch Netlify credits (hard 300 a month cap pauses every project) and the Apify lookups.
+
+### If there is time
+- [ ] Instagram tags: @mentions in the caption work end to end; positioned tags per image (`userTags`) are not built. Say which one the splash means, or soften it.
+- [ ] A "No date found" mark on picks whose date could not be read; finish the date and neighborhood parse check on the Oct 19 issue.
+- [ ] `/pick`, `/write`, `/send`: fetch the issue and the settings together like `/design` does (about 130 ms).
+- [ ] Delight cohesion pass, splash copy pass, accessibility audit, a fifth fake publication ("LA digest").
+- [ ] LinkedIn PDF carousel (needs a Buffer answer first).
+
+### After the contest
+- [ ] Several beehiiv keys, public-link fixes (429/502, Substack parser, fetchers), own login with Buffer as a connection, auto-schedule, a paid tier idea (upload your own template).
+
+---
+Older lists, kept for reference. Some lines below are already done (see the ticks above).
+
 ## 6 Nov: where things stand (typecheck, lint and 141 unit tests pass; NONE of the UI changes below have been looked at in a browser)
 
 Checks: `yarn test` (all `src/**/*.test.ts`), `yarn check:fake` (the pretend publications), `npx tsc --noEmit -p .`, `npx eslint src scripts`. Nothing from 6 Nov is committed or deployed yet.
@@ -55,7 +106,7 @@ Checks: `yarn test` (all `src/**/*.test.ts`), `yarn check:fake` (the pretend pub
 - [x] Migrations 0015, 0016 and 0017 applied to PROD on 5 Nov (checked: 23 columns, 7 indexes, RLS on, claim function present).
 - [ ] Try it in a browser: big send (5+ channels), close the tab mid-send, rate-limit retry, filters.
 
-## Self-serve "Delete my data" (does not exist yet)
+## Self-serve "Delete my data" (built 6 Nov; the browser check and the test are listed above)
 - [ ] There is no delete button or route. Today it is a manual request through the feedback form (privacy page, "Delete your data"), and nobody has written the steps down. The privacy page promises "your account, brand settings and stored tokens"; History is covered by the same promise but nothing deletes it by itself.
 - [ ] What a deletion has to remove for one user: `users` row, which cascades to `brand_profiles`, `connections`, `custom_picks`, `draft_log`, `public_sources`, `instagram_lookups`, `slide_styles` and `post_history` (all have `on delete cascade`, checked in db/supabase). `feedback.user_id` is set to null, so the feedback text stays: say so, or delete the rows too.
 - [ ] NOT covered by the cascade, check first: the tokens kept in Supabase Vault for `connections` (read through `get_connection_secret`): delete those secrets explicitly, or they outlive the account. Also the browser's own copy (localStorage `pollen-picks:*`, the `pp_in` / `pp_fresh` / `pp_demo_hl` cookies), and the session cookie.
