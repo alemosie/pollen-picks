@@ -244,7 +244,7 @@ export function WriteView({
                     key={v.id}
                     type="button"
                     onClick={() => setEdited((m) => ({ ...m, [activeTab]: captionFor(v.id) }))}
-                    className="font-semibold underline underline-offset-4"
+                    className="whitespace-nowrap font-semibold underline underline-offset-4"
                   >
                     Sync with {labelOf(v.id)}
                   </button>
@@ -431,7 +431,7 @@ function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant, c
   const tipId = useId();
   const tip = `${networks.length > 0 ? `The limit of ${list(networks)}. ` : ""}Emoji count as 2 characters${variant === "instagram" ? ", and so does every line break" : ""}, the way Buffer counts them.`;
   return (
-    <div className="flex items-start justify-between gap-x-4 gap-y-1 text-sm">
+    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 text-sm">
       {overNetworks.length > 0 && (
         <p role="alert" className="m-0 min-w-0 border-l-4 border-coral pl-3 font-semibold">
           {tagsOnly
@@ -439,9 +439,9 @@ function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant, c
             : `Too long for ${overNetworks.length === 1 ? overNetworks[0] : `${overNetworks.length} networks`}. Trim it here, or shorten it in Buffer.`}
         </p>
       )}
-      <span className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1">
+      <span className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-x-4 gap-y-1">
       {children}
-      <span className="inline-flex items-center gap-1 font-semibold">
+      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-semibold">
         {length.toLocaleString("en")} / {limit.toLocaleString("en")} characters
         <span className="group relative inline-flex">
           <button type="button" aria-label="About this limit" aria-describedby={tipId} className="grid size-6 place-items-center rounded-full hover:bg-ink/10">
@@ -450,7 +450,7 @@ function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant, c
           <span
             id={tipId}
             role="tooltip"
-            className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-60 rounded-lg bg-ink px-3 py-2 text-xs font-normal text-cream opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+            className="pointer-events-none absolute right-0 top-full z-20 mt-1 w-60 whitespace-normal rounded-lg bg-ink px-3 py-2 text-xs font-normal text-cream opacity-0 shadow-lg transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
           >
             {tip}
           </span>
