@@ -1,5 +1,6 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { BufferLogo } from "@/components/BufferLogo";
 import { Logo } from "@/components/Logo";
@@ -22,6 +23,8 @@ export default function Login(props: PageProps<"/login">) {
 }
 
 async function LoginWithNext({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // Request-time render: the session check reads the cookie and the clock (see getValidSession).
+  await connection();
   const sp = await searchParams;
   const want = Array.isArray(sp.next) ? sp.next[0] : sp.next;
   // Same-site relative paths only (no open redirect).

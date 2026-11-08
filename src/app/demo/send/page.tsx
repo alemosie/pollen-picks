@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { FlowLoader } from "@/components/FlowLoader";
 import { PageHeader } from "@/components/StepTree";
 import { SaveStep } from "@/components/SaveStep";
@@ -30,6 +31,8 @@ async function DemoSendContent({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  // Request-time render: the session check below reads the cookie and the clock (see getValidSession).
+  await connection();
   const sp = await searchParams;
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(Array.isArray(sp.picks) ? sp.picks[0] : (sp.picks ?? ""))
