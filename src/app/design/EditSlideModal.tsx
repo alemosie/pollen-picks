@@ -195,12 +195,6 @@ export function EditSlideModal({
   const setCoverPhotoMode = (m: "section" | "background") => setDraft((d) => ({ ...d, cover: { ...d.cover, photo: coverPhoto || undefined, noPhoto: undefined, photoMode: m } }));
   const setClosing = (k: "title" | "line" | "cta", v: string) =>
     setDraft((d) => ({ ...d, closing: { ...d.closing, [k]: v } }));
-  // The button is optional: an empty button text is how the slide is told to leave it out. The checkbox is its own state, so clearing the text while typing doesn't make the field vanish.
-  const [showButton, setShowButton] = useState(() => (draft.closing?.cta ?? DEFAULTS.cta) !== "");
-  const toggleButton = (on: boolean) => {
-    setShowButton(on);
-    setClosing("cta", on ? DEFAULTS.cta : "");
-  };
   // The closing slide has no picture until one is chosen (unlike the cover, which starts with the issue's own).
   const closingPhoto = draft.closing?.photo ?? "";
   const closingMode = draft.closing?.photoMode ?? "section";
@@ -255,11 +249,7 @@ export function EditSlideModal({
       : target.kind === "closing"
         ? !!nd.closing
         : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex] || !!nd.hideTags?.[slideIndex];
-  const revert = () => {
-    if (target.kind === "closing") setShowButton(true); // back to the default, which has a button
-    revertDraft();
-  };
-  const revertDraft = () =>
+  const revert = () =>
     setDraft((d) => {
       if (target.kind === "cover") return { ...d, cover: undefined };
       if (target.kind === "closing") return { ...d, closing: undefined };
@@ -452,21 +442,15 @@ export function EditSlideModal({
                     className={input}
                   />
                 </label>
-                <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
-                  <input type="checkbox" checked={showButton} onChange={(e) => toggleButton(e.target.checked)} className="size-5 shrink-0 accent-ink" />
-                  Show a button
+                <label className="grid gap-1 text-sm font-semibold">
+                  Button
+                  <input
+                    value={draft.closing?.cta ?? DEFAULTS.cta}
+                    maxLength={SPEC_LIMITS.cta}
+                    onChange={(e) => setClosing("cta", e.target.value)}
+                    className={input}
+                  />
                 </label>
-                {showButton && (
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Button text
-                    <input
-                      value={draft.closing?.cta ?? DEFAULTS.cta}
-                      maxLength={SPEC_LIMITS.cta}
-                      onChange={(e) => setClosing("cta", e.target.value)}
-                      className={input}
-                    />
-                  </label>
-                )}
                 <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} value={closingPhoto} onPick={setClosingPhoto} label="Closing picture" />
                 {closingPhoto && <PhotoModeChoice name="closing-photo-mode" value={closingMode} onChange={setClosingPhotoMode} />}
               </>
