@@ -573,7 +573,7 @@ export function EditSlideModal({
                       </span>
                     ) : (
                       <span id={`tag-hint-${id}`} className="mt-1 text-xs font-normal">
-                        Shown on this pick&rsquo;s card and added to the Instagram caption as &ldquo;From @handle&rdquo;.
+                        Shown on this pick&rsquo;s card and added to the Instagram caption as @handle after the title.
                         {byId.get(id)?.tag ? ` Found in the link: @${byId.get(id)!.tag}. Clear the field to leave it out.` : ""}
                       </span>
                     )}
