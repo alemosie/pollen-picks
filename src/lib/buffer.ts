@@ -75,11 +75,22 @@ export function refresh(refreshToken: string) {
   return tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
 }
 
+export type GqlError = { message: string; extensions?: { code?: string; window?: string } };
+export type GqlResult<T> = { data?: T; errors?: GqlError[]; status: number };
+
+/**
+ * Whether Buffer refused a request because of its rate limit, which means NOTHING was created and trying again later is safe. Buffer's docs describe
+ * it two ways: HTTP 429 (the Rate Limits guide, with Retry-After) and an `errors` entry with `extensions.code` RATE_LIMIT_EXCEEDED on an HTTP 200
+ * (the Error Handling guide). Both are the same refusal, so both count.
+ */
+export const isRateLimited = (r: { status: number; errors?: GqlError[] }): boolean =>
+  r.status === 429 || (Array.isArray(r.errors) && r.errors.some((e) => e?.extensions?.code === "RATE_LIMIT_EXCEEDED"));
+
 export async function gql<T = unknown>(
   accessToken: string,
   query: string,
   opts?: { timeoutMs?: number },
-): Promise<{ data?: T; errors?: { message: string }[]; status: number }> {
+): Promise<GqlResult<T>> {
   const res = await fetch(API, {
     method: "POST",
     headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
@@ -91,17 +102,18 @@ export async function gql<T = unknown>(
 }
 
 export type BufferChannel = { id: string; name: string; service: string };
+type RawChannel = BufferChannel & { isLocked?: boolean; isDisconnected?: boolean };
 
-/** All channels across the account's organizations. */
+/** All channels across the account's organizations that can take a post. Buffer also lists locked channels (over the plan's limit) and disconnected ones, which would fail to post. */
 export async function listChannels(accessToken: string): Promise<BufferChannel[]> {
   const acct = await gql<{ account: { organizations: { id: string }[] } }>(accessToken, `{ account { organizations { id } } }`);
   // One request per organization, all at once (an account with several used to wait for each in turn).
   const perOrg = await Promise.all(
     (acct.data?.account.organizations ?? []).map((o) =>
-      gql<{ channels: BufferChannel[] }>(accessToken, `{ channels(input: { organizationId: ${JSON.stringify(o.id)} }) { id name service } }`),
+      gql<{ channels: RawChannel[] }>(accessToken, `{ channels(input: { organizationId: ${JSON.stringify(o.id)} }) { id name service isLocked isDisconnected } }`),
     ),
   );
-  const out: BufferChannel[] = perOrg.flatMap((r) => r.data?.channels ?? []);
-  // Fake mode can add many fake channels, to try the channel picker and a big send without a Buffer account that has them.
-  return [...out, ...fakeChannels()];
+  // Fake mode can add many fake channels (and a locked and a disconnected one), to try the channel picker and a big send without a Buffer account that has them.
+  const all: RawChannel[] = [...perOrg.flatMap((r) => r.data?.channels ?? []), ...fakeChannels()];
+  return all.filter((c) => !c.isLocked && !c.isDisconnected).map(({ id, name, service }) => ({ id, name, service }));
 }

@@ -1,7 +1,7 @@
 // Server-only: creating one post on one Buffer channel (as a draft, or published straight away), and looking a post up
 // again afterwards. Both /api/draft and /api/post-status go through here, so the two paths can't drift apart.
 
-import { gql } from "./buffer";
+import { gql, isRateLimited } from "./buffer";
 import { fitFor } from "./caption";
 import { serviceLabel } from "./channels";
 import { fakeBehaviour, fakeEnforcesLimits, fakeMode, takeFakeRateLimit } from "./fake";
@@ -20,7 +20,7 @@ const CREATE_TIMEOUT_MS = 25_000;
 export type ChannelPostInput = { channelId: string; service: string; text: string; images: string[]; intent: PostIntent };
 export type ChannelPostOutcome =
   | { ok: true; postId: string }
-  /** `unknown`: the request died or Buffer errored mid-way, so the post may or may not exist. Never retry these blindly. `rateLimited`: Buffer answered 429, so nothing was created and it is safe to try again later. */
+  /** `unknown`: the request died or Buffer errored mid-way, so the post may or may not exist. Never retry these blindly. `rateLimited`: Buffer said it is limiting requests (a 429, or RATE_LIMIT_EXCEEDED in the answer), so nothing was created and it is safe to try again later. */
   | { ok: false; error: string; unknown?: boolean; rateLimited?: boolean };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -50,7 +50,7 @@ export async function createChannelPost(token: string, p: ChannelPostInput): Pro
     if (!r.errors?.length && cp?.post) return { ok: true, postId: cp.post.id };
     // Buffer limits requests per app, shared by everyone using it, so a big send can run into it. It is a clean failure
     // (nothing was created), but retrying straight away won't help.
-    if (r.status === 429) return { ok: false, error: "Buffer is limiting requests from this app right now. Try again in a few minutes.", rateLimited: true };
+    if (isRateLimited(r)) return { ok: false, error: "Buffer is limiting requests from this app right now. Try again in a few minutes.", rateLimited: true };
     const error = cp?.message ?? r.errors?.[0]?.message ?? `Buffer returned ${r.status}`;
     // A 5xx on a publish may have gone through on Buffer's side: don't call it a clean failure.
     return { ok: false, error, unknown: p.intent === "now" && r.status >= 500 };
@@ -104,7 +104,7 @@ export async function getPostStates(token: string, ids: string[]): Promise<Recor
         const post = r.data?.[`p${k}`];
         out[id] = post
           ? { status: post.status, sentAt: post.sentAt ?? null, externalLink: post.externalLink ?? null }
-          : { error: r.status === 429 ? "Buffer is limiting requests right now." : (r.errors?.[0]?.message ?? `Buffer returned ${r.status}`) };
+          : { error: isRateLimited(r) ? "Buffer is limiting requests right now." : (r.errors?.[0]?.message ?? `Buffer returned ${r.status}`) };
       });
     } catch (e) {
       for (const id of chunk) out[id] = { error: e instanceof Error ? e.message : String(e) };

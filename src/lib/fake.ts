@@ -2,6 +2,7 @@
 // Never honoured in production, so a stray env var on the live site can't turn real sends into fake ones.
 //   BUFFER_FAKE=1                      no call to Buffer for posts: realistic results instead
 //   BUFFER_FAKE_CHANNELS=60            add this many fake channels (up to 200) to the real ones, across the networks
+//   BUFFER_FAKE_UNAVAILABLE=1          add a locked and a disconnected channel, like Buffer lists them; the picker must leave them out
 //   BUFFER_FAKE_FAIL=instagram         networks whose create call fails with a Buffer-style error
 //   BUFFER_FAKE_UNKNOWN=linkedin       networks whose create call dies mid-request (outcome unknown)
 //   BUFFER_FAKE_PUBLISH_FAIL=linkedin  networks that Buffer accepts but then fails to publish
@@ -23,6 +24,8 @@ export type FakeSettings = {
   enabled?: boolean;
   /** Fake channels added to the real ones, over BUFFER_FAKE_CHANNELS. */
   channels?: number;
+  /** Add one locked and one disconnected fake channel (Buffer lists both), over BUFFER_FAKE_UNAVAILABLE. */
+  unavailable?: boolean;
   /** Per network (lower case), over the BUFFER_FAKE_FAIL / _UNKNOWN / _PUBLISH_FAIL lists. */
   behaviour?: Record<string, FakeBehaviour>;
   /** The next N create calls get a 429 (Buffer's "too many requests"); counts down as they happen. */
@@ -44,6 +47,7 @@ export function readFakeSettings(): FakeSettings {
     const out: FakeSettings = {};
     if (typeof raw.enabled === "boolean") out.enabled = raw.enabled;
     if (typeof raw.enforceLimits === "boolean") out.enforceLimits = raw.enforceLimits;
+    if (typeof raw.unavailable === "boolean") out.unavailable = raw.unavailable;
     if (raw.channels !== undefined) out.channels = clampInt(raw.channels, 200);
     if (raw.rateLimitNext !== undefined) out.rateLimitNext = clampInt(raw.rateLimitNext, 100);
     if (raw.behaviour && typeof raw.behaviour === "object") {
@@ -113,12 +117,18 @@ const NAMES = ["Harbour Cafe", "Canal Yoga", "Oud-West Parents", "Little Sprouts
 
 const SINGLE_AT = 9;
 
-export function fakeChannels(): { id: string; name: string; service: string }[] {
+export type FakeChannel = { id: string; name: string; service: string; isLocked?: boolean; isDisconnected?: boolean };
+
+export function fakeChannels(): FakeChannel[] {
   if (!fakeMode()) return [];
-  const n = readFakeSettings().channels ?? clampInt(process.env.BUFFER_FAKE_CHANNELS, 200);
-  return Array.from({ length: n }, (_, i) => ({
+  const settings = readFakeSettings();
+  const n = settings.channels ?? clampInt(process.env.BUFFER_FAKE_CHANNELS, 200);
+  const out: FakeChannel[] = Array.from({ length: n }, (_, i) => ({
     id: `fake-ch-${i + 1}`,
     name: `${NAMES[i % NAMES.length]} ${String(i + 1).padStart(2, "0")}`,
     service: i === SINGLE_AT ? "mastodon" : SERVICES[i % SERVICES.length],
   }));
+  if (settings.unavailable ?? process.env.BUFFER_FAKE_UNAVAILABLE === "1")
+    out.push({ id: "fake-ch-locked", name: "Locked Page (over the plan's limit)", service: "instagram", isLocked: true }, { id: "fake-ch-disconnected", name: "Disconnected Page", service: "linkedin", isDisconnected: true });
+  return out;
 }

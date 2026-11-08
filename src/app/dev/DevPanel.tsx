@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 type Behaviour = "pass" | "fail" | "unknown" | "publish_fail";
-type Settings = { enabled?: boolean; channels?: number; behaviour?: Record<string, Behaviour>; rateLimitNext?: number; enforceLimits?: boolean };
+type Settings = { enabled?: boolean; channels?: number; behaviour?: Record<string, Behaviour>; rateLimitNext?: number; enforceLimits?: boolean; unavailable?: boolean };
 
 const NETWORKS: [string, string][] = [
   ["instagram", "Instagram"],
@@ -29,13 +29,13 @@ const BUTTON = "rounded-xl bg-surface px-4 py-2 text-sm font-bold ring-1 ring-in
 
 export function DevPanel() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [env, setEnv] = useState({ fake: false, channels: 0, limits: false });
+  const [env, setEnv] = useState({ fake: false, channels: 0, limits: false, unavailable: false });
   const [note, setNote] = useState("");
 
   const load = useCallback(async () => {
     const r = await fetch("/api/dev/fake", { cache: "no-store" });
     if (!r.ok) return setNote("The dev API isn't available (production build?).");
-    const j = (await r.json()) as { settings: Settings; env: { fake: boolean; channels: number; limits: boolean } };
+    const j = (await r.json()) as { settings: Settings; env: { fake: boolean; channels: number; limits: boolean; unavailable: boolean } };
     setSettings(j.settings);
     setEnv(j.env);
   }, []);
@@ -57,6 +57,7 @@ export function DevPanel() {
   const enabled = settings.enabled ?? env.fake;
   const channels = settings.channels ?? env.channels;
   const enforceLimits = settings.enforceLimits ?? env.limits;
+  const unavailable = settings.unavailable ?? env.unavailable;
 
   return (
     <div className="grid gap-6">
@@ -92,6 +93,13 @@ export function DevPanel() {
             <input type="number" min={0} max={200} value={channels} onChange={(e) => void save({ channels: Number(e.target.value) })} className={`${FIELD} w-24`} />
           </label>
         </div>
+        <label className="flex items-center gap-3 font-bold">
+          <input type="checkbox" checked={unavailable} onChange={(e) => void save({ unavailable: e.target.checked })} className="size-5" />
+          Include locked/disconnected channels
+        </label>
+        <p className="m-0 text-sm">
+          Adds one locked and one disconnected channel to what &ldquo;Buffer&rdquo; lists, as the real Buffer does for an account over its plan or with a broken connection. The Send page should <b>not</b> show them: if &ldquo;Locked Page&rdquo; or &ldquo;Disconnected Page&rdquo; appears there, the filter is broken.
+        </p>
       </section>
 
       <section className={`grid gap-3 rounded-2xl bg-card p-5 ${enabled ? "" : "opacity-60"}`}>

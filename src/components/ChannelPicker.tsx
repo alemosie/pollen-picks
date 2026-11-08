@@ -151,7 +151,7 @@ export function ChannelPicker({
           ) : (
             <>
               {" "}
-              Want more channels? Configure your connections on{" "}
+              We only support channels that accept carousel posts. Want more channels or don&rsquo;t see a channel you expect? Configure your connections on{" "}
               <a
                 href="https://publish.buffer.com/settings/channels"
                 target="_blank"
