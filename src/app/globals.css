@@ -198,5 +198,5 @@
 
 /* Slide previews that are still being drawn: the seeds floating off the dandelion in the placeholder swell and glow, one after another. Reduced motion holds them still. */
 @keyframes pp-seed-pulse { 0%, 100% { opacity: 0.55; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
-.pp-seed-pulse { transform-box: fill-box; transform-origin: center; animation: pp-seed-pulse 1.4s ease-in-out infinite; }
+.pp-seed-pulse { transform-box: fill-box; transform-origin: center; animation: pp-seed-pulse 2.6s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .pp-seed-pulse { animation: none; } }

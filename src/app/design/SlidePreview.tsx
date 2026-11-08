@@ -18,7 +18,7 @@ function Placeholder({ busy }: { busy: boolean }) {
       <g transform={MARK_AT} fill="#f5f5f5" fillRule="evenodd">
         <path d={DANDELION} />
         {SEEDS.map((d, i) => (
-          <path key={i} d={d} className={busy ? "pp-seed-pulse" : undefined} style={{ animationDelay: `${i * 0.28}s` }} />
+          <path key={i} d={d} className={busy ? "pp-seed-pulse" : undefined} style={{ animationDelay: `${i * 0.5}s` }} />
         ))}
       </g>
     </svg>
