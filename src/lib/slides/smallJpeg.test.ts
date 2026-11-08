@@ -40,7 +40,10 @@ describe("toSmallJpeg", () => {
     const { default: sharp } = await import("sharp");
     const raw = Buffer.alloc(1080 * 1350 * 3);
     let x = 7;
-    for (let i = 0; i < raw.length; i++) (x = (x * 1103515245 + 12345) & 0x7fffffff), (raw[i] = x >> 16);
+    for (let i = 0; i < raw.length; i++) {
+      x = (x * 1103515245 + 12345) & 0x7fffffff;
+      raw[i] = x >> 16;
+    }
     const out = await toSmallJpeg(await sharp(raw, { raw: { width: 1080, height: 1350, channels: 3 } }).png().toBuffer());
     assert.ok(out === null || out.length <= SMALL_IMAGE_BYTES);
   });
