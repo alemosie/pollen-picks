@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Camera, Check, Flower2, ImagePlus, Link2, Newspaper, Palette, User, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Camera, Check, Flower2, ImagePlus, Link2, Loader2, Newspaper, Palette, User, X, type LucideIcon } from "lucide-react";
 import { SourceLink } from "./SourceLink";
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
@@ -522,6 +522,7 @@ export function EditSlideModal({
                       linkImages={link.images[id] ?? []}
                       saved={savedOn ? saved : undefined}
                       loadingLink={link.loading}
+                      issueLast
                       value={value(id, "photo")}
                       onPick={(v) => choosePhoto(id, v)}
                       label={`Picture for pick ${i + 1}`}
@@ -720,7 +721,7 @@ function Thumb({ img, on, onPick, n, source, onRemove }: { img: IssueImage; on: 
   );
 }
 
-const TILE = "relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-lg text-xs font-bold ring-1 ring-current/30 hover:ring-current";
+const TILE = "relative grid size-12 shrink-0 sm:size-16 place-items-center overflow-hidden rounded-lg text-xs font-bold ring-1 ring-current/30 hover:ring-current";
 const TILE_ON = "ring-2 ring-current";
 
 /**
@@ -733,6 +734,7 @@ function PhotoPicker({
   builtIn = [],
   saved,
   loadingLink = false,
+  issueLast = false,
   value,
   onPick,
   label,
@@ -746,6 +748,8 @@ function PhotoPicker({
   /** The user's own saved picture links, with adding and removing. Without it there is no "Add link" button. */
   saved?: LinksApi;
   loadingLink?: boolean;
+  /** Slides list the issue's pictures last: the title slide has most likely used them already. The cover lists them first. */
+  issueLast?: boolean;
   value: string;
   onPick: (id: string) => void;
   label: string;
@@ -753,30 +757,20 @@ function PhotoPicker({
   // A picture the issue has is listed once, under the issue.
   const [adding, setAdding] = useState(false);
   const [link, setLink] = useState("");
-  const groups = (
-    [
-      ["saved", saved?.images ?? []],
-      ["issue", images],
-      ["link", linkImages.filter((l) => !images.some((i) => i.id === l.id))],
-      ["builtin", builtIn],
-    ] as [Source, IssueImage[]][]
-  ).filter(([, list]) => list.length > 0);
+  const all: [Source, IssueImage[]][] = [
+    ["saved", saved?.images ?? []],
+    ["issue", images],
+    ["link", linkImages.filter((l) => !images.some((i) => i.id === l.id))],
+    ["builtin", builtIn],
+  ];
+  if (issueLast) all.push(all.splice(1, 1)[0]);
+  // While the pick's link is read, its place in the row (after "Yours", before the rest) holds a loading chip, so it is in view rather than past the end of the row.
+  const groups = all.filter(([source, list]) => list.length > 0 || (source === "link" && loadingLink));
   return (
     <div role="group" aria-label={label} className="grid gap-1">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4">
         <span className="text-sm font-semibold">Picture</span>
-        <span className="flex items-center gap-3 text-xs font-semibold">
-          {groups.map(([source]) => {
-            const { icon: Icon, short } = SOURCE[source];
-            return (
-              <span key={source} className="inline-flex items-center gap-1">
-                <Icon aria-hidden className="size-3.5" strokeWidth={2.5} />
-                {short}
-              </span>
-            );
-          })}
-          {loadingLink && <span className="font-normal">Checking this pick&rsquo;s link…</span>}
-        </span>
+        {loadingLink && <span className="hidden text-xs font-normal sm:inline">Checking this pick&rsquo;s link…</span>}
       </div>
       <div className="flex items-center gap-2 overflow-x-auto p-1">
         <button type="button" onClick={() => onPick("")} aria-pressed={!value} className={`${TILE} ${!value ? TILE_ON : ""}`}>
@@ -796,7 +790,18 @@ function PhotoPicker({
         )}
         {groups.map(([source, list]) => (
           <Fragment key={source}>
-            <span aria-hidden className="h-10 w-px shrink-0 bg-current/25" />
+            <span aria-hidden className="h-8 w-px shrink-0 bg-current/25 sm:h-10" />
+            {source === "link" && loadingLink && (
+              <span
+                role="status"
+                aria-label="Adding pictures from this pick's link"
+                className="inline-flex h-12 shrink-0 animate-pulse items-center justify-center gap-1.5 rounded-lg bg-current/10 px-3 text-xs font-bold ring-1 ring-current/30 sm:size-16 sm:px-0"
+              >
+                <Loader2 aria-hidden className="size-4 animate-spin opacity-70 sm:hidden" />
+                <Link2 aria-hidden className="hidden size-4 opacity-60 sm:block" />
+                <span className="whitespace-nowrap sm:hidden">Adding from link…</span>
+              </span>
+            )}
             {list.map((img, n) => (
               <Thumb
                 key={img.id}
@@ -817,11 +822,6 @@ function PhotoPicker({
             ))}
           </Fragment>
         ))}
-        {loadingLink && (
-          <span role="status" aria-label="Looking for pictures on this pick's link" className={`${TILE} animate-pulse bg-current/10`}>
-            <Link2 aria-hidden className="size-4 opacity-60" />
-          </span>
-        )}
       </div>
       {saved && adding && (
         <form
