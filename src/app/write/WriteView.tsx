@@ -16,6 +16,7 @@ import { ChannelFit } from "./ChannelFit";
 import {
   CAPTION_ORDERS,
   CAPTION_VARIANTS,
+  variantLabel,
   buildCaption,
   captionLeftOut,
   captionLength,
@@ -34,14 +35,14 @@ import { serviceLabel, unsupportedReason } from "@/lib/channels";
 /** Same accents as the pick-type tabs on /pick. */
 const ACCENT: Record<CaptionVariant, { solid: string; light: string; border: string }> = {
   instagram: {
-    solid: "bg-honey",
-    light: "bg-honey/20 hover:bg-honey/40",
-    border: "border-honey",
-  },
-  link: {
     solid: "bg-sage",
     light: "bg-sage/20 hover:bg-sage/40",
     border: "border-sage",
+  },
+  link: {
+    solid: "bg-honey",
+    light: "bg-honey/20 hover:bg-honey/40",
+    border: "border-honey",
   },
   short: {
     solid: "bg-blush",
@@ -100,7 +101,7 @@ export function WriteView({
   );
   const order = orders.some((o) => o.id === chosenOrder) ? chosenOrder : orders[0].id;
   const [edited, setEdited] = useState<Partial<Record<CaptionVariant, string>>>({});
-  const [tab, setTab] = useState<CaptionVariant>("instagram");
+  const [tab, setTab] = useState<CaptionVariant>("link");
   const [copied, setCopied] = useState(false);
   const [linkHelp, setLinkHelp] = useState(false);
   // Remember order, tab and caption edits for this set of picks + template, so a detour doesn't lose them.
@@ -154,6 +155,7 @@ export function WriteView({
   const visible = CAPTION_VARIANTS.filter((v) => usedBy(v.id).length > 0);
   const activeTab = visible.find((v) => v.id === tab)?.id ?? visible[0]?.id;
   const variant = CAPTION_VARIANTS.find((v) => v.id === activeTab);
+  const labelOf = (id: CaptionVariant) => variantLabel(id, visible.map((v) => v.id));
   // The connected networks this caption is too long for (the same check as the channel list).
   // True when the only problem is too many @tags (the caption isn't too long anywhere).
   const tagsOnly = (v: CaptionVariant) => usedBy(v).every((c) => fitFor(c.service, captionFor(v)).over === 0);
@@ -224,7 +226,7 @@ export function WriteView({
                       className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-2xl px-3 text-sm font-bold transition sm:flex-none sm:px-6 sm:text-base ${on ? `${ACCENT[v.id].solid} relative z-10 -mb-[3px] py-3 text-ink-deep` : `${ACCENT[v.id].light} py-2`}`}
                     >
                       {v.id === "instagram" && <ChannelIcon service="instagram" className="size-4 shrink-0" />}
-                      {v.label}
+                      {labelOf(v.id)}
                     </button>
                   );
                 })}
@@ -236,9 +238,20 @@ export function WriteView({
               aria-labelledby={visible.length > 1 ? `tab-${activeTab}` : undefined}
               className={`grid gap-3 rounded-2xl border-[3px] p-4 sm:p-5 ${ACCENT[activeTab].border}`}
             >
-              <CharCount length={captionLength(captionFor(activeTab), activeTab)} limit={limitFor(activeTab)} networks={tightest(activeTab)} overNetworks={overNetworks(activeTab)} tagsOnly={tagsOnly(activeTab)} variant={activeTab} />
+              <CharCount length={captionLength(captionFor(activeTab), activeTab)} limit={limitFor(activeTab)} networks={tightest(activeTab)} overNetworks={overNetworks(activeTab)} tagsOnly={tagsOnly(activeTab)} variant={activeTab}>
+                {visible.filter((v) => v.id !== activeTab).map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setEdited((m) => ({ ...m, [activeTab]: captionFor(v.id) }))}
+                    className="font-semibold underline underline-offset-4"
+                  >
+                    Sync with {labelOf(v.id)}
+                  </button>
+                ))}
+              </CharCount>
               <textarea
-                aria-label={`${variant.label} caption`}
+                aria-label={`${labelOf(variant.id)} caption`}
                 value={captionFor(activeTab)}
                 onChange={(e) => setEdited((m) => ({ ...m, [activeTab]: e.target.value }))}
                 rows={12}
@@ -257,8 +270,8 @@ export function WriteView({
                   <ChannelIcon service="instagram" className="mt-0.5 size-4 shrink-0" />
                   <span>
                     {plural(taggedCount, "pick")} link{taggedCount === 1 ? "s" : ""} to an Instagram account, so{" "}
-                    {taggedCount === 1 ? "its line ends" : "their lines end"} with{" "}
-                    <span className="font-semibold">&ldquo;From @handle&rdquo;</span> — that tags the account when you post.
+                    {taggedCount === 1 ? "its line has" : "their lines have"} the{" "}
+                    <span className="font-semibold">@handle</span> after the title — that tags the account when you post.
                     {taggedCount > MAX_MENTIONS.instagram && ` Instagram allows ${MAX_MENTIONS.instagram} tags per post, so only the first ${MAX_MENTIONS.instagram} are tagged.`}
                   </span>
                 </p>
@@ -414,7 +427,7 @@ function SourceLinkHelp({
 }
 
 /** How much of the limit the caption uses. Over it, "Send now" saves a draft for the networks it is too long for. */
-function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant }: { length: number; limit: number; networks: string[]; overNetworks: string[]; tagsOnly: boolean; variant: CaptionVariant }) {
+function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant, children }: { length: number; limit: number; networks: string[]; overNetworks: string[]; tagsOnly: boolean; variant: CaptionVariant; children?: React.ReactNode }) {
   const tipId = useId();
   const tip = `${networks.length > 0 ? `The limit of ${list(networks)}. ` : ""}Emoji count as 2 characters${variant === "instagram" ? ", and so does every line break" : ""}, the way Buffer counts them.`;
   return (
@@ -426,7 +439,9 @@ function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant }:
             : `Too long for ${overNetworks.length === 1 ? overNetworks[0] : `${overNetworks.length} networks`}. Trim it here, or shorten it in Buffer.`}
         </p>
       )}
-      <span className="ml-auto inline-flex shrink-0 items-center gap-1 font-semibold">
+      <span className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-x-4 gap-y-1">
+      {children}
+      <span className="inline-flex items-center gap-1 font-semibold">
         {length.toLocaleString("en")} / {limit.toLocaleString("en")} characters
         <span className="group relative inline-flex">
           <button type="button" aria-label="About this limit" aria-describedby={tipId} className="grid size-6 place-items-center rounded-full hover:bg-ink/10">
@@ -440,6 +455,7 @@ function CharCount({ length, limit, networks, overNetworks, tagsOnly, variant }:
             {tip}
           </span>
         </span>
+      </span>
       </span>
     </div>
   );

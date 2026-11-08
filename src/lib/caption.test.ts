@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildCaption, captionLeftOut, captionLength, dayLabel, effectiveIntent, fitFor, limitNote, mentionCount, networksOf, isInstagram, limitOf, MAX_CAPTION_CHARS, sortCaptionItems, variantFor, variantLimit, type CaptionItem } from "./caption";
+import { buildCaption, captionLeftOut, captionLength, dayLabel, effectiveIntent, fitFor, limitNote, mentionCount, networksOf, isInstagram, limitOf, MAX_CAPTION_CHARS, rangeLabel, sortCaptionItems, variantFor, variantLabel, variantLimit, type CaptionItem } from "./caption";
 
 const it = (title: string, o: Partial<CaptionItem> = {}): CaptionItem => ({ title, when: null, place: null, rank: null, date: null, ...o });
 const base = { newsletter: "Just a Phase", link: "https://jap.example/p/49" } as const;
@@ -51,7 +51,7 @@ test("sorting is stable: ties keep the order the picks were made in", () => {
 
 test("an Instagram caption by clicks", () => {
   const text = buildCaption([it("Story time", { when: "Sat 24 Oct @ 9:30", place: "De Pijp", rank: 1 })], { ...base, order: "clicks", variant: "instagram" });
-  assert.equal(text, ["This week's picks from Just a Phase 🌼", "", "🔥 Story time — Sat 24 Oct @ 9:30 (De Pijp)", "", "Details on every pick are in the newsletter. Link in bio."].join("\n"));
+  assert.equal(text, ["This week's picks from Just a Phase 🌼", "", "🔥 Story time (Sat 24 Oct, De Pijp)", "", "Details on every pick are in the newsletter. Link in bio."].join("\n"));
 });
 
 test("other networks get the link", () => {
@@ -68,7 +68,7 @@ test("a public post's caption credits the original, and the author and heading a
 
 test("the recurrence note is left out of the caption", () => {
   const text = buildCaption([it("Class", { when: "Thu 22 Oct @ 09:30-10:30 (Weekly)", rank: 1 })], { ...base, order: "clicks", variant: "link" });
-  assert.ok(text.includes("Class — Thu 22 Oct @ 09:30-10:30") && !text.includes("Weekly"));
+  assert.ok(text.includes("🔥 Class (Thu 22 Oct)") && !text.includes("Weekly"));
 });
 
 test("by date: the day leads; undated picks come after under 'Other picks:'", () => {
@@ -80,13 +80,31 @@ test("by date: the day leads; undated picks come after under 'Other picks:'", ()
 
 test("only Instagram gets the @tag credit", () => {
   const items = [it("A", { rank: 1, tag: "theowner" })];
-  assert.ok(buildCaption(items, { ...base, order: "clicks", variant: "instagram" }).includes("· From @theowner"));
+  assert.ok(buildCaption(items, { ...base, order: "clicks", variant: "instagram" }).includes("🔥 A @theowner"));
   assert.ok(!buildCaption(items, { ...base, order: "clicks", variant: "link" }).includes("@theowner"));
 });
 
-test("the category label follows the place and comes before the tag", () => {
-  const text = buildCaption([it("A", { rank: 1, when: "Sat 24 Oct", place: "Park", group: "West", tag: "owner" })], { ...base, order: "clicks", variant: "instagram" });
-  assert.ok(text.includes("🔥 A — Sat 24 Oct (Park) · West · From @owner"), text);
+test("clicks and A-Z: the tag follows the title, then (day, place) with no time", () => {
+  const text = buildCaption([it("Sint Maarten in Bilderdijkpark", { rank: 1, when: "Wed 11 Nov @ 17:00", date: "2026-11-11", time: "17:00", place: "Kinkerbuurt", tag: "bilderdijkpark_amsterdam" })], { ...base, order: "clicks", variant: "instagram" });
+  assert.ok(text.includes("🔥 Sint Maarten in Bilderdijkpark @bilderdijkpark_amsterdam (Wed 11 Nov, Kinkerbuurt)"), text);
+});
+
+test("the category label stands in for a missing place", () => {
+  const text = buildCaption([it("A", { rank: 1, date: "2026-11-11", group: "West" })], { ...base, order: "clicks", variant: "link" });
+  assert.ok(text.includes("🔥 A (Wed 11 Nov, West)"), text);
+});
+
+test("by date: the pick's own emoji leads, a range has no weekday, the tag follows the title", () => {
+  const items = [it("🏮 Lantern making at Robbeburg", { date: "2026-11-09", endDate: "2026-11-11", tag: "robbeburg_intlplaygroup", place: "Rivierenbuurt" }), it("Plain", { date: "2026-11-12" })];
+  const text = buildCaption(items, { ...base, order: "date", variant: "instagram" });
+  assert.ok(text.includes("🏮 9-11 Nov: Lantern making at Robbeburg @robbeburg_intlplaygroup (Rivierenbuurt)\n"), text);
+  assert.ok(text.includes("🗓️ Thu 12 Nov: Plain"), text);
+});
+
+test("rangeLabel", () => {
+  assert.equal(rangeLabel("2026-11-11"), "Wed 11 Nov");
+  assert.equal(rangeLabel("2026-11-09", "2026-11-11"), "9-11 Nov");
+  assert.equal(rangeLabel("2026-10-30", "2026-11-02"), "30 Oct-2 Nov");
 });
 
 test("a long list is cut to fit, with a count of what was left out", () => {
@@ -207,4 +225,10 @@ test("limitNote: says what is over, only when something is", () => {
   assert.equal(limitNote("bluesky", "x".repeat(450)), "Over Bluesky's limit (150 characters over). Fix it in Buffer before scheduling.");
   assert.equal(limitNote("instagram", handles(23)), "Over Instagram's limit (3 @tags over the limit of 20). Fix it in Buffer before scheduling.");
   assert.match(limitNote("instagram", "x".repeat(2300) + " " + handles(22)) ?? "", /\(\d+ characters over, 2 @tags over the limit of 20\)/);
+});
+
+test("variantLabel: Long is called Base when there is no Short caption beside it", () => {
+  assert.equal(variantLabel("link", ["link", "instagram"]), "Base");
+  assert.equal(variantLabel("link", ["link", "instagram", "short"]), "Long");
+  assert.equal(variantLabel("instagram", ["link", "instagram"]), "Instagram");
 });

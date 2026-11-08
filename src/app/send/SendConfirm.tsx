@@ -14,6 +14,7 @@ import { RunAutosave } from "@/components/RunAutosave";
 import { SaveCreationButton } from "@/components/SaveCreationButton";
 import {
   CAPTION_VARIANTS,
+  variantLabel,
   buildCaption,
   captionLength,
   effectiveIntent,
@@ -72,8 +73,8 @@ const finishButton =
 /** On a phone the two actions share the bar with Back, so they are a little smaller. */
 const compact = "max-sm:px-4 max-sm:py-2.5 max-sm:text-sm max-[360px]:px-3!";
 const ACCENT: Record<CaptionVariant, string> = {
-  instagram: "border-honey",
-  link: "border-sage",
+  instagram: "border-sage",
+  link: "border-honey",
   short: "border-blush",
 };
 /** The folder tabs, in the same colours as the tabs on /pick and /write. */
@@ -638,7 +639,7 @@ export function SendConfirm({
               <div key={v.id} className={`grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border-[3px] p-4 ${ACCENT[v.id]}`}>
                 <p className="m-0 flex items-center gap-2 text-sm font-semibold">
                   {v.id === "instagram" && <ChannelIcon service="instagram" className="size-4 shrink-0" />}
-                  {v.label} · {plural(chosen.filter((c) => variantFor(c.service) === v.id).length, "channel")}
+                  {variantLabel(v.id, visible.map((x) => x.id))} · {plural(chosen.filter((c) => variantFor(c.service) === v.id).length, "channel")}
                 </p>
                 <div className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/15">
                   {captionFor(v.id)}

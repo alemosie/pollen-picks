@@ -3,7 +3,7 @@ import { stripEmoji } from "./slides/plan";
 import type { PostIntent } from "./bufferPost";
 
 /** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
-export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string; /** Who to credit for the picture on this pick's slide ("@handle", a site's name). Goes in the caption, not on the slide. */ photoCredit?: string };
+export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; /** Last day of a multi-day pick (YYYY-MM-DD). */ endDate?: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string; /** Who to credit for the picture on this pick's slide ("@handle", a site's name). Goes in the caption, not on the slide. */ photoCredit?: string };
 export type CaptionOrder = "clicks" | "alpha" | "date";
 /** `bullet` starts every line of that ordering's caption; change them here. */
 export const CAPTION_ORDERS: { id: CaptionOrder; label: string; bullet: string; hint: string }[] = [
@@ -20,6 +20,21 @@ export function dayLabel(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
   return `${DAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]} ${d} ${MONTHS[m - 1]}`;
 }
+
+/** "2026-11-09","2026-11-11" -> "9-11 Nov"; across months "30 Oct-2 Nov"; one day (no end) -> "Wed 11 Nov". */
+export function rangeLabel(start: string, end?: string | null): string {
+  if (!end || end <= start) return dayLabel(start);
+  const [, m1, d1] = start.split("-").map(Number);
+  const [, m2, d2] = end.split("-").map(Number);
+  return m1 === m2 ? `${d1}-${d2} ${MONTHS[m2 - 1]}` : `${d1} ${MONTHS[m1 - 1]}-${d2} ${MONTHS[m2 - 1]}`;
+}
+
+/** The emoji a title starts with (the pick's own), if any. */
+const LEAD_EMOJI = /^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u;
+const splitLeadEmoji = (title: string): { emoji: string | null; rest: string } => {
+  const m = title.match(LEAD_EMOJI);
+  return m ? { emoji: m[1], rest: title.slice(m[0].length) } : { emoji: null, rest: title };
+};
 
 /** Instagram's caption limit (2,196 per Buffer's docs). Counted in UTF-16 units, so emoji count double: on the safe side. */
 export const MAX_CAPTION_CHARS = 2196;
@@ -49,21 +64,30 @@ export function sortCaptionItems(items: CaptionItem[], order: CaptionOrder): Cap
   return [...items].sort(cmp);
 }
 
-/** Ends the line of a pick whose link is an Instagram account. An @mention is only a tag on Instagram, so no other network gets it. */
-export const fromTag = (tag: string | null | undefined, variant: CaptionVariant) => (variant === "instagram" && tag ? ` · From @${tag}` : "");
+/** Follows a pick's title when its link is an Instagram account (" @handle"). An @mention is only a tag on Instagram, so no other network gets it. */
+export const fromTag = (tag: string | null | undefined, variant: CaptionVariant) => (variant === "instagram" && tag ? ` @${tag}` : "");
 
+/**
+ * One line per pick. By date: "🏮 9-11 Nov: Lantern making at Robbeburg @handle" (the pick's own emoji leads, else 🗓️; a range has no weekday).
+ * Clicks and A-Z: "🔥 Sint Maarten in Bilderdijkpark @handle (Wed 11 Nov, Kinkerbuurt)" (the day, then the place; no time).
+ */
 function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): string {
   const title = cleanText(i.title);
-  const place = i.place ? ` (${cleanText(i.place)})` : "";
-  const from = fromTag(i.tag, variant);
+  const tag = fromTag(i.tag, variant);
   const bullet = bulletFor(order);
-  const cat = i.group ? ` · ${cleanText(i.group)}` : "";
   // Short captions have room for titles only: every character counts, and the newsletter has the rest.
   if (variant === "short") return `${bullet} ${title}`;
-  // By date: a pick without a date has no day to show, so it gets a plain bullet instead.
-  if (order === "date") return i.date ? `${bullet} ${dayLabel(i.date)}: ${title}${place}${cat}${from}` : `• ${title}${place}${cat}${from}`;
-  const when = i.when ? cleanWhen(i.when) : "";
-  return `${bullet} ${title}${when ? ` — ${when}` : ""}${place}${cat}${from}`;
+  const place = i.place ? cleanText(i.place) : i.group ? cleanText(i.group) : "";
+  if (order === "date") {
+    // A pick without a date has no day to show, so it gets a plain bullet instead.
+    if (!i.date) return `• ${title}${tag}${place ? ` (${place})` : ""}`;
+    const { emoji, rest } = splitLeadEmoji(title);
+    return `${emoji ?? bullet} ${rangeLabel(i.date, i.endDate)}: ${rest || title}${tag}${place ? ` (${place})` : ""}`;
+  }
+  // The day only: a time, if any, stays in the newsletter.
+  const day = i.date ? rangeLabel(i.date, i.endDate) : i.when ? cleanWhen(i.when).replace(/\s*@.*$/, "") : "";
+  const parens = [day, place].filter(Boolean).join(", ");
+  return `${bullet} ${title}${tag}${parens ? ` (${parens})` : ""}`;
 }
 
 export const isInstagram = (service: string) => service.toLowerCase().replace(/[^a-z]/g, "") === "instagram";
@@ -74,10 +98,13 @@ export const isInstagram = (service: string) => service.toLowerCase().replace(/[
  */
 export type CaptionVariant = "instagram" | "link" | "short";
 export const CAPTION_VARIANTS: { id: CaptionVariant; label: string }[] = [
-  { id: "instagram", label: "Instagram" },
   { id: "link", label: "Long" },
+  { id: "instagram", label: "Instagram" },
   { id: "short", label: "Short" },
 ];
+/** A caption's name where it is shown. With no Short caption beside it, "Long" is the one every text network gets, so it is called "Base". */
+export const variantLabel = (id: CaptionVariant, shown: CaptionVariant[]): string =>
+  id === "link" && !shown.includes("short") ? "Base" : CAPTION_VARIANTS.find((v) => v.id === id)!.label;
 export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : SHORT_NETWORKS.has(serviceKey(service)) ? "short" : "link");
 /** Every network a caption is written for (by name, in a fixed order), whether or not the account has it connected. */
 export const networksOf = (variant: CaptionVariant): string[] => [
@@ -136,7 +163,7 @@ type CaptionOpts = { /** Most characters the caption may have; defaults to the v
 /** The caption, and the titles of the picks that didn't fit in it (in caption order). */
 function fitCaption(items: CaptionItem[], opts: CaptionOpts): { text: string; leftOut: string[] } {
   const sorted = sortCaptionItems(items, opts.order);
-  // Instagram refuses more @mentions than it allows: the first ones keep their "From @handle", the rest go without.
+  // Instagram refuses more @mentions than it allows: the first ones keep their @handle, the rest go without.
   let tagged = 0;
   const maxTags = opts.variant === "instagram" ? MAX_MENTIONS.instagram : Infinity;
   const all = sorted.map((i) => line(i.tag && ++tagged > maxTags ? { ...i, tag: null } : i, opts.order, opts.variant));
