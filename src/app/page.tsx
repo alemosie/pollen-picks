@@ -7,6 +7,7 @@ import { Globe } from "lucide-react";
 import { StepWord } from "@/components/StepWord";
 import { Logo } from "@/components/Logo";
 import { ResumeBanner } from "@/components/ResumeBanner";
+import { WhatItDoes } from "@/components/WhatItDoes";
 import { PopularList } from "@/components/path/PopularList";
 import { BuilderDemo } from "@/components/path/BuilderDemo";
 import { PickMe } from "@/components/path/PickMe";
@@ -155,6 +156,8 @@ export default function Home() {
           />
         </div>
       </section>
+
+      <WhatItDoes />
 
       <div className="mx-auto max-w-3xl px-6 mt-12">
         <PathRail className="md:-mx-6">
