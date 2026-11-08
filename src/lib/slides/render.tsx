@@ -63,7 +63,9 @@ export async function renderSlide(slide: Slide, kit: Kit, web?: { width: number 
   // so let browsers keep it briefly and Netlify's CDN for a day. A new deploy clears the CDN cache, so template changes still show up.
   if (process.env.NODE_ENV === "production") {
     res.headers.set("Cache-Control", "public, max-age=300");
-    res.headers.set("Netlify-CDN-Cache-Control", "public, s-maxage=86400, stale-while-revalidate=86400");
+    // `durable` keeps one copy in Netlify's shared cache, next to the function. Without it every edge location has its own copy: a slide drawn for one
+    // location (or by our own warm-up) is a miss for Buffer's servers elsewhere, and each miss draws the whole slide again (several seconds with a photo).
+    res.headers.set("Netlify-CDN-Cache-Control", "public, durable, s-maxage=86400, stale-while-revalidate=86400");
     // Netlify's CDN ignores the query string in its cache key unless told otherwise. Every slide is the same path with different
     // ?picks=&n=&spec= params, so without this the first slide rendered gets served for all of them (duplicate slides).
     res.headers.set("Netlify-Vary", "query");

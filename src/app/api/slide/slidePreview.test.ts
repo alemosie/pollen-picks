@@ -92,6 +92,36 @@ describe("signed slide addresses", () => {
     assert.equal((await get(p)).status, 401);
     assert.equal((await get(qs({ mode: MODE, picks: "6,3", u: U1, n: "0" }))).status, 401);
   });
+  test("a signed link may be kept for good (immutable); an own-issue preview opened with a login, and an error, may not", async () => {
+    await account(U1);
+    const p = signPreview(qs({ mode: MODE, picks: "6,3" }), U1);
+    p.set("n", "0");
+    assert.match((await get(p)).headers.get("cache-control") ?? "", /max-age=31536000.*immutable|immutable.*max-age=31536000/);
+    const own = await get(qs({ mode: MODE, picks: "6,3", n: "0" }), U1);
+    assert.equal(own.status, 200);
+    assert.doesNotMatch(own.headers.get("cache-control") ?? "", /immutable/);
+    p.set("n", "99");
+    const bad = await get(p);
+    assert.equal(bad.status, 400);
+    assert.doesNotMatch(bad.headers.get("cache-control") ?? "", /immutable/);
+  });
+  test("in production the slide is kept in Netlify's shared (durable) cache for a day, per query", async () => {
+    await account(U1);
+    const env = process.env as Record<string, string | undefined>;
+    const was = env.NODE_ENV;
+    env.NODE_ENV = "production";
+    try {
+      const p = signPreview(qs({ mode: MODE, picks: "6,3" }), U1);
+      p.set("n", "0");
+      const res = await get(p);
+      assert.equal(res.status, 200);
+      assert.match(res.headers.get("netlify-cdn-cache-control") ?? "", /\bdurable\b.*s-maxage=86400|s-maxage=86400.*\bdurable\b/);
+      assert.equal(res.headers.get("netlify-vary"), "query");
+    } finally {
+      if (was === undefined) delete env.NODE_ENV;
+      else env.NODE_ENV = was;
+    }
+  });
   test("a signed link is always the full-size image: a small preview size is ignored", async () => {
     await account(U1);
     const p = signPreview(qs({ mode: MODE, picks: "6,3", fmt: "web", w: "200" }), U1);
