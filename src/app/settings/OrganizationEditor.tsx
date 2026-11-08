@@ -4,6 +4,7 @@ import { Upload } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { SAVED_EVENT } from "@/lib/progress";
+import { bumpStyleVersion } from "@/lib/styleVersion";
 import { MAX_ORG_NAME } from "@/lib/slides/style";
 import { logoFromFile } from "./shrinkLogo";
 
@@ -40,6 +41,7 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
       else if (!res.ok) setError(data.error ?? "That didn't save. Try again in a moment.");
       else {
         if (body.orgName !== undefined) savedName.current = body.orgName.replace(/\s+/g, " ").trim();
+        bumpStyleVersion();
         window.dispatchEvent(new Event(SAVED_EVENT));
       }
     } catch {

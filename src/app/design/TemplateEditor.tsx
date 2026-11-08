@@ -22,6 +22,7 @@ import {
 import { planSlides } from "@/lib/slides/plan";
 import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
+import { useStyleVersion } from "@/lib/useStyleVersion";
 import { SlideBuilder } from "./SlideBuilder";
 import { SlidesReadyGate } from "./SlidesReadyGate";
 import { SlidePreview } from "./SlidePreview";
@@ -51,6 +52,8 @@ export function TemplateEditor({
   initial: TemplateOptions;
 }) {
   const scope = issueKey ? `${mode}|${issueKey}` : mode;
+  // A style changed in Settings since this page was drawn shows at once, even if the page itself was not rendered again.
+  const sv = useStyleVersion(initial.sv);
   // The URL only carries a layout once you've moved on; otherwise pick up where you left off (mode and slides) from this browser.
   // undefined = not read yet (the server, and the first client render): the page doesn't know yet whether a saved layout exists.
   const stored = useSyncExternalStore<string | null | undefined>(
@@ -93,7 +96,7 @@ export function TemplateEditor({
   const placed = clean.slides.flat().length;
   const slideCount = clean.slides.filter((g) => g.length).length;
 
-  const applied: TemplateOptions = { ...(custom ? { spec: clean } : {}), sv: initial.sv };
+  const applied: TemplateOptions = { ...(custom ? { spec: clean } : {}), sv };
   const extra = templateParams(applied).toString();
   const q = picks.join(",");
   const query = `picks=${q}${extra ? `&${extra}` : ""}`;
@@ -159,7 +162,7 @@ export function TemplateEditor({
             picks={q}
             mode={mode}
             spec={clean}
-            styleVersion={initial.sv}
+            styleVersion={sv}
             onChange={setSpec}
           />
         ) : (
@@ -167,7 +170,7 @@ export function TemplateEditor({
             {standard.map((s, i) => (
               <li key={i} className="flex flex-col gap-2">
                 <SlidePreview
-                  src={`/api/slide/preview?picks=${q}&n=${i}${initial.sv ? `&sv=${initial.sv}` : ""}${previewMode(mode)}&fmt=web&w=540`}
+                  src={`/api/slide/preview?picks=${q}&n=${i}${sv ? `&sv=${sv}` : ""}${previewMode(mode)}&fmt=web&w=540`}
                   alt={`Slide ${i + 1} of ${standard.length}`}
                   hold={!layoutKnown}
                   eager={i < 5}

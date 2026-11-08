@@ -4,6 +4,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react"
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { SAVED_EVENT } from "@/lib/progress";
+import { bumpStyleVersion } from "@/lib/styleVersion";
 import { DEFAULT_STYLE, FONT_LABEL, FONT_NOTE, FONTS, SLOT_LABEL, SLOTS, type SlideFont, type SlideStyle, type Slot } from "@/lib/slides/style";
 
 const select = "w-full appearance-none rounded-xl bg-surface py-2.5 pl-4 pr-12 font-bold ring-1 ring-ink/15";
@@ -59,6 +60,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
       else if (!res.ok || !data.previews) setError(data.error ?? "That didn't save. Try again in a moment.");
       else {
         setSrcs(data.previews);
+        bumpStyleVersion();
         window.dispatchEvent(new Event(SAVED_EVENT));
       }
     } catch {
@@ -81,6 +83,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
       else {
         setStyle((s) => ({ ...DEFAULT_STYLE, orgName: s.orgName, orgLogo: s.orgLogo })); // the organization stays
         setSrcs(data.previews);
+        bumpStyleVersion();
         window.dispatchEvent(new Event(SAVED_EVENT));
       }
     } catch {
