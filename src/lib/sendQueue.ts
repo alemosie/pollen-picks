@@ -12,6 +12,7 @@
 // 'unknown' and the person is told to check Buffer. The only automatic retry is Buffer's 429, which means nothing was created.
 
 import { randomUUID } from "node:crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { limitNote } from "./caption";
 import { imageLimit, unsupportedReason } from "./channels";
 import { siteOrigin } from "./buffer";
@@ -53,7 +54,7 @@ export type QueueRequest = {
 };
 
 /** Writes one row per channel and returns the batch id. Channels that can't take a carousel are logged as failed straight away. */
-export async function enqueue(userId: string, r: QueueRequest): Promise<{ batchId: string }> {
+export async function enqueue(userId: string, r: QueueRequest, client: SupabaseClient = db()): Promise<{ batchId: string }> {
   const batchId = randomUUID();
   const base = (c: QueueRequest["channels"][number]) => ({
     user_id: userId,
@@ -71,14 +72,14 @@ export async function enqueue(userId: string, r: QueueRequest): Promise<{ batchI
       ? { ...base(c), status: "failed", error: clip(blocked, 200) }
       : { ...base(c), status: "queued", source: r.source.slice(0, 200), picks: r.picks, template: r.template.slice(0, 4000), caption: c.caption.slice(0, 10_000) };
   });
-  const { error } = await db().from("post_history").insert(rows);
+  const { error } = await client.from("post_history").insert(rows);
   if (error) throw new Error(`Could not queue the send: ${error.message}`);
   return { batchId };
 }
 
 // ---- working -------------------------------------------------------------------------------------------------------
 
-type Claimed = {
+export type Claimed = {
   id: number;
   user_id: string;
   batch_id: string | null;
@@ -93,7 +94,7 @@ type Claimed = {
 };
 
 /** What every channel of one send shares: the slide image addresses (signed for this user), or why they can't be made. */
-type Context = { images: string[] } | { problem: string };
+export type Context = { images: string[] } | { problem: string };
 
 async function warm(urls: string[]): Promise<string | null> {
   const bad = (
@@ -136,17 +137,31 @@ async function buildContext(row: Claimed): Promise<Context> {
   return { images };
 }
 
-async function finish(row: Claimed, patch: Record<string, unknown>) {
+/**
+ * What the worker needs from the outside. Production passes nothing and gets the real ones; the tests pass fakes (see sendQueue.test.ts),
+ * so every rule below can be checked without a database, a Buffer account or a beehiiv key.
+ */
+export type QueueDeps = {
+  db: () => SupabaseClient;
+  getValidSession: typeof getValidSession;
+  buildContext: (row: Claimed) => Promise<Context>;
+  createChannelPost: typeof createChannelPost;
+  logDrafts: typeof logDrafts;
+  fakeMode: () => boolean;
+};
+const realDeps = (): QueueDeps => ({ db, getValidSession, buildContext, createChannelPost, logDrafts, fakeMode });
+
+async function finish(client: SupabaseClient, row: Claimed, patch: Record<string, unknown>) {
   // The caption is only needed until the post exists, so it is erased when the row is done (created). A failed or unknown row keeps it for
   // CAPTION_KEEP_HOURS so "Retry" / "Send again" has something to send; see purgeStaleCaptions in postHistory.ts.
   const keep = patch.status === "failed" || patch.status === "unknown";
-  const { error } = await db().from("post_history").update({ ...(keep ? {} : { caption: null }), lease_until: null, ...patch }).eq("id", row.id).eq("status", "working");
+  const { error } = await client.from("post_history").update({ ...(keep ? {} : { caption: null }), lease_until: null, ...patch }).eq("id", row.id).eq("status", "working");
   if (error) console.error("updating the send queue failed:", error.message);
 }
 
-async function release(rows: Claimed[], notBefore?: Date) {
+async function release(client: SupabaseClient, rows: Claimed[], notBefore?: Date) {
   if (rows.length === 0) return;
-  const { error } = await db()
+  const { error } = await client
     .from("post_history")
     .update({ status: "queued", lease_until: null, ...(notBefore ? { not_before: notBefore.toISOString() } : {}) })
     .in("id", rows.map((r) => r.id))
@@ -158,9 +173,11 @@ async function release(rows: Claimed[], notBefore?: Date) {
  * Claims due rows (this user's, or anyone's when `userId` is left out) and sends them, until there are none or `deadlineMs` has passed. Whatever
  * is claimed and not reached is put back. Returns how many posts were handled.
  */
-export async function processQueue(opts: { userId?: string; limit?: number; deadlineMs?: number } = {}): Promise<number> {
+export async function processQueue(opts: { userId?: string; limit?: number; deadlineMs?: number } = {}, overrides: Partial<QueueDeps> = {}): Promise<number> {
+  const d = { ...realDeps(), ...overrides };
+  const client = d.db();
   const deadline = Date.now() + (opts.deadlineMs ?? 8_000);
-  const { data, error } = await db().rpc("claim_queued_posts", { p_user_id: opts.userId ?? null, p_limit: opts.limit ?? 6, p_lease_seconds: LEASE_SECONDS });
+  const { data, error } = await client.rpc("claim_queued_posts", { p_user_id: opts.userId ?? null, p_limit: opts.limit ?? 6, p_lease_seconds: LEASE_SECONDS });
   if (error) {
     console.error("claiming queued posts failed:", error.message);
     return 0;
@@ -171,7 +188,7 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
   const contexts = new Map<string, Promise<Context>>();
   const tokens = new Map<string, Promise<string | null>>();
   const tokenFor = (uid: string) => {
-    if (!tokens.has(uid)) tokens.set(uid, getValidSession(uid).then((s) => s?.accessToken ?? null, () => null));
+    if (!tokens.has(uid)) tokens.set(uid, d.getValidSession(uid).then((s) => s?.accessToken ?? null, () => null));
     return tokens.get(uid)!;
   };
 
@@ -187,18 +204,18 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
       handled.push(row);
       const token = await tokenFor(row.user_id);
       if (!token) {
-        await finish(row, { status: "failed", error: "Your Buffer login expired. Log in again, then send again." });
+        await finish(client, row, { status: "failed", error: "Your Buffer login expired. Log in again, then send again." });
         continue;
       }
       const key = `${row.batch_id}`;
-      if (!contexts.has(key)) contexts.set(key, buildContext(row));
+      if (!contexts.has(key)) contexts.set(key, d.buildContext(row));
       const ctx = await contexts.get(key)!;
       if ("problem" in ctx) {
-        await finish(row, { status: "failed", error: clip(ctx.problem, 200) });
+        await finish(client, row, { status: "failed", error: clip(ctx.problem, 200) });
         continue;
       }
       const images = ctx.images.slice(0, imageLimit(row.service));
-      const out = await createChannelPost(token, {
+      const out = await d.createChannelPost(token, {
         channelId: row.channel_id ?? "",
         service: row.service,
         text: row.caption ?? "",
@@ -208,23 +225,23 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
       if (out.ok) {
         // Buffer saves a draft that is over its network's limit, but won't schedule or publish it: leave a note on the row (a created post has no other use for `error`).
         const note = row.mode === "draft" ? limitNote(row.service, row.caption ?? "") : null;
-        await finish(row, { status: row.mode === "draft" ? "draft" : "sending", post_id: out.postId, slides: images.length, error: note });
-        if (!fakeMode()) await logDrafts(row.user_id, [{ service: row.service, ok: true, mode: row.mode }]);
+        await finish(client, row, { status: row.mode === "draft" ? "draft" : "sending", post_id: out.postId, slides: images.length, error: note });
+        if (!d.fakeMode()) await d.logDrafts(row.user_id, [{ service: row.service, ok: true, mode: row.mode }]);
         continue;
       }
       if (out.rateLimited) {
         // Buffer says "too many requests": nothing was created, so waiting and trying again is safe. Slow down for everyone.
         stopped = true;
         if (row.attempts >= MAX_ATTEMPTS) {
-          await finish(row, { status: "failed", error: clip(out.error, 200) });
+          await finish(client, row, { status: "failed", error: clip(out.error, 200) });
         } else {
           const wait = BACKOFF_SECONDS[Math.min(row.attempts - 1, BACKOFF_SECONDS.length - 1)];
-          await release([row], new Date(Date.now() + wait * 1000));
+          await release(client, [row], new Date(Date.now() + wait * 1000));
         }
         continue;
       }
-      await finish(row, { status: out.unknown ? "unknown" : "failed", error: clip(out.error, 200) });
-      if (!fakeMode()) await logDrafts(row.user_id, [{ service: row.service, ok: false, error: out.error, mode: row.mode }]);
+      await finish(client, row, { status: out.unknown ? "unknown" : "failed", error: clip(out.error, 200) });
+      if (!d.fakeMode()) await d.logDrafts(row.user_id, [{ service: row.service, ok: false, error: out.error, mode: row.mode }]);
     }
   };
   await Promise.all(Array.from({ length: Math.min(PARALLEL, claimed.length) }, work));
@@ -232,8 +249,8 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
   // Claimed but not reached (out of time, or Buffer pushed back): back in line, no attempt used.
   const rest = claimed.filter((r) => !handled.includes(r));
   if (rest.length > 0) {
-    await db().from("post_history").update({ attempts: 0 }).in("id", rest.map((r) => r.id)).eq("status", "working");
-    await release(rest);
+    await client.from("post_history").update({ attempts: 0 }).in("id", rest.map((r) => r.id)).eq("status", "working");
+    await release(client, rest);
   }
   return handled.length;
 }
