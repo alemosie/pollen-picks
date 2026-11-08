@@ -3,7 +3,7 @@
 
 import { gql, isRateLimited } from "./buffer";
 import { fitFor } from "./caption";
-import { serviceLabel } from "./channels";
+import { IMAGE_BYTE_LIMITS, serviceKey, serviceLabel } from "./channels";
 import { fakeBehaviour, fakeEnforcesLimits, fakeMode, takeFakeRateLimit } from "./fake";
 
 /** "draft" saves to Buffer without publishing. "now" publishes immediately and can't be undone from here. */
@@ -121,11 +121,43 @@ async function fakeCreate(p: ChannelPostInput): Promise<ChannelPostOutcome> {
   const svc = p.service.toLowerCase();
   const fit = fitFor(svc, p.text);
   if (fakeEnforcesLimits() && p.intent === "now" && !fit.fits) return { ok: false, error: `${serviceLabel(svc)} posts cannot exceed ${fit.limit} characters.` };
+  if (fakeEnforcesLimits()) {
+    const tooBig = await fakeImageProblem(svc, p.images);
+    if (tooBig) return { ok: false, error: tooBig };
+  }
   const behaviour = fakeBehaviour(svc);
   if (behaviour === "fail") return { ok: false, error: "Fake mode: Buffer rejected this post." };
   if (behaviour === "unknown")
     return { ok: false, error: "Fake mode: the request timed out.", unknown: p.intent === "now" };
   return { ok: true, postId: `fake-${p.intent}-${Date.now()}-${svc}` };
+}
+
+/**
+ * With limits on, fake mode downloads each slide the way Buffer would and refuses one over the network's size limit (Bluesky: 1 MB). The sizes are
+ * logged either way, so the dev terminal shows what each network was sent. A slide that can't be fetched here is not a reason to fail: it is skipped.
+ */
+export async function fakeImageProblem(svc: string, images: string[]): Promise<string | null> {
+  const limit = IMAGE_BYTE_LIMITS[serviceKey(svc)];
+  const kb = (n: number) => `${Math.round(n / 1000)} KB`;
+  const sizes = await Promise.all(
+    images.map(async (u, i) => {
+      try {
+        const res = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+        const bytes = (await res.arrayBuffer()).byteLength;
+        console.log(`[fake] ${svc} slide ${i + 1}: HTTP ${res.status}, ${res.headers.get("content-type") ?? "?"}, ${kb(bytes)}${limit ? ` (limit ${kb(limit)})` : ""}`);
+        return { i, status: res.status, bytes };
+      } catch (e) {
+        console.warn(`[fake] ${svc} slide ${i + 1}: couldn't check it (${e instanceof Error ? e.message : e})`);
+        return null;
+      }
+    }),
+  );
+  for (const s of sizes) {
+    if (!s) continue;
+    if (s.status >= 400) return `${serviceLabel(svc)} couldn't download slide ${s.i + 1} (HTTP ${s.status}).`;
+    if (limit && s.bytes > limit) return `${serviceLabel(svc)} images cannot exceed ${kb(limit)}. Slide ${s.i + 1} is ${kb(s.bytes)}.`;
+  }
+  return null;
 }
 
 function fakeState(id: string): PostState | { error: string } {

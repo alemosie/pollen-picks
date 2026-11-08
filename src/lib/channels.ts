@@ -23,6 +23,17 @@ export const UNSUPPORTED: Record<string, string> = {
 export const SMALL_IMAGE_SERVICES = ["bluesky"];
 export const needsSmallImages = (s: string) => SMALL_IMAGE_SERVICES.includes(serviceKey(s));
 
+/** The most a single image may weigh per network, from Buffer's "Ideal image sizes and formats" page. Fake mode refuses a bigger one, as Buffer does. */
+export const IMAGE_BYTE_LIMITS: Record<string, number> = {
+  instagram: 8_000_000,
+  facebook: 8_000_000,
+  linkedin: 10_000_000,
+  twitter: 5_000_000,
+  threads: 8_000_000,
+  bluesky: 1_000_000,
+  mastodon: 8_000_000,
+};
+
 export const serviceKey = (s: string) => s.toLowerCase().replace(/[^a-z]/g, "");
 export const unsupportedReason = (s: string) => UNSUPPORTED[serviceKey(s)];
 export const imageLimit = (s: string) => IMAGE_LIMITS[serviceKey(s)] ?? DEFAULT_LIMIT;

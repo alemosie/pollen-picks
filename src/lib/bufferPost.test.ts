@@ -391,6 +391,57 @@ describe("fake mode behaves like Buffer on its bad days", () => {
     }
   });
 
+  describe("image sizes (limits on)", () => {
+    const realFetch = globalThis.fetch;
+    const serve = (sizes: Record<string, number>, type = "image/png") => {
+      globalThis.fetch = (async (input: RequestInfo | URL) => {
+        const u = String(input instanceof Request ? input.url : input);
+        if (!(u in sizes)) throw new Error("offline");
+        return new Response(new Uint8Array(sizes[u]), { headers: { "content-type": type } });
+      }) as typeof fetch;
+    };
+    const post = (service: string, images: string[]) => createChannelPost("tok", input({ service, intent: "draft", images }));
+    afterEach(() => {
+      globalThis.fetch = realFetch;
+    });
+
+    test("Bluesky refuses a slide over 1 MB, and names which one", async () => {
+      process.env.BUFFER_FAKE_LIMITS = "1";
+      serve({ "https://s.test/0": 200_000, "https://s.test/1": 2_700_000 });
+      const out = await post("bluesky", ["https://s.test/0", "https://s.test/1"]);
+      assert.equal(out.ok, false);
+      assert.match(String((out as { error: string }).error), /Bluesky images cannot exceed 1000 KB\. Slide 2 is 2700 KB/);
+    });
+    test("the same big slide is fine for a network that takes 8 MB, and a small one is fine for Bluesky", async () => {
+      process.env.BUFFER_FAKE_LIMITS = "1";
+      serve({ "https://s.test/big": 2_700_000, "https://s.test/small": 300_000 }, "image/jpeg");
+      assert.equal((await post("instagram", ["https://s.test/big"])).ok, true);
+      assert.equal((await post("bluesky", ["https://s.test/small"])).ok, true);
+    });
+    test("X allows 5 MB, not more", async () => {
+      process.env.BUFFER_FAKE_LIMITS = "1";
+      serve({ "https://s.test/a": 4_900_000, "https://s.test/b": 5_100_000 });
+      assert.equal((await post("twitter", ["https://s.test/a"])).ok, true);
+      assert.equal((await post("twitter", ["https://s.test/b"])).ok, false);
+    });
+    test("a slide that can't be downloaded here is skipped, not a failure; one the site refuses is", async () => {
+      process.env.BUFFER_FAKE_LIMITS = "1";
+      serve({});
+      assert.equal((await post("bluesky", ["https://s.test/unreachable"])).ok, true);
+      globalThis.fetch = (async () => new Response("no", { status: 403 })) as typeof fetch;
+      const out = await post("bluesky", ["https://s.test/x"]);
+      assert.equal(out.ok, false);
+      assert.match(String((out as { error: string }).error), /couldn't download slide 1 \(HTTP 403\)/);
+    });
+    test("with limits off nothing is downloaded or refused", async () => {
+      delete process.env.BUFFER_FAKE_LIMITS;
+      let calls = 0;
+      globalThis.fetch = (async () => (calls++, new Response(new Uint8Array(3_000_000)))) as typeof fetch;
+      assert.equal((await post("bluesky", ["https://s.test/big"])).ok, true);
+      assert.equal(calls, 0);
+    });
+  });
+
   test("with limits on, a publish over the limit is refused but a draft is allowed", async () => {
     process.env.BUFFER_FAKE_LIMITS = "1";
     const long = "x".repeat(5000);

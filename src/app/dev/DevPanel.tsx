@@ -72,10 +72,10 @@ export function DevPanel() {
       <section className={`grid gap-3 rounded-2xl bg-card p-5 ${enabled ? "" : "opacity-60"}`}>
         <label className="flex items-center gap-3 font-bold">
           <input type="checkbox" checked={enforceLimits} onChange={(e) => void save({ enforceLimits: e.target.checked })} className="size-5" />
-          Buffer refuses over-limit captions when publishing
+          Buffer refuses over-limit captions and images
         </label>
         <p className="m-0 text-sm">
-          Like the real Buffer: a draft may exceed a network&rsquo;s limit, but a post to publish is refused with &ldquo;cannot exceed N characters&rdquo;. &ldquo;Send now&rdquo; should never hit this, because channels with a caption over their limit become drafts instead. Off: Buffer accepts anything.
+          Like the real Buffer: a draft may exceed a network&rsquo;s limit, but a post to publish is refused with &ldquo;cannot exceed N characters&rdquo;. &ldquo;Send now&rdquo; should never hit this, because channels with a caption over their limit become drafts instead. It also downloads each slide the way Buffer would and refuses one over the network&rsquo;s size limit (Bluesky: 1 MB; the sizes are printed in the dev terminal). Off: Buffer accepts anything.
         </p>
       </section>
 
