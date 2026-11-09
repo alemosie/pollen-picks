@@ -1,6 +1,6 @@
 // Built-in pictures for the cover, for when an issue has none to offer (or none that fit): plain gray with the Pollen Picks mark in one color.
 // Drawn in code as SVG, so there is nothing to host or fetch and it looks the same everywhere. A 1000x1000 square that scales to fill any
-// frame ("slice") and keeps the mark in the middle, so it crops well as a banner or as a whole-slide background.
+// frame ("slice") and keeps the mark in the middle and small enough to survive the wide crop of a pick's picture frame (about 2.6:1), as well as a whole-slide background.
 // Client-safe: no Node imports. The ids are valid picture ids (8 hex digits) that no real picture's hash is expected to use.
 
 import type { IssueImage } from "@/lib/pollen/imageIds";
@@ -9,20 +9,23 @@ import { MARK_SVG } from "./mark";
 const BG = "#d6d6d6";
 const INK = "#f5f5f5";
 
-/** The Pollen Picks dandelion mark in one color, centered, about half the height of the square. */
-function mark(color: string, height = 540): string {
+/** The Pollen Picks dandelion mark in one color, centered, a bit over a quarter of the square, so it still fits whole when a wide banner crops the square to its middle band. */
+function mark(color: string, height = 280): string {
   const [vx, vy, vw, vh] = [157, 57, 404, 608];
   const k = height / vh;
   const inner = MARK_SVG.slice(MARK_SVG.indexOf(">") + 1, MARK_SVG.lastIndexOf("</svg>")).replaceAll("__FILL__", color);
   return `<g transform="translate(${(500 - (vw / 2) * k).toFixed(1)} ${(500 - (vh / 2) * k).toFixed(1)}) scale(${k.toFixed(4)}) translate(${-vx} ${-vy})">${inner}</g>`;
 }
 
+const plain = (bg: string, fg: string) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid slice"><rect width="1000" height="1000" fill="${bg}"/>${mark(fg)}</svg>`;
+
 export const STOCK: { id: string; alt: string; svg: string }[] = [
-  {
-    id: "00000001",
-    alt: "Plain gray with the Pollen Picks mark",
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid slice"><rect width="1000" height="1000" fill="${BG}"/>${mark(INK)}</svg>`,
-  },
+  { id: "00000001", alt: "Plain gray with the Pollen Picks mark", svg: plain(BG, INK) },
+  { id: "00000002", alt: "Honey yellow with the Pollen Picks mark", svg: plain("#f6bd60", "#f7ede2") },
+  { id: "00000003", alt: "Sage green with the Pollen Picks mark", svg: plain("#84a59d", "#f7ede2") },
+  { id: "00000004", alt: "Coral with the Pollen Picks mark", svg: plain("#f28482", "#f7ede2") },
+  { id: "00000005", alt: "Blush pink with the Pollen Picks mark", svg: plain("#f5cac3", "#f28482") },
 ];
 
 const STOCK_IDS = new Set(STOCK.map((s) => s.id));

@@ -415,7 +415,7 @@ export function EditSlideModal({
                 {/* The issue's pictures first, then the built-in ones, which are always there (an issue may have none). */}
                 {(
                   <>
-                    <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} value={coverPhoto} onPick={setCoverPhoto} label="Cover picture" />
+                    <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} note={savedOn ? undefined : DEMO_PICTURES_NOTE} value={coverPhoto} onPick={setCoverPhoto} label="Cover picture" />
                     {coverPhoto && <PhotoModeChoice name="cover-photo-mode" value={coverMode} onChange={setCoverPhotoMode} />}
                   </>
                 )}
@@ -451,7 +451,7 @@ export function EditSlideModal({
                     className={input}
                   />
                 </label>
-                <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} value={closingPhoto} onPick={setClosingPhoto} label="Closing picture" />
+                <PhotoPicker images={images ?? []} builtIn={STOCK_IMAGES} saved={savedOn ? saved : undefined} note={savedOn ? undefined : DEMO_PICTURES_NOTE} value={closingPhoto} onPick={setClosingPhoto} label="Closing picture" />
                 {closingPhoto && <PhotoModeChoice name="closing-photo-mode" value={closingMode} onChange={setClosingPhotoMode} />}
               </>
             )}
@@ -501,13 +501,15 @@ export function EditSlideModal({
                       className={input}
                     />
                   </label>
-                  {ids.length <= PHOTO_MAX_PICKS && (savedOn || (images && (images.length > 0 || link.loading || !!link.images[id]?.length))) && (
+                  {ids.length <= PHOTO_MAX_PICKS && (
                     <PhotoPicker
                       images={images ?? []}
                       linkImages={link.images[id] ?? []}
+                      builtIn={STOCK_IMAGES}
                       saved={savedOn ? saved : undefined}
                       loadingLink={link.loading}
                       issueLast
+                      note={savedOn ? undefined : DEMO_PICTURES_NOTE}
                       value={value(id, "photo")}
                       onPick={(v) => choosePhoto(id, v)}
                       label={`Picture for pick ${i + 1}`}
@@ -742,6 +744,7 @@ function PhotoPicker({
   saved,
   loadingLink = false,
   issueLast = false,
+  note,
   value,
   onPick,
   label,
@@ -757,6 +760,8 @@ function PhotoPicker({
   loadingLink?: boolean;
   /** Slides list the issue's pictures last: the title slide has most likely used them already. The cover lists them first. */
   issueLast?: boolean;
+  /** A line under the row (the demo says what signing in adds). */
+  note?: string;
   value: string;
   onPick: (id: string) => void;
   label: string;
@@ -830,6 +835,7 @@ function PhotoPicker({
           </Fragment>
         ))}
       </div>
+      {note && <p className="m-0 text-xs font-normal">{note}</p>}
       {saved && adding && (
         <form
           className="flex flex-wrap items-center gap-2"
@@ -880,6 +886,9 @@ function PhotoPicker({
     </div>
   );
 }
+
+/** The demo reads no links and keeps no uploads: it offers the built-in pictures and says what an account adds. */
+const DEMO_PICTURES_NOTE = "Log in to fetch images from links and upload your own.";
 
 // What the pages the picks link to had, kept for the visit so reopening a slide doesn't read the pages again.
 type LinkData = { images: Record<number, IssueImage[]>; sites: Record<number, string> };

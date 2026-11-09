@@ -140,6 +140,9 @@ export async function withPhotos(items: SlideItem[], images: IssueImage[] | unde
     items.map(async (it) => {
       // The picture is one from the issue, else one the user saved a link to, else one from the page the pick links to (each looked up
       // only when the one before doesn't have it).
+      // A built-in picture is drawn in code: no issue and no fetch needed.
+      const stock = it.photoId ? stockSvg(it.photoId) : undefined;
+      if (stock) return { ...it, photo: `data:image/svg+xml;base64,${Buffer.from(stock).toString("base64")}` };
       let src = it.photoId ? byId.get(it.photoId)?.src : undefined;
       if (!src && it.photoId) src = (await saved?.(it.photoId)) ?? undefined;
       if (!src && it.photoId && linkImages && it.id != null) src = (await linkImages(it.id)).find((i) => i.id === it.photoId)?.src;
