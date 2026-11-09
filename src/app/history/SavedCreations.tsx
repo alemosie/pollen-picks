@@ -96,7 +96,7 @@ export function SavedCreations({ items: initial }: { items: SavedCreationSummary
       {items.length === 0 ? (
         <p className="m-0 rounded-xl bg-surface p-4 text-sm font-semibold">Nothing saved yet.</p>
       ) : (
-        <ul className="m-0 grid list-none gap-3 rounded-2xl border-[3px] border-honey p-4 sm:p-5">
+        <ul className="m-0 grid list-none grid-cols-[minmax(0,1fr)] gap-3 rounded-2xl border-[3px] border-honey p-4 sm:p-5">
           {items.map((c) => (
             <li key={c.id} className="rounded-xl bg-surface p-4 ring-1 ring-ink/10">
               <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">

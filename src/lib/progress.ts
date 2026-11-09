@@ -80,6 +80,8 @@ function runFor(scope?: string): Run {
 const same = (r: Run, scope?: string) => scope === undefined || r.scope === undefined || r.scope === scope;
 
 export const loadProgress = () => readRun().progress ?? null;
+/** The flow mode (plus issue) the saved run belongs to, e.g. "demo". */
+export const loadScope = () => readRun().scope ?? null;
 export const saveProgress = (href: string, step: number) => writeRun({ ...readRun(), progress: { href, step, savedAt: Date.now() } });
 
 // Picks are positions in one issue's list. Called without a scope (the share link) it returns whatever was saved last.

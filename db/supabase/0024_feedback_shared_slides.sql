@@ -1,4 +1,4 @@
--- APPLIED to the dev Supabase project "Dev: Pollen Picks" on 9 Nov 2026 (as migration feedback_shared_slides). NOT YET APPLIED to production.
+-- APPLIED to the dev Supabase project "Dev: Pollen Picks" on 9 Nov 2026 (as migration feedback_shared_slides). APPLIED to production on 9 Nov 2026.
 -- "OK to share?" on the feedback form: a tester who says yes lets Alex see what they made, as two links.
 --   source_url: the issue they started from (a pasted page, or their own issue's public address); null when they used the sample issue.
 --   slide_url:  the Design step with their picks and layout (a demo link also carries their highlights as hl=; a link from the logged-in app only opens for that account).
