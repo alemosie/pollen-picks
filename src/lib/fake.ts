@@ -35,7 +35,8 @@ export type FakeSettings = {
 };
 
 const isDev = () => process.env.NODE_ENV !== "production";
-const FILE = () => join(process.cwd(), ".dev-fake.json");
+// POLLEN_DEV_FAKE_FILE moves the file; the tests use it so a developer's own .dev-fake.json can't change their results.
+const FILE = () => process.env.POLLEN_DEV_FAKE_FILE || join(process.cwd(), ".dev-fake.json");
 
 const clampInt = (v: unknown, max: number) => Math.min(max, Math.max(0, Math.floor(Number(v) || 0)));
 
