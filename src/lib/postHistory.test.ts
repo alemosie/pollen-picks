@@ -280,9 +280,8 @@ describe("refreshHistory: asking Buffer where publish-now posts stand", () => {
     assert.equal(fakes.graphqlCalls.length, 1);
     assert.equal(asked().length, 4);
   });
-  test("final statuses, drafts, rows with no post id, other accounts, and posts older than 14 days are never asked about", async () => {
+  test("final statuses, rows with no post id, other accounts, and posts older than 14 days are never asked about", async () => {
     for (const s of ["sent", "error", "needs_approval", "draft", "failed", "unknown"]) row({ mode: "now", post_id: `final-${s}`, status: s });
-    row({ mode: "draft", post_id: "draft-mode", status: "scheduled" });
     row({ mode: "now", post_id: null, status: "sending" });
     row({ user_id: B, mode: "now", post_id: "theirs", status: "sending" });
     row({ mode: "now", post_id: "ancient", status: "sending", created_at: ago(15 * 24 * HOUR) });
@@ -335,6 +334,118 @@ describe("refreshHistory: asking Buffer where publish-now posts stand", () => {
     assert.deepEqual(list.map((e) => e.postId), ["bp-1"]);
     const li = await refreshHistory(A, "tok", { filters: { service: "linkedin" } });
     assert.deepEqual(li.map((e) => e.postId), ["bp-2"]);
+  });
+  describe("old drafts", () => {
+    const pid = (r: { post_id?: unknown }) => String(r.post_id);
+    const old = (days: number, over: Record<string, unknown> = {}) =>
+      row({ mode: "draft", status: "draft", post_id: `d-${days}-${Math.random().toString(36).slice(2, 6)}`, created_at: ago(days * 24 * HOUR), ...over });
+
+    test("a draft that Buffer now says went out stops being a draft, and gets its live link", async () => {
+      const r = old(12);
+      stateOf({ [pid(r)]: { status: "sent", externalLink: "https://x.test/live" } });
+      const list = await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "sent");
+      assert.equal(stored(r.id).live_url, "https://x.test/live");
+      assert.equal(list.find((e) => e.id === r.id)?.status, "sent");
+    });
+    test("a scheduled draft is recorded as scheduled", async () => {
+      const r = old(20);
+      stateOf({ [pid(r)]: { status: "scheduled" } });
+      await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "scheduled");
+    });
+    test("a draft that is still a draft stays one, and is stamped as checked", async () => {
+      const r = old(12);
+      stateOf({ [pid(r)]: { status: "draft" } });
+      await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "draft");
+      assert.ok(stored(r.id).checked_at);
+    });
+    test("every draft is asked about on every load, whatever its age or when it was last checked", async () => {
+      const young = old(0.1, { checked_at: ago(1000) });
+      const mid = old(5);
+      const ancient = old(200);
+      stateOf({ [pid(young)]: { status: "sent", externalLink: "https://x.test/live" }, [pid(mid)]: { status: "draft" }, [pid(ancient)]: { status: "scheduled" } });
+      await refreshHistory(A, "tok");
+      assert.deepEqual(asked().sort(), [pid(young), pid(mid), pid(ancient)].sort());
+      assert.equal(stored(young.id).status, "sent");
+      assert.equal(stored(young.id).live_url, "https://x.test/live");
+      assert.equal(stored(ancient.id).status, "scheduled");
+      await refreshHistory(A, "tok");
+      assert.equal(fakes.graphqlCalls.length, 2, "asked again on the next load");
+    });
+    test("drafts with no post id, other accounts' drafts, and drafts that already moved on are not asked about", async () => {
+      old(12, { post_id: null });
+      old(12, { user_id: B, post_id: "theirs" });
+      old(12, { status: "sent", post_id: "out" });
+      old(12, { status: "removed", post_id: "gone" });
+      const ask = old(12, { post_id: "asked" });
+      stateOf({ asked: { status: "draft" } });
+      await refreshHistory(A, "tok");
+      assert.deepEqual(asked(), ["asked"]);
+      assert.equal(stored(ask.id).status, "draft");
+    });
+    test("Buffer not knowing the draft, or being down, leaves it a draft", async () => {
+      const r = old(12);
+      stateOf({ [pid(r)]: null });
+      await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "draft");
+      fakes.graphql = () => new Response("down", { status: 500 });
+      await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "draft");
+    });
+    test("a draft Buffer says it can't find (deleted there) is marked removed, and is not asked about again", async () => {
+      const r = old(12);
+      fakes.graphql = (query) => {
+        const data: Record<string, unknown> = {};
+        for (const m of query.matchAll(/(p\d+): post\(input: \{ id: "([^"]+)" \}\)/g)) data[m[1]] = null;
+        return jsonResponse({ data, errors: [{ message: "Post not found", path: ["p0"], extensions: { code: "NOT_FOUND" } }] });
+      };
+      const list = await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "removed");
+      assert.equal(list.find((e) => e.id === r.id)?.status, "removed");
+      const before = fakes.graphqlCalls.length;
+      await refreshHistory(A, "tok");
+      assert.equal(fakes.graphqlCalls.length, before, "a removed draft is final");
+    });
+    test("a publish-now post that comes back not found keeps its status (only drafts are marked removed)", async () => {
+      const r = row({ mode: "now", post_id: "bp-1", status: "sending" });
+      fakes.graphql = () => jsonResponse({ data: { p0: null }, errors: [{ message: "Post not found", path: ["p0"], extensions: { code: "NOT_FOUND" } }] });
+      await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "sending");
+    });
+    test("a scheduled draft keeps being asked about, and gets its live link once it is out", async () => {
+      const r = old(3, { status: "scheduled" });
+      stateOf({ [pid(r)]: { status: "scheduled" } });
+      await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "scheduled");
+      stateOf({ [pid(r)]: { status: "sent", externalLink: "https://x.test/live" } });
+      const list = await refreshHistory(A, "tok");
+      assert.equal(stored(r.id).status, "sent");
+      assert.equal(list.find((e) => e.id === r.id)?.liveUrl, "https://x.test/live");
+    });
+    test("up to 100 drafts are asked about, 25 to a request", async () => {
+      for (let i = 0; i < 110; i++) old(1 + i / 1000, { post_id: `bulk-${i}` });
+      stateOf({});
+      await refreshHistory(A, "tok");
+      assert.equal(asked().length, 100);
+      assert.equal(fakes.graphqlCalls.length, 4);
+    });
+    test("while posts are still in our send queue, drafts are not asked about (sending has the rate limit first)", async () => {
+      row({ mode: "draft", status: "queued", post_id: null });
+      old(12, { post_id: "waiting" });
+      stateOf({ waiting: { status: "sent" } });
+      await refreshHistory(A, "tok");
+      assert.equal(fakes.graphqlCalls.length, 0);
+    });
+    test("sending posts and old drafts share one request", async () => {
+      row({ mode: "now", post_id: "bp-1", status: "sending" });
+      const r = old(12);
+      stateOf({ "bp-1": { status: "sent" }, [pid(r)]: { status: "sent" } });
+      await refreshHistory(A, "tok");
+      assert.equal(fakes.graphqlCalls.length, 1);
+      assert.equal(asked().length, 2);
+    });
   });
   test("a status longer than the column is cut, not rejected", async () => {
     const r = row({ mode: "now", post_id: "bp-1", status: "sending" });

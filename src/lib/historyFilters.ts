@@ -4,7 +4,7 @@
 /** The statuses an entry can be in, grouped the way people think about them. */
 export const STATUS_GROUPS = {
   progress: { label: "In progress", statuses: ["queued", "working", "sending", "scheduled"] },
-  done: { label: "Done", statuses: ["sent", "draft"] },
+  done: { label: "Done", statuses: ["sent", "draft", "removed"] },
   failed: { label: "Failed", statuses: ["failed", "error"] },
   check: { label: "Needs a look", statuses: ["unknown", "needs_approval"] },
 } as const;

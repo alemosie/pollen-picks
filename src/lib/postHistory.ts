@@ -79,12 +79,14 @@ const toEntry = (r: Row): HistoryEntry => ({
 });
 
 /** Statuses that won't change again, so those rows are never asked about. ('queued' and 'working' are ours and are moved on by the send queue.) */
-export const FINAL_STATUSES = ["sent", "error", "needs_approval", "draft", "failed", "unknown"] as const;
+export const FINAL_STATUSES = ["sent", "error", "needs_approval", "draft", "failed", "unknown", "removed"] as const;
 const FINAL = new Set<string>(FINAL_STATUSES);
 /** Statuses of an entry the send queue is still working on. */
 export const OPEN_STATUSES = ["queued", "working"] as const;
 /** Posts older than this that never reached a final status are left alone: Buffer stopped changing them long ago. */
 const ASK_FOR_DAYS = 14;
+/** History lists the latest 100 entries (see listHistory), so no more drafts than that can be on screen. */
+const DRAFTS_SHOWN = 100;
 
 /** How long a failed post keeps its caption so it can be retried. After that it is erased the next time anyone reads the history. */
 export const CAPTION_KEEP_HOURS = 24;
@@ -163,8 +165,11 @@ export async function historyFacets(userId: string): Promise<HistoryFacets> {
 }
 
 /**
- * Asks Buffer about this user's recent publish-now posts that haven't reached a final status, saves what it says, and returns the list.
- * One request covers up to 25 posts (see getPostStates), so this stays light on Buffer's per-app rate limit.
+ * Asks Buffer about this user's posts whose status may have moved on, saves what it says, and returns the list. Two kinds:
+ * - publish-now posts that haven't reached a final status (still sending);
+ * - drafts still marked as drafts. The person may have published, scheduled or deleted them in Buffer since, and only Buffer knows; without this
+ *   they would stay "Draft in Buffer" (and, past 10 days, keep warning about their slide links) after the post went out.
+ * One request covers up to 25 posts (see getPostStates), so this stays light on Buffer's per-app rate limit. Newest publish-now posts come first.
  */
 export async function refreshHistory(userId: string, token: string, opts: { batchId?: string; filters?: HistoryFilters } = {}): Promise<HistoryEntry[]> {
   const since = new Date(Date.now() - ASK_FOR_DAYS * 86_400_000).toISOString();
@@ -178,13 +183,39 @@ export async function refreshHistory(userId: string, token: string, opts: { batc
     .not("status", "in", `(${[...FINAL].join(",")})`)
     .order("created_at", { ascending: false })
     .limit(25);
-  const pending = ((data ?? []) as { id: number; post_id: string; status: string }[]).filter((p) => p.post_id);
+  const sending = ((data ?? []) as { id: number; post_id: string; status: string }[]).filter((p) => p.post_id);
+
+  // Drafts still waiting in Buffer, or scheduled there: the person may have published, scheduled or deleted one there, and only Buffer knows.
+  // Every History load asks about all the ones History can show (the newest DRAFTS_SHOWN), whatever their age; 25 per request, so at most 4 requests.
+  // It is separate from the slide-expiry warning. Sending comes first: while this user still has posts waiting in our send queue, those need
+  // Buffer's rate limit more than a status check does, so the drafts are left for the next load.
+  const { data: waiting } = await db().from("post_history").select("id").eq("user_id", userId).in("status", ["queued", "working"]).limit(1);
+  const sendingNow = (waiting ?? []).length > 0;
+  const { data: oldDrafts } = sendingNow
+    ? { data: [] }
+    : await db()
+        .from("post_history")
+        .select("id, post_id, status")
+        .eq("user_id", userId)
+        .eq("mode", "draft")
+        .in("status", ["draft", "scheduled", "sending"])
+        .not("post_id", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(DRAFTS_SHOWN);
+  const drafts = ((oldDrafts ?? []) as { id: number; post_id: string; status: string }[]).filter((p) => p.post_id);
+
+  const pending = [...sending, ...drafts];
   if (pending.length > 0) {
     const states = await getPostStates(token, pending.map((p) => p.post_id));
     await Promise.all(
       pending.map(async (p) => {
         const s = states[p.post_id];
-        const patch = { checked_at: new Date().toISOString(), ...(s && !("error" in s) ? { status: s.status.slice(0, 30), live_url: s.externalLink ?? null } : {}) };
+        const gone = s && "error" in s && s.notFound && p.status !== "sending"; // a draft or scheduled post Buffer no longer has: deleted there
+        const patch = {
+          checked_at: new Date().toISOString(),
+          ...(s && !("error" in s) ? { status: s.status.slice(0, 30), live_url: s.externalLink ?? null } : {}),
+          ...(gone ? { status: "removed" } : {}),
+        };
         const { error } = await db().from("post_history").update(patch).eq("id", p.id);
         if (error) console.error("updating a history entry failed:", error.message);
       }),

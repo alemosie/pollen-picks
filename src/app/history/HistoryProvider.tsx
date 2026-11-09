@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { HistoryEntry } from "@/lib/postHistory";
 
 /** Buffer's statuses that won't change again. */
-const FINAL = new Set(["sent", "error", "needs_approval", "draft", "failed", "unknown"]);
+const FINAL = new Set(["sent", "error", "needs_approval", "draft", "failed", "unknown", "removed"]);
 /** Posts Buffer is still publishing are asked about this often, for a while (Buffer limits requests for the whole app). */
 const CHECK_EVERY_MS = 20_000;
 const MAX_CHECKS = 12;
@@ -86,6 +86,13 @@ export function HistoryProvider({ initial, filterQuery, children }: { initial: H
   useEffect(() => {
     const t = setTimeout(() => setNow(Date.now()), 0);
     return () => clearTimeout(t);
+  }, []);
+
+  // Opening History asks Buffer once about drafts still marked as drafts (not already being watched): one may have been published, scheduled or deleted there.
+  const hasDrafts = useRef(initial.some((c) => c.mode === "draft" && c.status === "draft" && c.postId)).current;
+  useEffect(() => {
+    if (hasDrafts && !watching) void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

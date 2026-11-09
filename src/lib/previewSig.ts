@@ -1,11 +1,12 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { SLIDE_LINK_DAYS } from "./slideLinks";
 
 // Buffer fetches the slide images itself, with no cookies and no login, so the image URLs it gets carry a signature instead:
 // an HMAC over the whole query (which issue, which picks, the template, who it is for and when it expires). Only this
 // server can make one, nothing in it can be changed without invalidating it, and it opens exactly that one set of slides.
 
-/** Long enough for Buffer to fetch the images when it creates a post, or when a scheduled one goes out. */
-const TTL_MS = 14 * 24 * 60 * 60 * 1000;
+/** Long enough for Buffer to fetch the images when it creates a post, or when a scheduled one goes out. The History page warns before this runs out. */
+const TTL_MS = SLIDE_LINK_DAYS * 24 * 60 * 60 * 1000;
 
 function key(): Buffer {
   const secret = process.env.SESSION_SECRET;

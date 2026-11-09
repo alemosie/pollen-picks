@@ -6,6 +6,7 @@ import { Check, ChevronRight, CircleHelp, FileText, RefreshCw } from "lucide-rea
 import { ChannelIcon } from "@/components/ChannelIcon";
 import { PollenSpinner } from "@/components/PollenSpinner";
 import type { HistoryEntry } from "@/lib/postHistory";
+import { SLIDE_LINK_DAYS, slideLinkState } from "@/lib/slideLinks";
 import { useHistory } from "./HistoryProvider";
 
 /** A publish still "sending" after this long needs a look in Buffer. */
@@ -26,7 +27,27 @@ function describe(c: HistoryEntry, now: number): { text: string; busy?: boolean;
     };
   if (c.status === "unknown")
     return { text: "Unknown, check Buffer", tone: "warn", detail: `The request didn't finish, so this may or may not have gone out. Check Buffer first, then send it again if it isn't there.${c.resendable ? "" : " Sending again from here only works for 24 hours, so use the app to send it again."}` };
-  if (c.mode === "draft") return { text: "Draft in Buffer", detail: c.error ?? undefined };
+  if (c.status === "removed")
+    return { text: "Deleted in Buffer", detail: "This draft is no longer in Buffer, so it won't go out from there. If you still want to post it, send it again from the app." };
+  if (c.status === "scheduled")
+    return { text: "Scheduled in Buffer", detail: `Slide images stay linked for ${SLIDE_LINK_DAYS} days after sending. If it is scheduled for later than that, send it again from the app closer to the date.` };
+  // Only while it is still a draft: once the person has published it in Buffer it falls through to "Live" below, with its link.
+  if (c.mode === "draft" && c.status === "draft") {
+    const links = slideLinkState(c, now);
+    if (links === "expired")
+      return {
+        text: "Slides expired",
+        tone: "bad",
+        detail: `Still a draft as far as Pollen Picks knows. Its slide links worked for ${SLIDE_LINK_DAYS} days and have run out, so Buffer may show broken images. If it hasn't gone out, send it again from the app to get fresh ones.`,
+      };
+    if (links === "soon")
+      return {
+        text: "Slides expiring soon",
+        tone: "warn",
+        detail: `The slides in this post will be expiring soon. Their links stop working ${SLIDE_LINK_DAYS} days after sending, so publish or schedule it, or send it again from the app.`,
+      };
+    return { text: "Draft in Buffer", detail: c.error ?? undefined };
+  }
   if (c.status === "sent") return { text: c.liveUrl ? "Live" : "Published" };
   if (c.status === "error") return { text: "Buffer couldn't publish this", tone: "bad", detail: "Open it in Buffer to see why and try again there." };
   if (c.status === "needs_approval") return { text: "Needs approval in Buffer", tone: "warn" };
@@ -35,9 +56,10 @@ function describe(c: HistoryEntry, now: number): { text: string; busy?: boolean;
   return { text: "Publishing…", busy: true, detail: "Buffer is still sending this to the network." };
 }
 
-/** Entries that need the person to do something: the failed, the maybe-lost, and the ones Buffer refused or holds for approval. */
-const needsAttention = (c: HistoryEntry) => c.status === "failed" || c.status === "unknown" || c.status === "error" || c.status === "needs_approval";
-const inProgress = (c: HistoryEntry) => c.status === "queued" || c.status === "working" || (c.mode === "now" && c.status === "sending");
+/** Entries that need the person to do something: the failed, the maybe-lost, the ones Buffer refused or holds for approval, and drafts whose slide links are about to run out (or have). */
+const needsAttention = (c: HistoryEntry, now: number | null) =>
+  c.status === "failed" || c.status === "unknown" || c.status === "error" || c.status === "needs_approval" || slideLinkState(c, now) !== "ok";
+const inProgress = (c: HistoryEntry) => c.status === "queued" || c.status === "working" || c.status === "sending";
 
 /** One press of Send: its entries, newest send first. Entries from before sends were grouped fall back to the same issue at the same minute. */
 type Group = { key: string; entries: HistoryEntry[] };
@@ -58,20 +80,23 @@ function groupBySend(items: HistoryEntry[]): Group[] {
 }
 
 /** "12 channels · 9 live · 1 draft · 2 need attention": what became of one send, at a glance. */
-function summarize(entries: HistoryEntry[]) {
+function summarize(entries: HistoryEntry[], now: number | null) {
   const n = (f: (c: HistoryEntry) => boolean) => entries.filter(f).length;
-  const bad = n(needsAttention);
+  const bad = n((c) => needsAttention(c, now));
   const going = n(inProgress);
-  const drafts = n((c) => !needsAttention(c) && !inProgress(c) && c.mode === "draft");
-  const live = entries.length - bad - going - drafts;
-  return { total: entries.length, bad, going, drafts, live };
+  const quiet = (c: HistoryEntry) => !needsAttention(c, now) && !inProgress(c);
+  const drafts = n((c) => quiet(c) && c.mode === "draft" && c.status === "draft");
+  const scheduled = n((c) => quiet(c) && c.status === "scheduled");
+  const gone = n((c) => quiet(c) && c.status === "removed");
+  const live = entries.length - bad - going - drafts - scheduled - gone;
+  return { total: entries.length, bad, going, drafts, scheduled, gone, live };
 }
 
 /** The History page: every attempt to create a post in Buffer for this account, failed ones too, with the Buffer link and live link. */
 export function HistoryList({ filterQuery = "" }: { /** The page's filters as a query string, only to tell "nothing yet" from "nothing matches". */ filterQuery?: string }) {
   const { items, now, error, watching, gaveUp, retrying, retry, check, checking } = useHistory();
   const retryable = items.filter((c) => c.retryable);
-  const attention = items.filter(needsAttention);
+  const attention = items.filter((c) => needsAttention(c, now));
   const groups = groupBySend(items);
   const [picked, setPicked] = useState<"attention" | "all" | null>(null);
   // Opens on what needs doing, if anything does; a link to one entry opens All.
@@ -254,7 +279,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                     </time>
                     <span className="mt-1 block text-sm">{g.entries.length} need a look</span>
                   </span>
-                  <SendStatus entries={g.entries} />
+                  <SendStatus entries={g.entries} now={now} />
                 </summary>
                 <ul className="m-0 mx-4 mb-2 grid list-none divide-y divide-ink/10 border-t border-ink/10 p-0">
             {g.entries.map((c) => {
@@ -317,7 +342,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
       {tab === "all" && (
       <div role="tabpanel" className="grid grid-cols-[minmax(0,1fr)] gap-3">
         {groups.map((g, i) => {
-          const sum = summarize(g.entries);
+          const sum = summarize(g.entries, now);
           const first = g.entries[0];
           return (
             <details key={g.key} open={i === 0 ? true : undefined} className="group overflow-hidden rounded-xl bg-surface ring-1 ring-ink/10">
@@ -334,11 +359,13 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                     <span>{sum.total} {sum.total === 1 ? "channel" : "channels"}</span>
                     {sum.live > 0 && <span>{sum.live} live</span>}
                     {sum.drafts > 0 && <span>{sum.drafts} {sum.drafts === 1 ? "draft" : "drafts"}</span>}
+                    {sum.scheduled > 0 && <span>{sum.scheduled} scheduled</span>}
+                    {sum.gone > 0 && <span>{sum.gone} deleted</span>}
                     {sum.going > 0 && <span>{sum.going} in progress</span>}
                     {sum.bad > 0 && <span>{sum.bad} need a look</span>}
                   </span>
                 </span>
-                <SendStatus entries={g.entries} />
+                <SendStatus entries={g.entries} now={now} />
               </summary>
               <div className="overflow-x-auto px-4 pb-3">
                 <table className="w-full border-collapse text-left text-sm max-sm:block sm:min-w-[34rem] sm:table-fixed">
@@ -363,7 +390,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                   <tbody className="max-sm:block">
                     {g.entries.map((c) => {
                       const v = describe(c, now ?? new Date(c.createdAt).getTime());
-                      const bad = needsAttention(c);
+                      const bad = needsAttention(c, now);
                       return (
                         <tr key={c.id} id={`entry-${c.id}`} className={`border-t border-ink/10 align-top transition-colors duration-700 max-sm:relative max-sm:block max-sm:py-3 ${marked === `entry-${c.id}` ? "bg-honey/30" : ""}`}>
                           <td className="py-2.5 pr-4 max-sm:block max-sm:py-0 max-sm:pr-8">
@@ -389,7 +416,7 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
                             )}
                           </td>
                           <td className="relative py-2.5 text-right max-sm:absolute max-sm:right-0 max-sm:top-3 max-sm:p-0">
-                            <EntryStatus c={c} label={v.text} />
+                            <EntryStatus c={c} label={v.text} now={now} />
                           </td>
                         </tr>
                       );
@@ -410,6 +437,8 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
 
 /** The link into Buffer for one entry: the post itself, or Buffer in general when it may not exist. */
 function BufferLink({ c }: { c: HistoryEntry }): ReactNode {
+  // Buffer no longer has this post, so its page would be empty: say so instead of linking to it.
+  if (c.status === "removed") return <span className="font-semibold text-ink/80">Deleted in Buffer</span>;
   if (c.postId)
     return (
       <a href={`https://publish.buffer.com/posts/${encodeURIComponent(c.postId)}`} target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">
@@ -420,7 +449,7 @@ function BufferLink({ c }: { c: HistoryEntry }): ReactNode {
 }
 
 /** One icon for one post: how it stands, at a glance. */
-function EntryStatus({ c, label }: { c: HistoryEntry; label: string }) {
+function EntryStatus({ c, label, now }: { c: HistoryEntry; label: string; now: number | null }) {
   const cls = "size-5 shrink-0";
   if (inProgress(c))
     return (
@@ -428,13 +457,13 @@ function EntryStatus({ c, label }: { c: HistoryEntry; label: string }) {
         <PollenSpinner className={cls} />
       </IconTip>
     );
-  const icon = needsAttention(c) ? (
+  const icon = needsAttention(c, now) ? (
     c.status === "unknown" ? (
       <CircleHelp className={`${cls} text-ink/70`} strokeWidth={1.5} />
     ) : (
       <Alert className={cls} />
     )
-  ) : c.mode === "draft" ? (
+  ) : c.mode === "draft" && (c.status === "draft" || c.status === "removed") ? (
     <FileText className={`${cls} text-ink/60`} strokeWidth={1.5} />
   ) : (
     <Done className={cls} />
@@ -480,8 +509,8 @@ function Done({ className = "" }: { className?: string }) {
 }
 
 /** One icon for a whole send: something needs a look, still going out, or all well. */
-function SendStatus({ entries }: { entries: HistoryEntry[] }) {
-  const { bad, going } = summarize(entries);
+function SendStatus({ entries, now }: { entries: HistoryEntry[]; now: number | null }) {
+  const { bad, going } = summarize(entries, now);
   const cls = "mt-0.5 size-6 shrink-0";
   if (bad > 0)
     return (
