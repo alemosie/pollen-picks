@@ -17,6 +17,7 @@ Contest dates: submit by 12 Nov (target), hard deadline 13 Nov 23:59 PT (= Sat 1
 - [ ] Prize wording: "up to $25,600" is still on the landing page, the banner and the feedback form. Make it "a $25,600 prize pool shared by up to 16 winners". Also outside the repo: slides and captions that say "up to $25,000".
 - [ ] Decide: hide the landing page's own build-mode banner and the other feedback links at the 12 Nov cutoff too (only the top banner and the History prompt are cut off now).
 - [ ] Switch the prod slide font back to the default in Settings, then look at the next post's slides.
+- [x] Buffer's errors are matched to their own post in `getPostStates` (by `path` alias, with the whole-request error as fallback), and a draft Buffer answers NOT_FOUND for shows as "Deleted in Buffer". Still to check: that Buffer puts the alias in `path` for a batched query. A single unaliased query gave `["post"]`; I haven't seen a real batched error.
 
 ### Submission (12 Nov target)
 - [ ] Demo video, 2 minutes, live API, recorded after 12 Nov 00:00 so the banner is gone. Script: connect Buffer, choose source, carousel, send.
