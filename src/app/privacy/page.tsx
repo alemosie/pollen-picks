@@ -31,18 +31,18 @@ const sections: Section[] = [
             caption or the posts.
           </li>
           <li>
-            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. The slide images themselves are never stored: they are drawn from your design each time Buffer or your screen asks for them.
+            History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. When you create a draft or post, the final slide images are stored so Buffer always has them. They sit in a public storage area under long random file names that can&rsquo;t be guessed, so only people who have an address can open it (Buffer, and anyone Buffer or the network shows the post to). The images of a draft or scheduled post are kept for as long as it is still a draft or scheduled in Buffer (Pollen Picks finds out when you open History). Once it has been published, deleted in Buffer or has failed, its images are deleted after 30 days. They are also deleted when you delete your account. The previews on your screen are drawn each time and are never stored.
           </li>
           <li>
             Your current run: while you work (Pick, Design, Write, Send), Pollen Picks keeps one copy of where you are on its server, so you can carry on from another device. It holds
             which issue, which picks you chose, your slide design, the caption as you wrote or edited it, and the issue&rsquo;s title and newsletter name. There is one per
             account. It is saved automatically a moment after each change and replaced when you start a new run. It is deleted when you send, when you discard it, and
-            when you delete your account. Images are never stored.
+            when you delete your account. No images are stored for it.
           </li>
           <li>
             Saved creations, only if you press <i>Save</i> on the Design, Write or Send step: the same things as the current run (picks, slide design, caption text, issue and
             newsletter name), kept for each issue you save until you delete it under <i>Saved creations</i> on the <Link href="/history#saved-creations">History</Link> page, or
-            delete your account. After you save an issue, further changes to it are saved into it automatically. Images are never stored. If a saved creation uses highlights you made
+            delete your account. After you save an issue, further changes to it are saved into it automatically. No images are stored for it. If a saved creation uses highlights you made
             on the Manual tab, those highlights are kept with it, even when you start a new run.
           </li>
           <li>
@@ -139,7 +139,7 @@ const sections: Section[] = [
           If you were logged in, it is also linked to your account. It goes to Alex only. Your words are only quoted if you
           answer &ldquo;OK to share?&rdquo; with yes. Saying yes also lets me look at what you made: Pollen Picks then stores the link to
           the issue you started from and the link to your slide design (your picks and layout; in the demo it also carries the text you
-          highlighted). No images, and no slide text beyond that. If you say no, none of it is stored. Ask me to remove it any time.
+          highlighted). If you are logged in and have sent slides to Buffer, a link to the stored images of your latest send is kept too, and I may show them with your quote. No other slide text. Deleting your account deletes those images. If you say no, none of it is stored. Ask me to remove it any time.
         </p>
       </>
     ),
@@ -202,7 +202,7 @@ const sections: Section[] = [
           </li>
           <li>
             <b>Delete your data.</b> Press <i>Delete my data</i> under Account in <Link href="/settings">Settings</Link> and your
-            account, brand settings, history, saved creations, current run, highlights and stored tokens are deleted straight away. Anything you wrote in the{" "}
+            account, brand settings, history, stored slide images, saved creations, current run, highlights and stored tokens are deleted straight away. Anything you wrote in the{" "}
             <Link href="/feedback">feedback form</Link> is kept but no longer linked to you.
           </li>
         </ul>

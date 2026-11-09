@@ -54,6 +54,14 @@ const offerSnapshot = () => {
   return o ? JSON.stringify(o) : "";
 };
 const noSubscribe = () => () => {};
+// The demo never sends or stores slides, so its form doesn't mention them.
+const isDemoOffer = (offer: string) => {
+  try {
+    return new URL((JSON.parse(offer) as { slideUrl: string }).slideUrl).pathname.startsWith("/demo/");
+  } catch {
+    return true;
+  }
+};
 
 export function FeedbackForm() {
   const offer = useSyncExternalStore(noSubscribe, offerSnapshot, () => "");
@@ -172,7 +180,7 @@ export function FeedbackForm() {
         required
         hint={
           offer
-            ? "If yes, we may share your feedback as a quote or visual on our website, to show how others are using Pollen Picks."
+            ? `If yes, we may share your feedback as a quote or visual on our website, to show how others are using Pollen Picks.${isDemoOffer(offer) ? "" : " If you have sent slides to Buffer, we also keep a copy of the latest ones."}`
             : "Yes means I may quote your feedback."
         }
       >
