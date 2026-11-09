@@ -6,47 +6,15 @@ import { loadDemoIssue } from "@/lib/demo";
 import { planSlides, stripEmoji } from "@/lib/slides/plan";
 import { slideItemsFor } from "@/lib/slides/items";
 import { loadFonts, renderSlide } from "@/lib/slides/render";
-import type { SlideItem } from "@/lib/slides/types";
+import type { Slide, SlideItem } from "@/lib/slides/types";
 
-// The social preview (Open Graph) image: the lockup, the headline and a frozen frame of the pollen gust from the step loader.
+// The social preview (Open Graph) image. Platforms crop this 1.91:1 image differently (LinkedIn and Slack show ~3:2,
+// some feeds go square), so everything sits in one centered column inside the middle 600px (x 300-900) with nothing bleeding off the edges.
 export const alt = "Pollen Picks: let your words travel";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const { background, text, accent, card, highlight } = DEFAULT_COLORS;
-const COLORS = [accent, "#f28482", "#84a59d", accent, text]; // honey, coral, sage, honey, ink: the loader's palette
-const SIZES = [5, 3, 4, 3, 4];
-
-// The same gust path as FlowLoader (viewBox -60 -30 920 230): four cubic segments from left, through a loop, and out to the right.
-const SEGS: [number, number][][] = [
-  [[-60, 150], [120, 150], [230, 140], [310, 112]],
-  [[310, 112], [400, 80], [470, 30], [420, 10]],
-  [[420, 10], [360, -12], [290, 40], [330, 90]],
-  [[330, 90], [370, 135], [480, 145], [580, 126]],
-  [[580, 126], [680, 108], [770, 84], [860, 96]],
-];
-function at(t: number): [number, number] {
-  const f = Math.min(0.9999, t) * SEGS.length;
-  const s = SEGS[Math.floor(f)];
-  const u = f - Math.floor(f);
-  const m = 1 - u;
-  const c = [m * m * m, 3 * m * m * u, 3 * m * u * u, u * u * u];
-  return [0, 1].map((k) => s.reduce((sum, p, j) => sum + p[k] * c[j], 0)) as [number, number];
-}
-const COUNT = 60;
-const ALL = Array.from({ length: COUNT }, (_, i) => {
-  const [x, y] = at(0.02 + (i / COUNT) * 0.96);
-  return {
-    x: x + ((i * 37) % 12) - 6,
-    y: y + ((i * 53) % 14) - 7,
-    r: SIZES[i % SIZES.length] * 1.5,
-    color: COLORS[i % COLORS.length],
-    o: 1,
-  };
-});
-// Only the stretch between the source squares and the slides; the grains fade in and out at each end, like the loader's mask.
-const FROM = 110, TO = 560;
-const GRAINS = ALL.filter((g) => g.x > FROM && g.x < TO).map((g) => ({ ...g, o: Math.min(1, (g.x - FROM) / 70, (TO - g.x) / 70) }));
+const { background, text, accent, highlight } = DEFAULT_COLORS;
 
 /** Satori can't draw emoji without fetching them, so the preview drops them. */
 const clean = (i: SlideItem): SlideItem => ({
@@ -58,55 +26,89 @@ const clean = (i: SlideItem): SlideItem => ({
   blurb: i.blurb ? stripEmoji(i.blurb) : i.blurb,
 });
 
-const ICON = { width: 52, height: 52, viewBox: "0 0 24 24", fill: "none", stroke: text, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
-const SQUARES = [
-  { left: 64, top: 345, tilt: -7, bg: highlight },
-  { left: 168, top: 440, tilt: 6, bg: card },
-];
-const CARD_W = 214;
-const CARD_H = 268;
-const SPOTS = [{ left: 752, top: 330, tilt: -4 }, { left: 955, top: 322, tilt: 5 }];
+const lockupSrc = async () => `data:image/png;base64,${(await readFile(join(process.cwd(), "public/brand/pollen-picks-lockup-light.png"))).toString("base64")}`;
+
+/** The landing page's coral squiggle under "travel" (same path as the hero in page.tsx), drawn in pixels because Satori has no non-scaling strokes. */
+function Squiggle({ fs }: { fs: number }) {
+  const w = Math.round((196.5 * fs) / 76); // width of "travel" in Madimi One at this size
+  const sx = w / 220;
+  const sy = (fs / 72) * (16 / 24); // the hero's squiggle is 16px tall under a 72px headline
+  const pt = (x: number, y: number) => `${(x * sx).toFixed(1)} ${(y * sy + 4).toFixed(1)}`;
+  const d = `M${pt(3, 14)} C${pt(40, 3)} ${pt(70, 22)} ${pt(110, 12)} S${pt(180, 4)} ${pt(217, 13)}`;
+  return (
+    <svg width={w} height={Math.round(24 * sy + 8)} viewBox={`0 0 ${w} ${Math.round(24 * sy + 8)}`} style={{ position: "absolute", left: 0, bottom: -Math.round(0.167 * fs) - 4 }}>
+      <path d={d} fill="none" stroke={highlight} strokeWidth={(6 * fs) / 72} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function Words({ top, big }: { top: number; big: boolean }) {
+  const fs = big ? 88 : 76;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "absolute", left: 300, top, width: 600, textAlign: "center" }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "Madimi One", fontSize: fs, lineHeight: 1.04 }}>
+        <div style={{ display: "flex" }}>Let your words</div>
+        <div style={{ display: "flex" }}>
+          <div style={{ display: "flex", position: "relative" }}>
+            travel
+            <Squiggle fs={fs} />
+          </div>
+          .
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 30, fontSize: big ? 30 : 27, fontWeight: 500, lineHeight: 1.3 }}>
+        <div style={{ display: "flex" }}>Any newsletter or blog, turned into</div>
+        <div style={{ display: "flex" }}>carousel posts via Buffer.</div>
+      </div>
+    </div>
+  );
+}
+
+const ICON = { width: 44, height: 44, viewBox: "0 0 24 24", fill: "none", stroke: text, strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+const SLIDE_W = 140;
+const SLIDE_H = 175;
 
 export default async function Image() {
   const issue = loadDemoIssue();
   const c = issue.chunks.find((x) => /halloween brunch/i.test(x.title));
   const name = stripEmoji(issue.newsletter);
-  const slides = planSlides(slideItemsFor(issue.chunks, c ? [c.id] : []).map(clean), { newsletter: name, showTags: false }).slice(0, 2);
+  // The two slides in the app's picture format: the cover with its picture as the whole background, the pick with a picture banner on its card (a paper-pumpkin photo to match the Halloween brunch).
+  const pond = `data:image/jpeg;base64,${(await readFile(join(process.cwd(), "src/assets/brand/events/2-walk.jpg"))).toString("base64")}`;
+  const pumpkins = `data:image/jpeg;base64,${(await readFile(join(process.cwd(), "src/assets/og/halloween-pumpkins.jpg"))).toString("base64")}`;
+  const [cover, picks] = planSlides(slideItemsFor(issue.chunks, c ? [c.id] : []).map(clean), { newsletter: name, showTags: false });
+  const slides: Slide[] = [
+    { ...cover, photo: pond, photoMode: "background" } as Slide,
+    picks.kind === "picks" ? { ...picks, items: picks.items.map((it) => ({ ...it, bg: accent, photo: pumpkins })) } : picks,
+  ];
   const kit = { name, colors: DEFAULT_COLORS };
   // Render each slide to a PNG at full size first: scaling live slide markup inside another image clips its text.
   const pics = await Promise.all(
     slides.map(async (sl) => `data:image/png;base64,${Buffer.from(await (await renderSlide(sl, kit)).arrayBuffer()).toString("base64")}`),
   );
-  const lockup = await readFile(join(process.cwd(), "public/brand/pollen-picks-lockup-light.png"));
+  const lockup = await lockupSrc();
   return new ImageResponse(
     (
       <div style={{ display: "flex", position: "relative", width: 1200, height: 630, background, fontFamily: "DM Sans", color: text }}>
-        <svg width={1200} height={300} viewBox="-60 -30 920 230" style={{ position: "absolute", left: 0, top: 320 }}>
-          {GRAINS.map((g, i) => (
-            <circle key={i} cx={g.x} cy={g.y} r={g.r} fill={g.color} opacity={g.o} />
-          ))}
-        </svg>
-        <div style={{ display: "flex", flexDirection: "column", position: "absolute", left: 72, top: 36 }}>
+        <div style={{ display: "flex", justifyContent: "center", position: "absolute", left: 300, top: 40, width: 600 }}>
           {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
-          <img src={`data:image/png;base64,${lockup.toString("base64")}`} width={150} height={69} />
-          <div style={{ display: "flex", marginTop: 14, fontFamily: "Madimi One", fontSize: 76, lineHeight: 1.05, whiteSpace: "nowrap" }}>Let your words travel.</div>
-          <div style={{ display: "flex", marginTop: 14, fontSize: 28, fontWeight: 500 }}>Any newsletter or blog, turned into carousel posts via Buffer.</div>
+          <img src={lockup} width={120} height={55} />
         </div>
-        {SQUARES.map((q, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "absolute", left: q.left, top: q.top, width: 96, height: 96, borderRadius: 20, background: q.bg, boxShadow: "0 8px 20px rgba(43,58,54,0.18)", transform: `rotate(${q.tilt}deg)` }}>
-            {i === 0 ? (
-              <svg {...ICON}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></svg>
-            ) : (
-              <svg {...ICON}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-            )}
+        <Words top={112} big={false} />
+        {/* One tidy row: a source, a short run of pollen, the finished slides. */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", position: "absolute", left: 300, top: 418, width: 600, height: SLIDE_H }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 88, height: 88, borderRadius: 22, background: highlight }}>
+            <svg {...ICON}><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" /><path d="M14 2v4a2 2 0 0 0 2 2h4" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></svg>
           </div>
-        ))}
-        {pics.map((src, i) => (
-          <div key={i} style={{ display: "flex", position: "absolute", left: SPOTS[i].left, top: SPOTS[i].top, width: CARD_W, height: CARD_H, borderRadius: 18, boxShadow: "0 12px 28px rgba(43,58,54,0.26)", transform: `rotate(${SPOTS[i].tilt}deg)` }}>
-            {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
-            <img src={src} width={CARD_W} height={CARD_H} style={{ borderRadius: 18 }} />
+          <div style={{ display: "flex", alignItems: "center", margin: "0 26px" }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ display: "flex", width: 10, height: 10, borderRadius: 5, background: accent, marginLeft: i ? 14 : 0 }} />
+            ))}
           </div>
-        ))}
+          {pics.map((src, i) => (
+            // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+            <img key={i} src={src} width={SLIDE_W} height={SLIDE_H} style={{ borderRadius: 14, marginLeft: i ? 18 : 0, boxShadow: "0 8px 20px rgba(43,58,54,0.16)" }} />
+          ))}
+        </div>
       </div>
     ),
     { ...size, fonts: await loadFonts() },
