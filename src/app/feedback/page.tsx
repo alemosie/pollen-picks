@@ -22,8 +22,7 @@ export default function Feedback() {
         Leave us <StepWord>feedback</StepWord>
       </h1>
       <p className="mb-10 max-w-xl text-lg">
-        Pollen Picks is a work in progress! I&rsquo;d love to hear your thoughts
-        to guide its build. It goes straight to me, Alex 👋🏻
+        All Pollen Picks feedback goes straight to the builder, Alex 👋🏻
       </p>
       <FeedbackForm />
       <p className="mt-10">

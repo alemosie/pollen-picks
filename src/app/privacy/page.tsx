@@ -137,7 +137,9 @@ const sections: Section[] = [
         <p>
           If you send feedback, Pollen Picks stores your answers, the random tab code and the list of steps that visit reached.
           If you were logged in, it is also linked to your account. It goes to Alex only. Your words are only quoted if you
-          answer &ldquo;OK to quote you?&rdquo; with yes.
+          answer &ldquo;OK to share?&rdquo; with yes. Saying yes also lets me look at what you made: Pollen Picks then stores the link to
+          the issue you started from and the link to your slide design (your picks and layout; in the demo it also carries the text you
+          highlighted). No images, and no slide text beyond that. If you say no, none of it is stored. Ask me to remove it any time.
         </p>
       </>
     ),

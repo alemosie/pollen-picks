@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { primaryButton } from "@/components/FlowBar";
 import { sessionId } from "@/lib/events";
+import { shareLinksOffer } from "@/lib/sharedSlides";
 
 const HOSTS = [
   { id: "beehiiv", label: "beehiiv" },
@@ -47,7 +48,15 @@ function Scale({ name, low, high }: { name: string; low: string; high: string })
   );
 }
 
+// What this browser could share, as a stable string for useSyncExternalStore ("" = nothing; also what the server renders).
+const offerSnapshot = () => {
+  const o = shareLinksOffer();
+  return o ? JSON.stringify(o) : "";
+};
+const noSubscribe = () => () => {};
+
 export function FeedbackForm() {
+  const offer = useSyncExternalStore(noSubscribe, offerSnapshot, () => "");
   const [host, setHost] = useState<string>("");
   const [state, setState] = useState<"idle" | "sending" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +84,7 @@ export function FeedbackForm() {
           loved: f.get("loved"),
           wouldChange: f.get("wouldChange"),
           quoteOk: quote === "yes",
+          share: quote === "yes" && offer ? (JSON.parse(offer) as unknown) : undefined,
           session: sessionId(),
         }),
       });
@@ -157,7 +167,15 @@ export function FeedbackForm() {
         <textarea name="wouldChange" aria-label="What's one thing you'd change?" rows={3} maxLength={1000} className={field} />
       </Question>
 
-      <Question title="OK to quote you?" required>
+      <Question
+        title="OK to share?"
+        required
+        hint={
+          offer
+            ? "If yes, we may share your feedback as a quote or visual on our website, to show how others are using Pollen Picks."
+            : "Yes means I may quote your feedback."
+        }
+      >
         <div className="flex flex-wrap gap-2">
           <label className={chip}>
             <input type="radio" name="quote" value="yes" className="sr-only" />
