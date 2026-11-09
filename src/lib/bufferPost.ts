@@ -89,22 +89,42 @@ export async function getPostState(token: string, id: string): Promise<PostState
  * (which is per app and shared by every user), not 30. Buffer allows up to 30 aliases per query; stay under it.
  */
 const ALIASES_PER_REQUEST = 25;
-export async function getPostStates(token: string, ids: string[]): Promise<Record<string, PostState | { error: string }>> {
-  const out: Record<string, PostState | { error: string }> = {};
+/** `notFound`: Buffer answered NOT_FOUND for this post, i.e. it was deleted (or never existed for this account). Different from a failed lookup. */
+export type PostLookupError = { error: string; notFound?: boolean };
+export async function getPostStates(token: string, ids: string[]): Promise<Record<string, PostState | PostLookupError>> {
+  const out: Record<string, PostState | PostLookupError> = {};
   if (fakeMode()) {
     for (const id of ids) out[id] = fakeState(id);
     return out;
   }
+  let limited = false;
   for (let i = 0; i < ids.length; i += ALIASES_PER_REQUEST) {
     const chunk = ids.slice(i, i + ALIASES_PER_REQUEST);
+    // Once Buffer has said "too many requests", asking again straight away only makes it worse for every other call (sends share this limit).
+    if (limited) {
+      for (const id of chunk) out[id] = { error: "Buffer is limiting requests right now." };
+      continue;
+    }
     const fields = chunk.map((id, k) => `p${k}: post(input: { id: ${JSON.stringify(id)} }) { id status sentAt externalLink }`).join("\n");
     try {
       const r = await gql<Record<string, (PostState & { id: string }) | null>>(token, `{ ${fields} }`, { timeoutMs: 15_000 });
+      // Each post gets the error that names its own alias; an error about the whole request (no path) is the fallback for every post without one.
+      const wholeRequest = r.errors?.find((e) => !e.path?.length);
       chunk.forEach((id, k) => {
-        const post = r.data?.[`p${k}`];
-        out[id] = post
-          ? { status: post.status, sentAt: post.sentAt ?? null, externalLink: post.externalLink ?? null }
-          : { error: isRateLimited(r) ? "Buffer is limiting requests right now." : (r.errors?.[0]?.message ?? `Buffer returned ${r.status}`) };
+        const alias = `p${k}`;
+        const post = r.data?.[alias];
+        if (post) {
+          out[id] = { status: post.status, sentAt: post.sentAt ?? null, externalLink: post.externalLink ?? null };
+          return;
+        }
+        const own = r.errors?.find((e) => e.path?.[0] === alias);
+        const why = own ?? wholeRequest;
+        if (r.status === 429 || why?.extensions?.code === "RATE_LIMIT_EXCEEDED") {
+          limited = true;
+          out[id] = { error: "Buffer is limiting requests right now." };
+        }
+        else if (own?.extensions?.code === "NOT_FOUND") out[id] = { error: own.message, notFound: true };
+        else out[id] = { error: why?.message ?? `Buffer returned ${r.status}` };
       });
     } catch (e) {
       for (const id of chunk) out[id] = { error: e instanceof Error ? e.message : String(e) };

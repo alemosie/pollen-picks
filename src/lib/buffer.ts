@@ -75,7 +75,7 @@ export function refresh(refreshToken: string) {
   return tokenRequest({ grant_type: "refresh_token", refresh_token: refreshToken });
 }
 
-export type GqlError = { message: string; extensions?: { code?: string; window?: string } };
+export type GqlError = { message: string; /** Which field the error belongs to, e.g. ["post"], or the alias in a batched query: ["p3"]. Absent on errors about the whole request. */ path?: (string | number)[]; extensions?: { code?: string; window?: string } };
 export type GqlResult<T> = { data?: T; errors?: GqlError[]; status: number };
 
 /**

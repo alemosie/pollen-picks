@@ -298,6 +298,42 @@ describe("getPostState / getPostStates", () => {
     assert.deepEqual(out.b, { error: "Buffer is limiting requests right now." });
   });
 
+  test("each post gets the error that names its own alias", async () => {
+    stubFetch(() =>
+      json({
+        data: { p0: { id: "a", status: "sent" }, p1: null, p2: null, p3: null },
+        errors: [
+          { message: "Post not found for id: b", path: ["p1"], extensions: { code: "NOT_FOUND" } },
+          { message: "Too many requests", path: ["p2"], extensions: { code: "RATE_LIMIT_EXCEEDED" } },
+          { message: "Something odd", path: ["p3"] },
+        ],
+      }),
+    );
+    const out = await getPostStates("tok", ["a", "b", "c", "d"]);
+    assert.equal("status" in out.a && out.a.status, "sent");
+    assert.deepEqual(out.b, { error: "Post not found for id: b", notFound: true });
+    assert.deepEqual(out.c, { error: "Buffer is limiting requests right now." });
+    assert.deepEqual(out.d, { error: "Something odd" });
+  });
+  test("an error about the whole request (no path) is the message for every post that has none of its own", async () => {
+    stubFetch(() => json({ data: { p0: null, p1: null }, errors: [{ message: "Validation failed" }, { message: "gone", path: ["p0"], extensions: { code: "NOT_FOUND" } }] }));
+    const out = await getPostStates("tok", ["a", "b"]);
+    assert.deepEqual(out.a, { error: "gone", notFound: true });
+    assert.deepEqual(out.b, { error: "Validation failed" });
+  });
+  test("a lookup that fails for any other reason is not 'not found'", async () => {
+    stubFetch(() => json({ data: { p0: null }, errors: [{ message: "Internal error", path: ["p0"], extensions: { code: "INTERNAL_SERVER_ERROR" } }] }, 200));
+    const out = await getPostStates("tok", ["a"]);
+    assert.deepEqual(out.a, { error: "Internal error" });
+  });
+
+  test("once Buffer limits requests, the remaining chunks are not asked", async () => {
+    const ids = Array.from({ length: 60 }, (_, i) => `p${i}`);
+    stubFetch(() => json({ errors: [{ message: "slow down" }] }, 429));
+    const out = await getPostStates("tok", ids);
+    assert.equal(calls.length, 1, "one refused request, then it stops");
+    assert.deepEqual(out.p59, { error: "Buffer is limiting requests right now." });
+  });
   test("one failed chunk does not lose the others", async () => {
     const ids = Array.from({ length: 30 }, (_, i) => `p${i}`);
     stubFetch((call, n) => {
