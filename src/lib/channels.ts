@@ -1,9 +1,14 @@
-/** Image carousel limits per Buffer service (lowercase). Others fall back to DEFAULT_LIMIT. */
+/**
+ * Image carousel limits per Buffer service (lowercase). Others fall back to DEFAULT_LIMIT.
+ * From Buffer's help pages "Attaching images, videos, and other media to your posts" (updated 25 Jul 2026), which also says posts over a network's limit sent
+ * through the API are refused ("Instagram posts cannot have more than 10 images"), and "Using Threads with Buffer" (carousels: at most 10). Too low a number
+ * silently cuts slides off the end; too high a one makes Buffer refuse the post: check this against those pages when Buffer changes them.
+ */
 export const IMAGE_LIMITS: Record<string, number> = {
-  instagram: 20,
+  instagram: 10,
   facebook: 10,
-  threads: 20,
-  linkedin: 9,
+  threads: 10,
+  linkedin: 20,
   twitter: 4,
   bluesky: 4,
   mastodon: 4,

@@ -8,6 +8,7 @@ import { ChannelIcon } from "@/components/ChannelIcon";
 import { FeedbackPrompt } from "@/components/FeedbackPrompt";
 import { PollenSpinner } from "@/components/PollenSpinner";
 import { ChannelPicker, useChannelSelection, type Channel } from "@/components/ChannelPicker";
+import { fitIssues } from "@/lib/channelFit";
 import { DemoGate } from "@/components/DemoGate";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { RunAutosave } from "@/components/RunAutosave";
@@ -29,7 +30,6 @@ import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
 import { clearResume, clearSendBatches, loadFormat, loadSendBatches, saveSendBatches } from "@/lib/progress";
 import type { HistoryEntry } from "@/lib/postHistory";
-import { SLIDE_LINK_DAYS } from "@/lib/slideLinks";
 import type { PostIntent } from "@/lib/bufferPost";
 import { SlideCarousel } from "./SlideCarousel";
 
@@ -67,7 +67,6 @@ type RowView = {
 
 /** The last step's action is coral, to set it apart from the honey Continue buttons. */
 /** Where drafts wait in Buffer, for review and scheduling. */
-const BUFFER_DRAFTS = "https://publish.buffer.com/schedule?tab=drafts";
 
 const finishButton =
   "rounded-xl bg-coral px-6 py-3 font-bold text-ink-deep hover:brightness-95";
@@ -321,8 +320,8 @@ export function SendConfirm({
       ) : (
         <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
           Choose where it goes and take one last look. Then create drafts to review and schedule in Buffer, or
-          send now to publish straight away. Slide images stay linked for {SLIDE_LINK_DAYS} days after sending, so a draft left longer, or a
-          post scheduled further out, may lose its images.
+          send now to publish straight away. Your slide images are saved when you send, so a draft can wait in Buffer, or a post be scheduled for
+          later, without losing its images.
         </p>
       )}
       <div className="col-span-2 row-start-1 mb-2 flex items-center gap-3 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:row-span-2 sm:mt-2 sm:self-start">
@@ -472,10 +471,6 @@ export function SendConfirm({
     clearSendBatches();
   }
 
-  // With a single post, the finish button can open it directly.
-  const only = current.length === 1 ? current[0] : null;
-  const onlyPost = only?.postId && !only.postId.startsWith("fake-") ? only.postId : undefined;
-  const onlyFake = Boolean(only?.postId?.startsWith("fake-"));
   // Labels follow what was really created: a "Send now" where every caption was too long only made drafts.
   const draftRows = current.filter((e) => e.mode !== "now").length;
   const labelMode: PostIntent = current.length > 0 && draftRows === current.length ? "draft" : mode;
@@ -617,7 +612,13 @@ export function SendConfirm({
         )}
         {/* A disabled fieldset disables every checkbox and button inside it. */}
         <fieldset disabled={started} className="m-0 min-w-0 border-0 p-0">
-          <ChannelPicker channels={channels} selected={selected} setSelected={setSelected} demo={Boolean(demo)} />
+          <ChannelPicker
+            channels={channels}
+            selected={selected}
+            setSelected={setSelected}
+            demo={Boolean(demo)}
+            fit={(service) => fitIssues(service, { slideCount: urls.length, caption: captionFor(variantFor(service)) })}
+          />
         </fieldset>
       </div>
         </>
@@ -855,26 +856,11 @@ export function SendConfirm({
                   <p className="m-0 text-lg">
                     Now, check on the status of your {labelMode === "now" ? "posts" : "drafts"} &mdash; including any failed {labelMode === "now" ? "posts" : "drafts"} that need retries.
                   </p>
-                  {draftRows > 0 && (
-                    <p className="m-0 text-sm">
-                      Slide images stay linked for {SLIDE_LINK_DAYS} days after sending, so publish or schedule your {draftRows === 1 ? "draft" : "drafts"} in that time. History flags any that are running out.
-                    </p>
-                  )}
                   <div className="flex flex-col gap-3 sm:flex-row">
                     <a href="/history" target="_blank" rel="noreferrer" className="rounded-xl bg-honey px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95">
                       Go to History
                     </a>
-                    {/* Not for publish-now: a post still going out isn't in Buffer's lists yet, so the link opens an empty page. History follows it live. */}
-                    {labelMode !== "now" && (
-                      <a
-                        href={onlyPost && !onlyFake ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}` : BUFFER_DRAFTS}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="rounded-xl bg-coral px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95"
-                      >
-                        Open in Buffer
-                      </a>
-                    )}
+                    {/* History, not Buffer: a post still going out (or a draft just created) isn't in Buffer's lists yet, so a link there opens a page without it. History follows it live. */}
                   </div>
                   {/* Publish-now asks straight away (the window is the last thing they see); drafts ask once everything was created. */}
                   {(cleanSuccess || labelMode === "now") && <FeedbackPrompt className="mt-1" />}
@@ -937,19 +923,9 @@ export function SendConfirm({
             Sending…
           </span>
         ) : allSent ? (
-          <a
-            href={
-              onlyPost && !onlyFake
-                ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}`
-                : mode === "now"
-                  ? "https://publish.buffer.com"
-                  : BUFFER_DRAFTS
-            }
-            target="_blank"
-            rel="noreferrer"
-            className={finishButton}
-          >
-            {onlyPost && !onlyFake ? (mode === "now" ? "Open post in Buffer" : "Open draft in Buffer") : "Open Buffer"}
+          // History, not Buffer: a post still going out (or a draft just created) isn't in Buffer's lists yet, so a link there opens a page without it.
+          <a href="/history" target="_blank" rel="noreferrer" className={finishButton}>
+            Go to History
           </a>
         ) : started && failed.length > 0 ? (
           retryable.length > 0 ? (

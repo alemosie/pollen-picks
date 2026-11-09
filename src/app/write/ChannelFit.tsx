@@ -39,7 +39,7 @@ export function ChannelFit({
               <span className="min-w-0 truncate">
                 {serviceLabel(service)} <span className="opacity-75">({group.length})</span>
               </span>
-              <span className="sr-only">{fit.fits ? "fits" : fit.over > 0 ? `over the limit by ${fit.over}` : `${fit.mentionsOver} too many tags`}</span>
+              <span className="sr-only">{fit.fits ? "caption fits" : fit.over > 0 ? `over the limit by ${fit.over}` : `${fit.mentionsOver} too many tags`}</span>
               {!fit.fits && (
                 <button type="button" onClick={() => onShow(variant)} className="ml-auto shrink-0 font-semibold underline underline-offset-4">
                   {fit.over > 0 ? `over by ${fit.over.toLocaleString("en")}` : `${fit.mentionsOver} too many tags`}

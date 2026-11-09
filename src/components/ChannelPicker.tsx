@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, Search } from "lucide-react";
+import { ArrowUp, Search, TriangleAlert } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import { serviceLabel, unsupportedReason } from "@/lib/channels";
 import { loadChannelChoice, saveChannelChoice } from "@/lib/progress";
@@ -96,12 +96,15 @@ export function ChannelPicker({
   selected,
   setSelected,
   demo = false,
+  fit,
 }: {
   channels: Channel[];
   selected: Set<string>;
   setSelected: (fn: (s: Set<string>) => Set<string>) => void;
   /** Public demo: the channels are examples, and the text says so. */
   demo?: boolean;
+  /** What won't fully fit on a network (slides or caption), as sentences; empty when it all fits. Shown as an alert triangle on the network. */
+  fit?: (service: string) => string[];
 }) {
   const usable = channels.filter((c) => !unsupportedReason(c.service));
   // Networks whose channel box stays open after its last channel is unticked, until focus leaves the box (in case it was a slip).
@@ -170,6 +173,8 @@ export function ChannelPicker({
           const group = byService.get(svc)!;
           const ticked = group.filter((c) => selected.has(c.id)).length;
           const on = ticked > 0;
+          // Only for a network that will get a post: a warning about one that is switched off would just be noise.
+          const issues = on ? (fit?.(svc) ?? []) : [];
           return (
             <button
               key={svc}
@@ -192,6 +197,12 @@ export function ChannelPicker({
               {serviceLabel(svc)}
               {/* How many are ticked: "(5)" when all, otherwise "(1 of 5)", and "(0 of 5)" when none. */}
               <span className="font-normal opacity-80">({ticked === group.length ? ticked : `${ticked} of ${group.length}`})</span>
+              {issues.length > 0 && (
+                <>
+                  <TriangleAlert aria-hidden className="size-5 shrink-0 text-coral" strokeWidth={2.5} />
+                  <span className="sr-only">Doesn&rsquo;t fully fit. {issues.join(" ")}</span>
+                </>
+              )}
             </button>
           );
         })}
@@ -211,6 +222,7 @@ export function ChannelPicker({
           const all = count === group.length;
           const q = (queries[svc] ?? "").trim().toLowerCase();
           const rows = q ? group.filter((c) => c.name.toLowerCase().includes(q)) : group;
+          const issues = fit?.(svc) ?? [];
           return (
             <div
               key={svc}
@@ -232,6 +244,14 @@ export function ChannelPicker({
             >
               {/* Headings default to the display font; this is a quiet label, so use the body font. */}
               <h3 className="m-0 mb-4 font-sans text-sm font-semibold">Choose your {serviceLabel(svc)} channels:</h3>
+              {issues.length > 0 && (
+                <p role="note" className="mb-4 mt-0 flex items-start gap-2 rounded-lg bg-coral/20 p-3 text-sm">
+                  <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.5} />
+                  <span>
+                    <b>Doesn&rsquo;t fully fit {serviceLabel(svc)}.</b> {issues.join(" ")}
+                  </span>
+                </p>
+              )}
               <label className="flex cursor-pointer items-center gap-3 border-b border-ink/10 pb-3 text-sm">
                 <input
                   type="checkbox"

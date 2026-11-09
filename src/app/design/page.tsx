@@ -15,6 +15,7 @@ import { slideItemsFor } from "@/lib/slides/items";
 import { PaletteSync } from "@/components/PaletteSync";
 import { currentSlideSettings } from "@/lib/slideStyleStore";
 import { parseTemplateFromPage } from "@/lib/slides/options";
+import { listChannels } from "@/lib/buffer";
 import { TemplateEditor } from "./TemplateEditor";
 
 export const metadata = { title: "Design · Pollen Picks" };
@@ -44,7 +45,7 @@ async function DesignContent({
     if (typeof v === "string") back.set(k, v);
     else if (Array.isArray(v) && v[0]) back.set(k, v[0]);
   const t = timer("/design");
-  await t.step("session", requireSession(`/design?${back.toString()}`));
+  const session = await t.step("session", requireSession(`/design?${back.toString()}`));
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
   const ids = String(picks ?? "")
     .split(",")
@@ -56,7 +57,12 @@ async function DesignContent({
   const issue = await t.step("issue", loadAppIssue(mode));
   if (!issue) redirect("/source");
   // The picks' handles and the slide settings don't depend on each other, so they load together.
-  const [known, { version, palette }] = await Promise.all([t.step("handles", knownForPicks(issue.chunks, ids)), t.step("settings", currentSlideSettings())]);
+  // The channels (Buffer) only say how many slides each network takes: if they can't be read the page just goes without that list.
+  const [known, { version, palette }, channels] = await Promise.all([
+    t.step("handles", knownForPicks(issue.chunks, ids)),
+    t.step("settings", currentSlideSettings()),
+    t.step("channels (Buffer)", listChannels(session.accessToken).catch(() => undefined)),
+  ]);
   const items = slideItemsFor(issue.chunks, ids, known);
   const report = t.report();
 
@@ -76,6 +82,7 @@ async function DesignContent({
         items={items}
         images={issue.images}
         picks={ids}
+        channels={channels}
         initial={{ ...parseTemplateFromPage(sp), sv: version }}
       />
     </main>

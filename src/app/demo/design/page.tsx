@@ -6,6 +6,7 @@ import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { DemoHeaderRight } from "@/components/DemoHeaderRight";
 import { loadDemoIssueWithHighlights } from "@/lib/demoServer";
+import { DEMO_CHANNELS } from "@/lib/demoChannels";
 import { stepUrl } from "@/lib/flow";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
@@ -44,7 +45,7 @@ async function DemoDesignContent({
       <SaveStep step={3} />
       <Track event="design_reached" />
       <PageHeader current={3} hrefs={{ 1: "/demo/source", 2: stepUrl("demo", "pick") }} right={<DemoHeaderRight />} finalLabel="Finish" />
-      <TemplateEditor mode="demo" newsletter={issue.newsletter} items={items} picks={ids} initial={parseTemplateFromPage(sp)} />
+      <TemplateEditor mode="demo" newsletter={issue.newsletter} items={items} picks={ids} channels={DEMO_CHANNELS} initial={parseTemplateFromPage(sp)} />
     </main>
   );
 }

@@ -23,7 +23,9 @@ import { planSlides } from "@/lib/slides/plan";
 import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
 import { useStyleVersion } from "@/lib/useStyleVersion";
+import type { Channel } from "@/components/ChannelPicker";
 import { SlideBuilder } from "./SlideBuilder";
+import { SlideFit } from "./SlideFit";
 import { SlidesReadyGate } from "./SlidesReadyGate";
 import { SlidePreview } from "./SlidePreview";
 
@@ -37,6 +39,7 @@ export function TemplateEditor({
   items,
   images,
   picks,
+  channels,
   initial,
 }: {
   /** Content source: "demo" is the public sample, with its own /demo pages. */
@@ -49,6 +52,8 @@ export function TemplateEditor({
   /** Pictures found in the issue, offered for the picks' cards (undefined: this source has none to offer). */
   images?: IssueImage[];
   picks: number[];
+  /** The channels the carousel can go to, to say how many slides each takes (none: nothing to show). */
+  channels?: Channel[];
   initial: TemplateOptions;
 }) {
   const scope = issueKey ? `${mode}|${issueKey}` : mode;
@@ -106,6 +111,7 @@ export function TemplateEditor({
   const shareUrl = () => `${window.location.origin}${stepUrl(mode, "design", query)}`;
 
   const standard = planSlides(items, { newsletter });
+  const fit = channels ? <SlideFit channels={channels} slideCount={custom ? slideCount + 2 : standard.length} /> : null;
   return (
     // The step stays behind the loading animation until every slide preview has been drawn, so a refresh never shows frames that look like lost slides.
     <SlidesReadyGate layoutKnown={layoutKnown}>
@@ -163,10 +169,13 @@ export function TemplateEditor({
             mode={mode}
             spec={clean}
             styleVersion={sv}
+            fit={fit}
             onChange={setSpec}
           />
         ) : (
-          <ol className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          // 70/30 on wide screens: the slides on the left, which networks take them on the right.
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] lg:items-start">
+          <ol className="m-0 grid list-none grid-cols-2 gap-4 p-0 sm:grid-cols-3">
             {standard.map((s, i) => (
               <li key={i} className="flex flex-col gap-2">
                 <SlidePreview
@@ -186,6 +195,8 @@ export function TemplateEditor({
               </li>
             ))}
           </ol>
+          {fit && <div className="lg:sticky lg:top-4">{fit}</div>}
+          </div>
         )}
 
         <RunAutosave source={mode} picks={picks} template={extra} step={3} enabled={!demo && picks.length > 0 && extra.length <= SPEC_WARN} />

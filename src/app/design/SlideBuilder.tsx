@@ -11,7 +11,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { PuffIcon } from "@/components/PuffIcon";
 import { usePalette } from "@/components/usePalette";
 import { DEFAULT_COLORS } from "@/lib/brand";
@@ -39,6 +39,7 @@ export function SlideBuilder({
   mode,
   spec,
   styleVersion,
+  fit,
   onChange,
 }: {
   newsletter: string;
@@ -46,6 +47,8 @@ export function SlideBuilder({
   /** Pictures found in the issue, offered in the edit window. */
   images?: IssueImage[];
   picks: string;
+  /** The "Fits on" list: under "Your picks" on wide screens, below the slides on a phone (where the picks panel is not shown). */
+  fit?: ReactNode;
   mode?: string;
   spec: CustomSpec;
   /** Version of the user's slide style (Settings). Part of every preview address, so a changed style is never served from a cache. */
@@ -591,9 +594,12 @@ export function SlideBuilder({
           "Closing slide",
           "Click to edit the title, line and button.",
         )}
+        {fit && <div className="lg:hidden">{fit}</div>}
       </div>
 
-      <aside className="hidden min-h-0 flex-col lg:flex rounded-2xl bg-card pt-5 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]">
+      {/* The picks panel and, under it on the page itself, the "Fits on" list: they stay in view together while the slides scroll. */}
+      <div className="hidden min-h-0 flex-col gap-5 lg:sticky lg:top-4 lg:flex lg:max-h-[calc(100dvh-8rem)]">
+      <aside className="flex min-h-0 flex-1 flex-col rounded-2xl bg-card pt-5">
         <h2 className="mb-1 flex items-center gap-2 px-5 text-2xl">
           <PuffIcon className="size-6 shrink-0" strokeWidth={1.1} />
           Your picks ({picks.split(",").filter(Boolean).length})
@@ -728,6 +734,8 @@ export function SlideBuilder({
           </button>
         </div>
       </aside>
+        {fit && <div className="shrink-0 overflow-y-auto px-1">{fit}</div>}
+      </div>
 
       {selecting != null && (
         <PickSelectModal
