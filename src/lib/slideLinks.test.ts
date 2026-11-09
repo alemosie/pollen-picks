@@ -14,6 +14,11 @@ const draft = (daysAgo: number, over: Partial<{ mode: string; status: string }> 
 });
 
 describe("slideLinkState", () => {
+  it("never warns for a post whose slides were stored: their addresses don't run out", () => {
+    assert.equal(slideLinkState({ ...draft(SLIDE_LINK_DAYS + 30), slidesStored: true }, NOW), "ok");
+    assert.equal(slideLinkState({ ...draft(SLIDE_WARN_AFTER_DAYS + 1), slidesStored: true }, NOW), "ok");
+  });
+
   it("is fine for a fresh draft", () => {
     assert.equal(slideLinkState(draft(0), NOW), "ok");
     assert.equal(slideLinkState(draft(9), NOW), "ok");

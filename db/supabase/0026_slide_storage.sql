@@ -1,5 +1,5 @@
--- APPLIED to "Dev: Pollen Picks" on 9 Nov 2026 (as slide_storage). NOT APPLIED to prod "Pollen Picks" yet: run it there BEFORE deploying the code that stores slides at send time
--- (until then the send falls back to the old signed slide links, see buildContext in src/lib/sendQueue.ts).
+-- APPLIED to "Dev: Pollen Picks" and to prod "Pollen Picks" on 9 Nov 2026 (as slide_storage). It has to be in place BEFORE the code that stores slides at send
+-- time is deployed (without the bucket the send falls back to the old signed slide links, see buildContext in src/lib/sendQueue.ts).
 --
 -- Slides are drawn once, when a draft or post is sent, and the final images are stored here, so Buffer is given addresses that keep working: they
 -- don't depend on the person's highlights, style or the source page still being the same, and they don't expire.

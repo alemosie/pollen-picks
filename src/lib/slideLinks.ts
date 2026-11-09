@@ -13,8 +13,9 @@ const DAY_MS = 86_400_000;
  * one thing a person may leave sitting in Buffer for weeks. We don't ask Buffer whether the draft has since been published or scheduled, so this
  * goes by age alone. `now` is null before the browser clock is read, which counts as fine (so the server's HTML never depends on the time).
  */
-export function slideLinkState(c: { mode: string; status: string; createdAt: string }, now: number | null): "ok" | "soon" | "expired" {
-  if (now === null || c.mode !== "draft" || c.status !== "draft") return "ok";
+export function slideLinkState(c: { mode: string; status: string; createdAt: string; slidesStored?: boolean }, now: number | null): "ok" | "soon" | "expired" {
+  // Stored slides (see slideStore) have addresses that never run out. Only posts sent before that kept the 14-day links.
+  if (c.slidesStored || now === null || c.mode !== "draft" || c.status !== "draft") return "ok";
   const age = now - new Date(c.createdAt).getTime();
   if (!Number.isFinite(age)) return "ok";
   if (age > SLIDE_LINK_DAYS * DAY_MS) return "expired";

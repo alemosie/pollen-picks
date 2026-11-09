@@ -26,6 +26,8 @@ export type HistoryEntry = {
   /** One press of "Send": its entries share this. */
   batchId: string | null;
   createdAt: string;
+  /** The slides were stored when this was sent (db/supabase/0026), so their addresses never run out. Older rows used links that expire (see slideLinks). */
+  slidesStored: boolean;
   /** Waiting to be retried because Buffer asked us to slow down (a rate limit), not because it simply hasn't had its turn yet. */
   heldUp: boolean;
   /** Failed, and its caption is still kept, so it can be put back in the queue. */
@@ -51,10 +53,11 @@ type Row = {
   channel_id: string | null;
   batch_id: string | null;
   created_at: string;
+  slide_paths: string[] | null;
   attempts: number;
   caption: string | null;
 };
-const COLUMNS = "id, post_id, service, channel_name, mode, newsletter, issue_title, slides, status, live_url, error, channel_id, batch_id, created_at, attempts, caption";
+const COLUMNS = "id, post_id, service, channel_name, mode, newsletter, issue_title, slides, status, live_url, error, channel_id, batch_id, created_at, attempts, caption, slide_paths";
 
 const toEntry = (r: Row): HistoryEntry => ({
   id: r.id,
@@ -71,6 +74,7 @@ const toEntry = (r: Row): HistoryEntry => ({
   channelId: r.channel_id,
   batchId: r.batch_id,
   createdAt: r.created_at,
+  slidesStored: (r.slide_paths?.length ?? 0) > 0,
   heldUp: r.status === "queued" && r.attempts > 0,
   // The caption itself never leaves the server: only whether there is one.
   retryable: r.status === "failed" && Boolean(r.caption),

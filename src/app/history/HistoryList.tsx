@@ -30,7 +30,7 @@ function describe(c: HistoryEntry, now: number): { text: string; busy?: boolean;
   if (c.status === "removed")
     return { text: "Deleted in Buffer", detail: "This draft is no longer in Buffer, so it won't go out from there. If you still want to post it, send it again from the app." };
   if (c.status === "scheduled")
-    return { text: "Scheduled in Buffer", detail: `Slide images stay linked for ${SLIDE_LINK_DAYS} days after sending. If it is scheduled for later than that, send it again from the app closer to the date.` };
+    return { text: "Scheduled in Buffer", ...(c.slidesStored ? {} : { detail: `Slide images stay linked for ${SLIDE_LINK_DAYS} days after sending. If it is scheduled for later than that, send it again from the app closer to the date.` }) };
   // Only while it is still a draft: once the person has published it in Buffer it falls through to "Live" below, with its link.
   if (c.mode === "draft" && c.status === "draft") {
     const links = slideLinkState(c, now);
