@@ -39,3 +39,38 @@ describe("feedback: OK to share?", () => {
     assert.ok(rows()[0].slide_url == null);
   });
 });
+
+describe("feedback: the stored slides of a yes", () => {
+  const stored = ["u/u1/a.png", "u/u1/b.png"];
+  const posts = () => fakes.supabase.tables.set("post_history", [{ id: 1, user_id: "u1", mode: "draft", created_at: "2026-11-09T10:00:00Z", slide_paths: stored }]);
+  async function sendAs(uid: string | null, body: Record<string, unknown>) {
+    const req = makeRequest("https://pollen.test/api/feedback", { uid, body: { ...answers, ...body }, headers: { host: "pollen.test" } });
+    const { value } = await inRequest(req, () => POST(req));
+    return value.status;
+  }
+  beforeEach(() => {
+    fakes.supabase.tables.delete("feedback");
+    posts();
+  });
+
+  test("logged in, yes, with something to share: the latest send's slides are kept, read from their own history", async () => {
+    assert.equal(await sendAs("u1", { quoteOk: true, share }), 200);
+    assert.deepEqual(rows()[0].slide_images, stored.map((p) => `http://db.test/storage/v1/object/public/slides/${p}`));
+  });
+  test("no: no slides, even when the account has some", async () => {
+    assert.equal(await sendAs("u1", { quoteOk: false, share }), 200);
+    assert.ok(rows()[0].slide_images == null);
+  });
+  test("a slide list sent by the browser is ignored", async () => {
+    assert.equal(await sendAs("u1", { quoteOk: true, share, slide_images: ["https://evil.test/x.png"], slideImages: ["https://evil.test/x.png"] }), 200);
+    assert.ok(!JSON.stringify(rows()[0].slide_images).includes("evil.test"));
+  });
+  test("not logged in: no slides, someone else's are never attached", async () => {
+    assert.equal(await sendAs(null, { quoteOk: true, share }), 200);
+    assert.ok(rows()[0].slide_images == null);
+  });
+  test("yes with nothing to share: no slides either", async () => {
+    assert.equal(await sendAs("u1", { quoteOk: true }), 200);
+    assert.ok(rows()[0].slide_images == null);
+  });
+});

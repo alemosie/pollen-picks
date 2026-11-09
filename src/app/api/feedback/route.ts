@@ -3,6 +3,7 @@ import { sessionUserId } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isSameSite } from "@/lib/sameSite";
 import { cleanShareLinks } from "@/lib/sharedSlides";
+import { latestStoredSlideUrls } from "@/lib/slideStore";
 import { UUID } from "@/lib/uuid";
 
 // Stores one piece of feedback with the visit it came from: the random per-tab session id, the steps that session reached
@@ -38,6 +39,8 @@ export async function POST(req: NextRequest) {
   // "OK to share?" (yes): also keep the links to the source and the slides (checked first, see sharedSlides). Nothing is kept for a no.
   const siteHosts = [req.headers.get("x-forwarded-host"), req.headers.get("host"), req.nextUrl.host].flatMap((h) => (h ? h.split(",").map((x) => x.trim()) : []));
   const shared = b.quoteOk && b.share ? cleanShareLinks(b.share, siteHosts) : null;
+  // A yes from someone logged in also keeps the stored slides of their latest send (found from their own history here, not sent by the browser).
+  const slideImages = shared && userId ? await latestStoredSlideUrls(userId).catch(() => []) : [];
 
   const { error } = await db().from("feedback").insert({
     flow,
@@ -53,6 +56,8 @@ export async function POST(req: NextRequest) {
     quote_ok: b.quoteOk,
     // Left out unless shared, so feedback still saves before these columns (db/supabase/0024) exist.
     ...(shared ?? {}),
+    // Left out when there are none, so feedback still saves before this column (db/supabase/0027) exists.
+    ...(slideImages.length ? { slide_images: slideImages } : {}),
   });
   if (error) {
     console.error("feedback failed:", error.message);

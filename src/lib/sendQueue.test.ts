@@ -200,7 +200,8 @@ describe("a post that is created", () => {
   });
 
   test("slides are cut to the network's carousel limit", async () => {
-    const t = setup({ context: () => ({ images: Array.from({ length: 12 }, (_, i) => `https://img.test/${i}`) }) });
+    // 25 slides: more than any network takes, so each is cut to its own limit (LinkedIn takes 20, X takes 4).
+    const t = setup({ context: () => ({ images: Array.from({ length: 25 }, (_, i) => `https://img.test/${i}`) }) });
     t.fake.add(makeRow({ service: "twitter", channel_id: "x" }), makeRow({ service: "linkedin", channel_id: "l" }));
     await processQueue({}, t.deps);
     assert.equal(t.posts.find((p) => p.service === "twitter")!.images.length, imageLimit("twitter"));

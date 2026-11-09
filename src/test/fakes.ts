@@ -189,8 +189,35 @@ export class FakeSupabase {
     return new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
   }
 
+  /** Files in the "slides" Storage bucket (src/lib/slideStore.ts), by path. */
+  files = new Map<string, Uint8Array>();
+
+  /** The three Storage calls slideStore makes: upload, list a folder, remove by path. */
+  private storage(method: string, m: RegExpExecArray, init: RequestInit): Response {
+    const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
+    if (m[1] === "list") {
+      const b = JSON.parse(String(init.body ?? "{}")) as { prefix?: string; limit?: number };
+      const dir = (b.prefix ?? "").replace(/\/?$/, "/");
+      const names = [...this.files.keys()].filter((k) => k.startsWith(dir) && !k.slice(dir.length).includes("/")).map((k) => ({ name: k.slice(dir.length), id: `file-${k}` }));
+      return json(b.limit ? names.slice(0, b.limit) : names);
+    }
+    if (method === "DELETE") {
+      const b = JSON.parse(String(init.body ?? "{}")) as { prefixes?: string[] };
+      for (const p of b.prefixes ?? []) this.files.delete(p);
+      return json((b.prefixes ?? []).map((name) => ({ name })));
+    }
+    if ((method === "POST" || method === "PUT") && m[2]) {
+      const body = init.body;
+      this.files.set(decodeURIComponent(m[2]), body instanceof Uint8Array ? body : new TextEncoder().encode(String(body ?? "")));
+      return json({ Key: `slides/${m[2]}`, Id: "id" });
+    }
+    return json({ message: `fake storage: unsupported ${method} ${m[0]}` }, 400);
+  }
+
   handle(url: URL, init: RequestInit): Response {
     const method = (init.method ?? "GET").toUpperCase();
+    const storage = /\/storage\/v1\/object\/(?:(list)\/)?slides(?:\/(.+))?$/.exec(url.pathname);
+    if (storage) return this.storage(method, storage, init);
     const body = typeof init.body === "string" && init.body ? (JSON.parse(init.body) as Json) : {};
     const rpc = /\/rest\/v1\/rpc\/(\w+)$/.exec(url.pathname);
     if (rpc) return this.rpc(rpc[1], body);

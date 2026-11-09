@@ -23,10 +23,13 @@ import { db } from "./db";
 import { logDrafts } from "./draftLog";
 import { knownForPicks } from "./instagramHandles";
 import { signPreview } from "./previewSig";
+import { slidePublicUrl, storeSlide, type StoredSlide } from "./slideStore";
 import { loadAppIssue } from "./sources";
 import { planSlides } from "./slides/plan";
 import { slideItemsFor } from "./slides/items";
 import { parseTemplateFrom, templateParams } from "./slides/options";
+import { toSmallJpeg } from "./slides/render";
+import { prepareSlideSet } from "./slides/slideSet";
 import type { PostIntent } from "./bufferPost";
 
 /** How long a claimed row is held. Longer than a Buffer request can take (25 s), so a live worker never loses its row. */
@@ -92,6 +95,9 @@ export type Claimed = {
   template: string | null;
   caption: string | null;
   attempts: number;
+  /** The stored slides of this send (db/supabase/0026), set by the first row of the batch to be built. Absent on rows from before it existed. */
+  slide_paths?: string[] | null;
+  slide_paths_small?: string[] | null;
 };
 
 /** What every channel of one send shares: the slide image addresses (signed for this user), or why they can't be made. */
@@ -115,31 +121,88 @@ export async function warm(urls: string[]): Promise<string | null> {
   return bad.length ? `Couldn't draw ${bad.join(", ")}, so nothing was sent. Go back to Design and try again.` : null;
 }
 
-async function buildContext(row: Claimed): Promise<Context> {
-  const source = row.source ?? "";
-  const issue = await loadAppIssue(source, row.user_id);
-  if (!issue) return { problem: "Couldn't load this issue. Log in again from the Source step and send again." };
+/** How many slides are drawn at once. They are CPU work in this one process, so a few at a time. */
+const DRAW_PARALLEL = 3;
+
+async function drawAll(count: number, draw: (n: number) => Promise<StoredSlide>): Promise<StoredSlide[]> {
+  const out: StoredSlide[] = new Array(count);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(DRAW_PARALLEL, count) }, async () => {
+      for (;;) {
+        const n = next++;
+        if (n >= count) return;
+        out[n] = await draw(n);
+      }
+    }),
+  );
+  return out;
+}
+
+/**
+ * Draws the slides of this send once, stores them, and remembers where (on every row of the send, so a retry or another channel reuses them and
+ * nothing is drawn again from highlights that may be gone by then). Throws if they can't be stored.
+ */
+async function drawAndStore(row: Claimed, issue: NonNullable<Awaited<ReturnType<typeof loadAppIssue>>>): Promise<{ images: string[]; smallImages?: string[] } | { problem: string }> {
   const picks = row.picks ?? [];
-  if (picks.length === 0) return { problem: "No picks." };
+  const set = await prepareSlideSet({ issue, ids: picks, template: parseTemplateFrom(new URLSearchParams(row.template ?? "")), uid: row.user_id, ownIssue: true });
+  if (!set) return { problem: "No picks." };
+  const png = await drawAll(set.count, async (n) => {
+    const res = await set.render(n);
+    if (!res.ok) throw new Error(`slide ${n + 1} could not be drawn`);
+    return { bytes: Buffer.from(await res.arrayBuffer()), type: "image/png" as const };
+  });
+  const paths = await Promise.all(png.map((s) => storeSlide(row.user_id, s)));
+  // The small copy some networks need (see needsSmallImages) is made from the same drawing. If it can't be made, those networks get the full-size one.
+  const jpegs = await Promise.all(png.map((s) => toSmallJpeg(s.bytes)));
+  const small = jpegs.every((j) => j !== null) ? await Promise.all(jpegs.map((j) => storeSlide(row.user_id, { bytes: j as Buffer, type: "image/jpeg" }))) : null;
+  if (row.batch_id) {
+    const { error } = await db().from("post_history").update({ slide_paths: paths, slide_paths_small: small }).eq("batch_id", row.batch_id).eq("user_id", row.user_id);
+    if (error) console.error("remembering the stored slides failed:", error.message);
+  }
+  return { images: paths.map(slidePublicUrl), ...(small ? { smallImages: small.map(slidePublicUrl) } : {}) };
+}
+
+/** The old way: addresses that draw each slide when Buffer asks (see previewSig). Only used when slides can't be stored (the bucket isn't set up yet). */
+async function signedContext(row: Claimed, issue: NonNullable<Awaited<ReturnType<typeof loadAppIssue>>>): Promise<Context> {
+  const picks = row.picks ?? [];
   const tpl = parseTemplateFrom(new URLSearchParams(row.template ?? ""));
   const slides = planSlides(slideItemsFor(issue.chunks, picks, await knownForPicks(issue.chunks, picks)), { newsletter: issue.newsletter, ...tpl });
   const base = (process.env.PUBLIC_BASE_URL ?? siteOrigin()).replace(/\/$/, "");
   if (!fakeMode() && /localhost|127\.0\.0\.1/.test(base)) {
     return { problem: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` };
   }
-  // Buffer fetches the images with no login, so the URLs are signed for this user, issue, picks and template (see previewSig).
-  const signed = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", source]]), row.user_id).toString();
+  const signed = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", row.source ?? ""]]), row.user_id).toString();
   const images = slides.map((_, i) => `${base}/api/slide/preview?${signed}&n=${i}`);
   if (!fakeMode()) {
-    // Draw each slide once ourselves first: it warms the CDN, so Buffer's own request is quick, and a slide that can't be drawn stops the send
-    // here with a clear reason instead of leaving a half-published post in Buffer.
     const problem = await warm(images);
     if (problem) return { problem };
   }
-  // The small JPEG set has its own signature (it names fmt=jpg). It is only drawn when a channel that needs it comes up in the worker.
-  const signedSmall = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", source], ["fmt", "jpg"]]), row.user_id).toString();
+  const signedSmall = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", row.source ?? ""], ["fmt", "jpg"]]), row.user_id).toString();
   const smallImages = slides.map((_, i) => `${base}/api/slide/preview?${signedSmall}&n=${i}`);
   return { images, smallImages };
+}
+
+export async function buildContext(row: Claimed): Promise<Context> {
+  // Already stored by an earlier try of this send (a rate-limited channel, another channel of the same send): use those, draw nothing.
+  if (row.slide_paths?.length) {
+    return { images: row.slide_paths.map(slidePublicUrl), ...(row.slide_paths_small?.length ? { smallImages: row.slide_paths_small.map(slidePublicUrl) } : {}) };
+  }
+  const issue = await loadAppIssue(row.source ?? "", row.user_id);
+  if (!issue) return { problem: "Couldn't load this issue. Log in again from the Source step and send again." };
+  if ((row.picks ?? []).length === 0) return { problem: "No picks." };
+  // Fake mode only fakes Buffer: the slides are still drawn and stored (in the dev project's bucket), so a dev test exercises the real thing.
+  try {
+    const stored = await drawAndStore(row, issue);
+    if ("problem" in stored) return stored;
+    // The stored addresses are public, so check they open before Buffer is given them: a bucket that isn't public would otherwise leave broken images in Buffer.
+    const problem = await warm(stored.images);
+    if (problem) return { problem };
+    return stored;
+  } catch (e) {
+    console.error("storing the slides failed, using signed links instead:", (e as Error).message);
+    return signedContext(row, issue);
+  }
 }
 
 /**
