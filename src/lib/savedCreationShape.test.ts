@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cleanFormat, isCreationId, keepStoredCaptions, isSavableSource, parseCreationInput, type CreationInput } from "./savedCreationShape";
+import { MAX_TEMPLATE_CHARS, cleanFormat, isCreationId, keepStoredCaptions, isSavableSource, parseCreationInput, type CreationInput } from "./savedCreationShape";
 
 const PUB = "pub_00000000-0000-0000-0000-000000000001";
 const POST = "post_00000000-0000-0000-0000-000000000002";
@@ -37,8 +37,9 @@ test("picks must be there, whole numbers, and are kept once each in order", () =
 });
 
 test("a design too large to store is refused", () => {
-  assert.match(bad({ template: "x".repeat(4001) }), /too large/);
-  assert.equal(ok({ template: "x".repeat(4000) }).template.length, 4000);
+  assert.match(bad({ template: "x".repeat(MAX_TEMPLATE_CHARS + 1) }), /too large/);
+  assert.equal(ok({ template: "x".repeat(MAX_TEMPLATE_CHARS) }).template.length, MAX_TEMPLATE_CHARS);
+  assert.equal(ok({ template: "x".repeat(4001) }).template.length, 4001, "a design past the old 4,000 limit is kept whole");
 });
 
 test("step is Write (4) unless it says Design (3) or Send (5)", () => {

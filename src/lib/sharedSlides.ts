@@ -11,7 +11,8 @@ import { templateParams } from "./slides/options";
 
 export type ShareLinks = { sourceUrl: string | null; slideUrl: string };
 
-const MAX_URL = 4000;
+// A slide link holds the design (up to 7,500 characters) and, in the demo, the highlights (up to 3,600).
+const MAX_URL = 12_000;
 
 /** Browser side: the links this tab could share, or null when there is no run to share yet (no picks). */
 export function shareLinksOffer(): ShareLinks | null {

@@ -12,6 +12,7 @@
 // 'unknown' and the person is told to check Buffer. The only automatic retry is Buffer's 429, which means nothing was created.
 
 import { randomUUID } from "node:crypto";
+import { MAX_TEMPLATE_CHARS } from "./savedCreationShape";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { limitNote } from "./caption";
 import { imageLimit, needsSmallImages, unsupportedReason } from "./channels";
@@ -70,7 +71,7 @@ export async function enqueue(userId: string, r: QueueRequest, client: SupabaseC
     const blocked = unsupportedReason(c.service);
     return blocked
       ? { ...base(c), status: "failed", error: clip(blocked, 200) }
-      : { ...base(c), status: "queued", source: r.source.slice(0, 200), picks: r.picks, template: r.template.slice(0, 4000), caption: c.caption.slice(0, 10_000) };
+      : { ...base(c), status: "queued", source: r.source.slice(0, 200), picks: r.picks, template: r.template.slice(0, MAX_TEMPLATE_CHARS), caption: c.caption.slice(0, 10_000) };
   });
   const { error } = await client.from("post_history").insert(rows);
   if (error) throw new Error(`Could not queue the send: ${error.message}`);

@@ -9,6 +9,7 @@ import { FAKE_KEY } from "../../lib/fakeBeehiiv";
 import { putRun, getRun } from "../../lib/currentRun";
 import { HINT_COOKIE, PKCE_COOKIE, SESSION_COOKIE, readUid, seal, unseal } from "../../lib/session";
 import { POST as draft } from "./draft/route";
+import { MAX_TEMPLATE_CHARS } from "../../lib/savedCreationShape";
 import { POST as historyRefresh } from "./history/refresh/route";
 import { POST as historyRetry } from "./history/retry/route";
 import { GET as postStatus } from "./post-status/route";
@@ -152,6 +153,18 @@ describe("POST /api/draft (queue a send)", () => {
     assert.ok(rows().every((x) => x.status === "queued" && x.user_id === uid && x.batch_id === r.json.batchId && x.mode === "draft"));
     assert.deepEqual(rows().map((x) => x.channel_id).sort(), ["c1", "c2"]);
     assert.equal(r.afterTasks.length, 1, "processing is handed to after(), not done in the request");
+  });
+  test("a big design is queued whole, never cut short; one over the limit is refused and nothing is queued", async () => {
+    const uid = await signedIn();
+    const big = "spec=" + "a".repeat(5_000); // past the old 4,000-character cut
+    const ok = await send(good({ template: big }), uid);
+    assert.equal(ok.res.status, 200);
+    assert.equal((rows()[0].template as string).length, big.length, "stored in full");
+    const before = rows().length;
+    const tooBig = await send(good({ template: "x".repeat(MAX_TEMPLATE_CHARS + 1) }), uid);
+    assert.equal(tooBig.res.status, 413);
+    assert.match(String(tooBig.json.error), /too large to send/);
+    assert.equal(rows().length, before, "nothing queued");
   });
   test("each channel gets its own caption, falling back to the shared one", async () => {
     const uid = await signedIn();

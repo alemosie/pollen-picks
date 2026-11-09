@@ -23,7 +23,7 @@ describe("what a shared creation keeps", () => {
     assert.equal(cleanShareLinks({ slideUrl: "https://pollen.test/api/slide/preview?picks=1" }, HOSTS), null);
   });
   test("not a web address, too long, or no object: nothing is kept", () => {
-    for (const v of [null, undefined, "x", 5, [1], {}, { slideUrl: "javascript:alert(1)" }, { slideUrl: "https://pollen.test/design?x=" + "a".repeat(4000) }]) assert.equal(cleanShareLinks(v, HOSTS), null);
+    for (const v of [null, undefined, "x", 5, [1], {}, { slideUrl: "javascript:alert(1)" }, { slideUrl: "https://pollen.test/design?x=" + "a".repeat(12_000) }]) assert.equal(cleanShareLinks(v, HOSTS), null);
   });
   test("a bad source link is dropped but the slide link stays", () => {
     assert.deepEqual(cleanShareLinks({ slideUrl: slide, sourceUrl: "javascript:alert(1)" }, HOSTS), { source_url: null, slide_url: slide });

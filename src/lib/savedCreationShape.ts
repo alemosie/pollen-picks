@@ -15,7 +15,12 @@ export const SAVED_STEP_NAMES: Record<RunStep, string> = { 2: "Pick", 3: "Design
 /** The most picks a creation can hold (the same ceiling as the migration). */
 export const MAX_SAVED_PICKS = 200;
 const MAX_FORMAT_CHARS = 40_000;
-const MAX_TEMPLATE_CHARS = 4_000;
+/**
+ * The most a slide design can weigh as the query string the steps pass around (the layout and every text edit). It is also the limit on what is saved, queued
+ * for Buffer and stored with a send, so a design is never cut short: over it, saving and sending say so instead. Kept under what a slide link (this plus the
+ * address and signature) can safely be as a URL.
+ */
+export const MAX_TEMPLATE_CHARS = 7_500;
 const CAPTION_TABS = ["instagram", "link", "short"];
 
 /** What a request to save carries, once checked. */
@@ -102,7 +107,7 @@ export function parseCreationInput(body: unknown, steps: readonly RunStep[] = SA
   if (unique.length === 0) return { error: "Pick something before saving." };
   if (unique.length > MAX_SAVED_PICKS) return { error: "That's too many picks to save." };
   const template = text(b.template, MAX_TEMPLATE_CHARS + 1);
-  if (template.length > MAX_TEMPLATE_CHARS) return { error: "This design is too large to save." };
+  if (template.length > MAX_TEMPLATE_CHARS) return { error: "This design is too large to save. Shorten some of the slide text and try again." };
   const link = text(b.link, 2000);
   const step = (steps as readonly number[]).includes(b.step as number) ? (b.step as RunStep) : steps.includes(4) ? 4 : steps[0];
   const format = cleanFormat(b.format);

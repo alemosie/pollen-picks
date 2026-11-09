@@ -1,4 +1,5 @@
 import { after, NextRequest, NextResponse } from "next/server";
+import { MAX_TEMPLATE_CHARS } from "@/lib/savedCreationShape";
 import { siteOrigin } from "@/lib/buffer";
 import { effectiveIntent } from "@/lib/caption";
 import { fakeMode, type PostIntent } from "@/lib/bufferPost";
@@ -29,6 +30,11 @@ export async function POST(req: NextRequest) {
   const issue = await loadAppIssue(body.source);
   if (!issue) {
     return NextResponse.json({ error: "The sample issue can't be sent to Buffer. Connect your own newsletter to create posts." }, { status: 403 });
+  }
+
+  // A design is never cut short on its way to Buffer (a cut-off one reads as the standard layout): too large means nothing is queued.
+  if ((body.template ?? "").length > MAX_TEMPLATE_CHARS) {
+    return NextResponse.json({ error: "This design is too large to send. Shorten some of the slide text, then send again. Nothing was sent." }, { status: 413 });
   }
 
   const picks = (body.picks ?? []).filter(Number.isFinite);
