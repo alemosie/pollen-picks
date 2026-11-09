@@ -774,7 +774,7 @@ export function SendConfirm({
                       </td>
                       <td className="py-2.5 text-right max-sm:block max-sm:py-0 max-sm:pl-6 max-sm:text-left">
                         <span className="flex flex-col items-end gap-1 max-sm:mt-1 max-sm:items-start">
-                          {v.bufferId && (
+                          {v.bufferId && !(mode === "now" && v.busy) && (
                             <a
                               href={`https://publish.buffer.com/posts/${encodeURIComponent(v.bufferId)}`}
                               target="_blank"
@@ -864,16 +864,20 @@ export function SendConfirm({
                     <a href="/history" target="_blank" rel="noreferrer" className="rounded-xl bg-honey px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95">
                       Go to History
                     </a>
-                    <a
-                      href={onlyPost && !onlyFake ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}` : labelMode === "now" ? "https://publish.buffer.com" : BUFFER_DRAFTS}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-xl bg-coral px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95"
-                    >
-                      Open in Buffer
-                    </a>
+                    {/* Not for publish-now: a post still going out isn't in Buffer's lists yet, so the link opens an empty page. History follows it live. */}
+                    {labelMode !== "now" && (
+                      <a
+                        href={onlyPost && !onlyFake ? `https://publish.buffer.com/posts/${encodeURIComponent(onlyPost)}` : BUFFER_DRAFTS}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-coral px-6 py-3 text-center font-bold text-ink-deep hover:brightness-95"
+                      >
+                        Open in Buffer
+                      </a>
+                    )}
                   </div>
-                  {cleanSuccess && <FeedbackPrompt className="mt-1" />}
+                  {/* Publish-now asks straight away (the window is the last thing they see); drafts ask once everything was created. */}
+                  {(cleanSuccess || labelMode === "now") && <FeedbackPrompt className="mt-1" />}
                 </>
               )}
             </div>
