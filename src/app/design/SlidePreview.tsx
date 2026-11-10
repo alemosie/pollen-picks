@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useRef, useState } from "react";
+import { PollenSpinner } from "@/components/PollenSpinner";
 import { MARK_PATHS } from "@/lib/slides/mark";
 import { SlidesReadyContext, type SlideSlot } from "./SlidesReadyGate";
 
@@ -50,7 +51,10 @@ export function SlidePreview({
   className?: string;
 }) {
   const [loaded, setLoaded] = useState(false);
+  // The address whose picture has arrived (or failed). While `src` is another one, the picture on show is the old slide and a new one is being drawn.
+  const [settledSrc, setSettledSrc] = useState<string | undefined>(undefined);
   const shown = loaded && !hold;
+  const updating = shown && !!src && settledSrc !== src;
   const gate = useContext(SlidesReadyContext);
   const add = gate?.add;
   const img = useRef<HTMLImageElement | null>(null);
@@ -81,7 +85,10 @@ export function SlidePreview({
           // A picture that finished loading before React attached (it is in the server's HTML) has already fired its load event.
           ref={(el) => {
             img.current = el;
-            if (el?.complete && el.naturalWidth > 0) setLoaded(true);
+            if (el?.complete && el.naturalWidth > 0) {
+              setLoaded(true);
+              setSettledSrc(src);
+            }
           }}
           src={src}
           alt={alt}
@@ -91,11 +98,22 @@ export function SlidePreview({
           decoding="async"
           onLoad={() => {
             setLoaded(true);
+            setSettledSrc(src);
             slot.current?.done();
           }}
-          onError={() => slot.current?.done()}
+          onError={() => {
+            setSettledSrc(src);
+            slot.current?.done();
+          }}
           className={`absolute inset-0 size-full object-cover motion-safe:transition-opacity motion-safe:duration-300 ${shown ? "opacity-100" : "opacity-0"}`}
         />
+      )}
+      {updating && (
+        // A changed slide takes a few seconds to draw (a picture from a link can take longer): the old one stays, dimmed, with the Pollen Picks spinner over it.
+        <span role="status" className="absolute inset-0 grid place-items-center bg-cream/55 backdrop-blur-[1px]">
+          <PollenSpinner className="size-10" />
+          <span className="sr-only">Updating this slide…</span>
+        </span>
       )}
     </span>
   );
