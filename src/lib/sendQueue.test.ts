@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, test } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { imageLimit } from "./channels";
-import type { ChannelPostInput, ChannelPostOutcome } from "./bufferPost";
+import type { ChannelPostInput, ChannelPostOutcome, PostDocument } from "./bufferPost";
 import { enqueue, processQueue, type Claimed, type Context, type QueueDeps, type QueueRequest } from "./sendQueue";
 
 // The send queue's promises, checked without a database, a Buffer account or a beehiiv key:
@@ -98,6 +98,9 @@ class FakeDb {
       return {
         insert: async (rows: Partial<Row>[]) => {
           if (this.insertError) return { error: { message: this.insertError } };
+          // A database that doesn't have a column yet refuses a row that carries it, the way PostgREST does.
+          const unknown = this.missingColumns.find((c) => rows.some((r) => c in r));
+          if (unknown) return { error: { message: `Could not find the '${unknown}' column of 'post_history' in the schema cache` } };
           for (const r of rows) this.rows.push({ id: nextId++, attempts: 0, ...r } as Row);
           return { error: null };
         },
@@ -119,16 +122,18 @@ class FakeDb {
     },
   };
   insertError: string | null = null;
+  missingColumns: string[] = [];
 }
 
 type Post = ChannelPostInput & { token: string };
 
-function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPostInput, n: number) => ChannelPostOutcome | Promise<ChannelPostOutcome>; context?: (row: Claimed) => Context; warm?: (urls: string[]) => string | null; fake?: boolean } = {}) {
+function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPostInput, n: number) => ChannelPostOutcome | Promise<ChannelPostOutcome>; context?: (row: Claimed) => Context; warm?: (urls: string[]) => string | null; pdf?: (row: Claimed) => PostDocument | null; fake?: boolean } = {}) {
   const fake = new FakeDb();
   const posts: Post[] = [];
   const logged: { service: string; ok: boolean; error?: string; mode?: string }[] = [];
   const contextCalls: string[] = [];
   const warmCalls: string[][] = [];
+  const pdfCalls: string[] = [];
   const sessionCalls: string[] = [];
   let inFlight = 0;
   let maxInFlight = 0;
@@ -148,6 +153,10 @@ function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPos
       warmCalls.push(urls);
       return opts.warm ? opts.warm(urls) : null;
     },
+    makePdf: async (row) => {
+      pdfCalls.push(String(row.batch_id));
+      return opts.pdf ? opts.pdf(row) : { url: "https://pdf.test/send.pdf", thumbnailUrl: "https://img.test/thumb.jpg", title: "Issue 49" };
+    },
     createChannelPost: async (token, p) => {
       posts.push({ ...p, token });
       const n = posts.length;
@@ -163,7 +172,7 @@ function setup(opts: { session?: "ok" | "none" | "throws"; post?: (p: ChannelPos
     logDrafts: async (_uid, rows) => void logged.push(...rows),
     fakeMode: () => opts.fake === true,
   };
-  return { fake, deps, posts, logged, contextCalls, warmCalls, sessionCalls, maxInFlight: () => maxInFlight };
+  return { fake, deps, posts, logged, contextCalls, warmCalls, pdfCalls, sessionCalls, maxInFlight: () => maxInFlight };
 }
 
 beforeEach(() => {
@@ -605,5 +614,152 @@ describe("networks that refuse large images (Bluesky) get the small JPEG slides"
     rows(t, "bluesky");
     await processQueue({}, t.deps);
     assert.deepEqual(t.posts[0].images, ["j0", "j1", "j2", "j3"]);
+  });
+});
+
+
+describe("alt text goes with the slides", () => {
+  const ctx = { images: ["https://img.test/0", "https://img.test/1", "https://img.test/2", "https://img.test/3", "https://img.test/4", "https://img.test/5"], alts: ["a0", "a1", "a2", "a3", "a4", "a5"] };
+
+  test("each network gets the alt text of the slides it is sent", async () => {
+    const t = setup({ context: () => ctx });
+    t.fake.add(makeRow({ service: "instagram" }), makeRow({ service: "twitter" }));
+    await processQueue({}, t.deps);
+    assert.deepEqual(t.posts.find((p) => p.service === "instagram")!.alts, ctx.alts);
+    // A network that takes 4 slides is sent the first 4 alt texts, not a list longer than its images.
+    assert.deepEqual(t.posts.find((p) => p.service === "twitter")!.alts, ctx.alts.slice(0, 4));
+  });
+  test("a send without alt text (rows from before it existed) is sent as before", async () => {
+    const t = setup({ context: () => ({ images: ctx.images }) });
+    t.fake.add(makeRow({ service: "instagram" }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts[0].alts, undefined);
+  });
+  test("a network that refused the alt text still gets the post, and the row says so", async () => {
+    const t = setup({ context: () => ctx, post: () => ({ ok: true, postId: "p1", altDropped: true }) });
+    t.fake.add(makeRow({ service: "mastodon" }));
+    await processQueue({}, t.deps);
+    const row = t.fake.rows[0];
+    assert.equal(row.status, "draft");
+    assert.match(String(row.error), /Mastodon didn't take the alt text/);
+  });
+});
+
+describe("LinkedIn as a PDF", () => {
+  const ctx = { images: Array.from({ length: 25 }, (_, i) => `https://img.test/${i}`), alts: Array.from({ length: 25 }, (_, i) => `alt ${i}`) };
+
+  test("a LinkedIn row that asked for it is sent one document: every slide, not just the first 20", async () => {
+    const t = setup({ context: () => ctx });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts.length, 1);
+    assert.deepEqual(t.posts[0].document, { url: "https://pdf.test/send.pdf", thumbnailUrl: "https://img.test/thumb.jpg", title: "Issue 49" });
+    assert.equal(t.fake.rows[0].slides, 25);
+    assert.equal(t.fake.rows[0].status, "draft");
+  });
+  test("a LinkedIn row that did not ask for it is sent images, cut to LinkedIn's 20", async () => {
+    const t = setup({ context: () => ctx });
+    t.fake.add(makeRow({ service: "linkedin" }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts[0].document, undefined);
+    assert.equal(t.posts[0].images.length, 20);
+    assert.equal(t.pdfCalls.length, 0, "no PDF was made");
+  });
+  test("another network is never sent the PDF, whatever the row says", async () => {
+    const t = setup({ context: () => ctx });
+    t.fake.add(makeRow({ service: "instagram", as_pdf: true }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts[0].document, undefined);
+    assert.equal(t.pdfCalls.length, 0);
+  });
+  test("two LinkedIn channels of one send share one PDF", async () => {
+    const t = setup({ context: () => ctx });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true, channel_id: "a" }), makeRow({ service: "linkedin", as_pdf: true, channel_id: "b" }));
+    await processQueue({}, t.deps);
+    assert.equal(t.pdfCalls.length, 1);
+    assert.equal(t.posts.filter((p) => p.document).length, 2);
+  });
+  test("a PDF that can't be made: LinkedIn gets the slides as images instead", async () => {
+    const t = setup({ context: () => ctx, pdf: () => null });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts.length, 1);
+    assert.equal(t.posts[0].document, undefined);
+    assert.equal(t.posts[0].images.length, 20);
+  });
+  test("a plain refusal of the PDF: the same post goes again as images, once, and the row says what happened", async () => {
+    const t = setup({ context: () => ctx, post: (p) => (p.document ? { ok: false, error: "Document posts are not supported for this channel." } : { ok: true, postId: "p1" }) });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts.length, 2);
+    assert.ok(t.posts[0].document);
+    assert.equal(t.posts[1].document, undefined);
+    const row = t.fake.rows[0];
+    assert.equal(row.status, "draft");
+    assert.equal(row.post_id, "p1");
+    assert.match(String(row.error), /didn't take the PDF .*Document posts are not supported.*went as images/);
+  });
+  test("an unclear outcome is never sent again as images: the post may exist, and a second one would be a duplicate", async () => {
+    const t = setup({ context: () => ctx, post: () => ({ ok: false, error: "timed out", unknown: true }) });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true, mode: "now" }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts.length, 1);
+    assert.equal(t.fake.rows[0].status, "unknown");
+  });
+  test("Buffer's 429 on the PDF waits and tries the PDF again later; it does not fall back", async () => {
+    const t = setup({ context: () => ctx, post: () => ({ ok: false, error: "limit", rateLimited: true }) });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true }));
+    await processQueue({}, t.deps);
+    assert.equal(t.posts.length, 1);
+    assert.equal(t.fake.rows[0].status, "queued");
+    assert.ok(t.fake.rows[0].not_before);
+  });
+  test("a refusal that also fails as images is a plain failure, with the second reason", async () => {
+    const t = setup({ context: () => ctx, post: (p) => ({ ok: false, error: p.document ? "no documents" : "channel is locked" }) });
+    t.fake.add(makeRow({ service: "linkedin", as_pdf: true }));
+    await processQueue({}, t.deps);
+    assert.equal(t.fake.rows[0].status, "failed");
+    assert.equal(t.fake.rows[0].error, "channel is locked");
+  });
+});
+
+describe("enqueue: the LinkedIn PDF choice", () => {
+  const request = (over: Partial<QueueRequest> = {}): QueueRequest => ({
+    source: "link:abc",
+    picks: [1],
+    template: "",
+    intent: "draft",
+    newsletter: "N",
+    issueTitle: "T",
+    channels: [
+      { id: "l", service: "LinkedIn", name: "L", caption: "c" },
+      { id: "i", service: "Instagram", name: "I", caption: "c" },
+    ],
+    ...over,
+  });
+  test("asked for: only the LinkedIn rows carry it", async () => {
+    const fake = new FakeDb();
+    await enqueue("u1", request({ linkedinPdf: true }), fake.client as unknown as SupabaseClient);
+    assert.equal(fake.rows.find((r) => r.service === "linkedin")!.as_pdf, true);
+    assert.equal("as_pdf" in fake.rows.find((r) => r.service === "instagram")!, false);
+  });
+  test("a database without the as_pdf column yet: LinkedIn is queued as images instead of the send failing", async () => {
+    const fake = new FakeDb();
+    fake.missingColumns = ["as_pdf"];
+    const { batchId } = await enqueue("u1", request({ linkedinPdf: true }), fake.client as unknown as SupabaseClient);
+    assert.ok(batchId);
+    assert.equal(fake.rows.length, 2);
+    assert.ok(fake.rows.every((r) => !("as_pdf" in r)));
+    assert.equal(fake.rows.find((r) => r.service === "linkedin")!.status, "queued");
+  });
+  test("any other database error still fails the send", async () => {
+    const fake = new FakeDb();
+    fake.insertError = "connection refused";
+    await assert.rejects(enqueue("u1", request({ linkedinPdf: true }), fake.client as unknown as SupabaseClient), /Could not queue the send: connection refused/);
+  });
+  test("not asked for: no row has the column at all, so a database without it keeps working", async () => {
+    const fake = new FakeDb();
+    await enqueue("u1", request(), fake.client as unknown as SupabaseClient);
+    assert.ok(fake.rows.every((r) => !("as_pdf" in r)));
   });
 });

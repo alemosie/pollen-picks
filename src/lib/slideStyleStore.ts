@@ -2,6 +2,7 @@
 
 import { sessionUserId } from "./auth";
 import { db } from "./db";
+import { cleanLinkedinFormat, DEFAULT_LINKEDIN_FORMAT, type LinkedinFormat } from "./linkedinFormat";
 import { isHex, MAX_COLORS, MIN_COLORS } from "./palette";
 import { DEFAULT_STYLE, type SlideStyle } from "./slides/style";
 
@@ -59,12 +60,13 @@ export async function saveSlideStyle(userId: string, s: SlideStyle): Promise<str
 }
 
 /**
- * Back to the standard header, footer and font. The organization and the palette have their own screens and are kept: the row stays
- * (as "not styled") while it holds either, and is removed when it holds neither. Returns the new version, or undefined when the row is gone.
+ * Back to the standard header, footer and font. The organization, the palette and the LinkedIn format have their own screens and are kept: the row stays
+ * (as "not styled") while it holds any of them, and is removed when it holds none. Returns the new version, or undefined when the row is gone.
  */
 export async function resetSlideStyle(userId: string): Promise<string | undefined> {
   const cur = await loadSlideStyle(userId);
-  if (cur && (cur.style.orgName || cur.style.orgLogo || cur.palette)) {
+  // The LinkedIn format lives in this row too, so a chosen one keeps it.
+  if (cur && (cur.style.orgName || cur.style.orgLogo || cur.palette || (await loadLinkedinFormat(userId)) !== DEFAULT_LINKEDIN_FORMAT)) {
     const updated_at = new Date().toISOString();
     const { error } = await db()
       .from("slide_styles")
@@ -83,11 +85,36 @@ export async function resetSlideStyle(userId: string): Promise<string | undefine
  * is only for clearing it by hand: a user's reset saves the standard palette itself, so every browser sees that a choice was made.
  */
 export async function savePaletteFor(userId: string, palette: string[] | null): Promise<void> {
-  const { data, error } = await db().from("slide_styles").update({ palette }).eq("user_id", userId).select("user_id");
+  const { data, error } = await db().from("slide_styles").update({ palette, updated_at: new Date().toISOString() }).eq("user_id", userId).select("user_id");
   if (error) throw new Error(`Could not save the palette: ${error.message}`);
   if (!data?.length && palette) {
     const ins = await db().from("slide_styles").insert({ user_id: userId, palette, styled: false });
     if (ins.error) throw new Error(`Could not save the palette: ${ins.error.message}`);
+  }
+}
+
+/**
+ * The user's LinkedIn format (db/supabase/0028). Read apart from the rest of the settings so that a database that doesn't have the column yet only
+ * costs this one answer: it reads as the default (the PDF), and every other setting keeps loading.
+ */
+export async function loadLinkedinFormat(userId: string): Promise<LinkedinFormat> {
+  try {
+    const { data, error } = await db().from("slide_styles").select("linkedin_format").eq("user_id", userId).maybeSingle();
+    if (error) throw new Error(error.message);
+    return cleanLinkedinFormat((data as { linkedin_format?: unknown } | null)?.linkedin_format);
+  } catch (e) {
+    console.error("reading the LinkedIn format failed:", (e as Error).message);
+    return DEFAULT_LINKEDIN_FORMAT;
+  }
+}
+
+/** Saves the LinkedIn format. Touches nothing else (the slides' look and version stay as they are), and does not make the slide style "styled". */
+export async function saveLinkedinFormat(userId: string, format: LinkedinFormat): Promise<void> {
+  const { data, error } = await db().from("slide_styles").update({ linkedin_format: format }).eq("user_id", userId).select("user_id");
+  if (error) throw new Error(`Could not save the LinkedIn format: ${error.message}`);
+  if (!data?.length) {
+    const ins = await db().from("slide_styles").insert({ user_id: userId, linkedin_format: format, styled: false });
+    if (ins.error) throw new Error(`Could not save the LinkedIn format: ${ins.error.message}`);
   }
 }
 

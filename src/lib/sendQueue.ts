@@ -15,19 +15,21 @@ import { randomUUID } from "node:crypto";
 import { MAX_TEMPLATE_CHARS } from "./savedCreationShape";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { limitNote } from "./caption";
-import { imageLimit, needsSmallImages, unsupportedReason } from "./channels";
+import { imageLimit, needsSmallImages, serviceKey, serviceLabel, unsupportedReason } from "./channels";
 import { siteOrigin } from "./buffer";
-import { createChannelPost, fakeMode } from "./bufferPost";
+import { createChannelPost, fakeMode, type ChannelPostOutcome, type PostDocument } from "./bufferPost";
 import { getValidSession } from "./connections";
 import { db } from "./db";
 import { logDrafts } from "./draftLog";
 import { knownForPicks } from "./instagramHandles";
 import { signPreview } from "./previewSig";
-import { slidePublicUrl, storeSlide, type StoredSlide } from "./slideStore";
+import { slidePublicUrl, storePdf, storeSlide, type StoredSlide } from "./slideStore";
 import { loadAppIssue } from "./sources";
 import { planSlides } from "./slides/plan";
 import { slideItemsFor } from "./slides/items";
 import { parseTemplateFrom, templateParams } from "./slides/options";
+import { altTexts } from "./slides/alt";
+import { slidesToPdf } from "./slides/pdf";
 import { toSmallJpeg } from "./slides/render";
 import { prepareSlideSet } from "./slides/slideSet";
 import type { PostIntent } from "./bufferPost";
@@ -55,6 +57,8 @@ export type QueueRequest = {
   issueTitle: string;
   /** `intent` per channel overrides the batch one: a channel whose caption is too long for a publish-now is saved as a draft. */
   channels: { id: string; service: string; name: string; caption: string; intent?: PostIntent }[];
+  /** LinkedIn channels get the slides as one PDF (a swipeable carousel) instead of a set of images. The route sets it from the user's LinkedIn format. */
+  linkedinPdf?: boolean;
 };
 
 /** Writes one row per channel and returns the batch id. Channels that can't take a carousel are logged as failed straight away. */
@@ -74,9 +78,24 @@ export async function enqueue(userId: string, r: QueueRequest, client: SupabaseC
     const blocked = unsupportedReason(c.service);
     return blocked
       ? { ...base(c), status: "failed", error: clip(blocked, 200) }
-      : { ...base(c), status: "queued", source: r.source.slice(0, 200), picks: r.picks, template: r.template.slice(0, MAX_TEMPLATE_CHARS), caption: c.caption.slice(0, 10_000) };
+      : {
+          ...base(c),
+          status: "queued",
+          source: r.source.slice(0, 200),
+          picks: r.picks,
+          template: r.template.slice(0, MAX_TEMPLATE_CHARS),
+          caption: c.caption.slice(0, 10_000),
+          // Only sent when it is on, and only on LinkedIn rows (see the retry below for a database that doesn't have the column yet).
+          ...(r.linkedinPdf && serviceKey(c.service) === "linkedin" ? { as_pdf: true } : {}),
+        };
   });
-  const { error } = await client.from("post_history").insert(rows);
+  let { error } = await client.from("post_history").insert(rows);
+  // The PDF is what LinkedIn gets by default, so until db/supabase/0028 is applied (no as_pdf column) every LinkedIn send would fail here. It goes
+  // as images instead, which is how it worked before: a missing column must not cost anyone their post.
+  if (error && /as_pdf/.test(error.message) && rows.some((row) => "as_pdf" in row)) {
+    console.error("post_history has no as_pdf column yet (db/supabase/0028); LinkedIn goes as images:", error.message);
+    ({ error } = await client.from("post_history").insert(rows.map((row) => Object.fromEntries(Object.entries(row).filter(([k]) => k !== "as_pdf")))));
+  }
   if (error) throw new Error(`Could not queue the send: ${error.message}`);
   return { batchId };
 }
@@ -98,11 +117,19 @@ export type Claimed = {
   /** The stored slides of this send (db/supabase/0026), set by the first row of the batch to be built. Absent on rows from before it existed. */
   slide_paths?: string[] | null;
   slide_paths_small?: string[] | null;
+  /** What each stored slide says, for alt text (db/supabase/0028). Absent on rows from before it existed. */
+  slide_alts?: string[] | null;
+  /** The send's PDF, stored once for LinkedIn (0028). */
+  slide_pdf_path?: string | null;
+  /** This channel gets the slides as a PDF (0028). Only ever set on LinkedIn rows. */
+  as_pdf?: boolean | null;
+  issue_title?: string | null;
+  newsletter?: string | null;
 };
 
 /** What every channel of one send shares: the slide image addresses (signed for this user), or why they can't be made. */
 /** `smallImages` is the same slides as small JPEGs, for the networks that refuse large images (see needsSmallImages); drawn only when a channel needs them. */
-export type Context = { images: string[]; smallImages?: string[] } | { problem: string };
+export type Context = { images: string[]; smallImages?: string[]; /** Alt text per slide (the same for both sets). */ alts?: string[] } | { problem: string };
 
 export async function warm(urls: string[]): Promise<string | null> {
   const bad = (
@@ -143,7 +170,7 @@ async function drawAll(count: number, draw: (n: number) => Promise<StoredSlide>)
  * Draws the slides of this send once, stores them, and remembers where (on every row of the send, so a retry or another channel reuses them and
  * nothing is drawn again from highlights that may be gone by then). Throws if they can't be stored.
  */
-async function drawAndStore(row: Claimed, issue: NonNullable<Awaited<ReturnType<typeof loadAppIssue>>>): Promise<{ images: string[]; smallImages?: string[] } | { problem: string }> {
+async function drawAndStore(row: Claimed, issue: NonNullable<Awaited<ReturnType<typeof loadAppIssue>>>): Promise<{ images: string[]; smallImages?: string[]; alts?: string[] } | { problem: string }> {
   const picks = row.picks ?? [];
   const set = await prepareSlideSet({ issue, ids: picks, template: parseTemplateFrom(new URLSearchParams(row.template ?? "")), uid: row.user_id, ownIssue: true });
   if (!set) return { problem: "No picks." };
@@ -159,8 +186,11 @@ async function drawAndStore(row: Claimed, issue: NonNullable<Awaited<ReturnType<
   if (row.batch_id) {
     const { error } = await db().from("post_history").update({ slide_paths: paths, slide_paths_small: small }).eq("batch_id", row.batch_id).eq("user_id", row.user_id);
     if (error) console.error("remembering the stored slides failed:", error.message);
+    // Apart from the paths, so a database that doesn't have the column yet (0028) can't cost the send its stored slides.
+    const alted = await db().from("post_history").update({ slide_alts: set.alts }).eq("batch_id", row.batch_id).eq("user_id", row.user_id);
+    if (alted.error) console.error("remembering the alt text failed:", alted.error.message);
   }
-  return { images: paths.map(slidePublicUrl), ...(small ? { smallImages: small.map(slidePublicUrl) } : {}) };
+  return { images: paths.map(slidePublicUrl), ...(small ? { smallImages: small.map(slidePublicUrl) } : {}), alts: set.alts };
 }
 
 /** The old way: addresses that draw each slide when Buffer asks (see previewSig). Only used when slides can't be stored (the bucket isn't set up yet). */
@@ -180,13 +210,14 @@ async function signedContext(row: Claimed, issue: NonNullable<Awaited<ReturnType
   }
   const signedSmall = signPreview(new URLSearchParams([...templateParams(tpl).entries(), ["picks", picks.join(",")], ["mode", row.source ?? ""], ["fmt", "jpg"]]), row.user_id).toString();
   const smallImages = slides.map((_, i) => `${base}/api/slide/preview?${signedSmall}&n=${i}`);
-  return { images, smallImages };
+  return { images, smallImages, alts: altTexts(slides) };
 }
 
 export async function buildContext(row: Claimed): Promise<Context> {
   // Already stored by an earlier try of this send (a rate-limited channel, another channel of the same send): use those, draw nothing.
   if (row.slide_paths?.length) {
-    return { images: row.slide_paths.map(slidePublicUrl), ...(row.slide_paths_small?.length ? { smallImages: row.slide_paths_small.map(slidePublicUrl) } : {}) };
+    const alts = row.slide_alts?.length === row.slide_paths.length ? row.slide_alts : undefined;
+    return { images: row.slide_paths.map(slidePublicUrl), ...(row.slide_paths_small?.length ? { smallImages: row.slide_paths_small.map(slidePublicUrl) } : {}), ...(alts ? { alts } : {}) };
   }
   const issue = await loadAppIssue(row.source ?? "", row.user_id);
   if (!issue) return { problem: "Couldn't load this issue. Log in again from the Source step and send again." };
@@ -206,6 +237,36 @@ export async function buildContext(row: Claimed): Promise<Context> {
 }
 
 /**
+ * The send's slides as one PDF, for a LinkedIn channel that asked for it (LinkedIn shows a PDF as a swipeable carousel, and a set of images as a
+ * cropped grid). Made once per send from the stored slides, stored like them, and remembered on the send's rows so a retry reuses it. Returns null
+ * when it can't be made: the channel then gets the slides as images, as if nobody had asked.
+ */
+export async function makePdf(row: Claimed, ctx: { images: string[]; smallImages?: string[]; alts?: string[] }): Promise<PostDocument | null> {
+  // Buffer wants a cover picture too: the first slide, as the small JPEG when there is one.
+  const thumbnailUrl = ctx.smallImages?.[0] ?? ctx.images[0];
+  const title = clip(row.issue_title || row.newsletter || "Pollen Picks", 100);
+  try {
+    if (row.slide_pdf_path) return { url: slidePublicUrl(row.slide_pdf_path), thumbnailUrl, title };
+    const pages = await Promise.all(
+      ctx.images.map(async (u, i) => {
+        const res = await fetch(u, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
+        if (!res.ok) throw new Error(`slide ${i + 1} (HTTP ${res.status})`);
+        return Buffer.from(await res.arrayBuffer());
+      }),
+    );
+    const path = await storePdf(row.user_id, await slidesToPdf(pages, title, ctx.alts));
+    if (row.batch_id) {
+      const { error } = await db().from("post_history").update({ slide_pdf_path: path }).eq("batch_id", row.batch_id).eq("user_id", row.user_id);
+      if (error) console.error("remembering the stored PDF failed:", error.message);
+    }
+    return { url: slidePublicUrl(path), thumbnailUrl, title };
+  } catch (e) {
+    console.error("making the PDF failed, sending the slides as images instead:", (e as Error).message);
+    return null;
+  }
+}
+
+/**
  * What the worker needs from the outside. Production passes nothing and gets the real ones; the tests pass fakes (see sendQueue.test.ts),
  * so every rule below can be checked without a database, a Buffer account or a beehiiv key.
  */
@@ -215,11 +276,13 @@ export type QueueDeps = {
   buildContext: (row: Claimed) => Promise<Context>;
   /** Draws slides ahead of Buffer (see warm); null when all were drawn, else why not. */
   warmImages: (urls: string[]) => Promise<string | null>;
+  /** The send's slides as one PDF for LinkedIn (see makePdf); null when it can't be made. */
+  makePdf: typeof makePdf;
   createChannelPost: typeof createChannelPost;
   logDrafts: typeof logDrafts;
   fakeMode: () => boolean;
 };
-const realDeps = (): QueueDeps => ({ db, getValidSession, buildContext, warmImages: warm, createChannelPost, logDrafts, fakeMode });
+const realDeps = (): QueueDeps => ({ db, getValidSession, buildContext, warmImages: warm, makePdf, createChannelPost, logDrafts, fakeMode });
 
 async function finish(client: SupabaseClient, row: Claimed, patch: Record<string, unknown>) {
   // The caption is only needed until the post exists, so it is erased when the row is done (created). A failed or unknown row keeps it for
@@ -257,6 +320,7 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
 
   const contexts = new Map<string, Promise<Context>>();
   const smallWarmups = new Map<string, Promise<string | null>>();
+  const pdfs = new Map<string, Promise<PostDocument | null>>();
   const tokens = new Map<string, Promise<string | null>>();
   const tokenFor = (uid: string) => {
     if (!tokens.has(uid)) tokens.set(uid, d.getValidSession(uid).then((s) => s?.accessToken ?? null, () => null));
@@ -295,18 +359,34 @@ export async function processQueue(opts: { userId?: string; limit?: number; dead
           continue;
         }
       }
-      const images = (small ?? ctx.images).slice(0, imageLimit(row.service));
-      const out = await d.createChannelPost(token, {
-        channelId: row.channel_id ?? "",
-        service: row.service,
-        text: row.caption ?? "",
-        images,
-        intent: row.mode,
-      });
+      const limit = imageLimit(row.service);
+      const images = (small ?? ctx.images).slice(0, limit);
+      const alts = ctx.alts?.slice(0, limit);
+      // LinkedIn, when asked: the whole carousel as one PDF (every slide is a page: LinkedIn's 20-image cap is for images, not documents).
+      let doc: PostDocument | null = null;
+      if (row.as_pdf && serviceKey(row.service) === "linkedin") {
+        if (!pdfs.has(key)) pdfs.set(key, d.makePdf(row, ctx));
+        doc = await pdfs.get(key)!;
+      }
+      const base = { channelId: row.channel_id ?? "", service: row.service, text: row.caption ?? "", images, alts, intent: row.mode };
+      let out: ChannelPostOutcome = await d.createChannelPost(token, { ...base, ...(doc ? { document: doc } : {}) });
+      const notes: string[] = [];
+      // A plain refusal of the PDF means nothing was created, so the same post can go as images instead. An unclear outcome (a timeout, a
+      // server error on a publish) is never retried: the post may exist, and a second one would be a duplicate.
+      if (doc && !out.ok && !out.unknown && !out.rateLimited) {
+        const why = out.error;
+        out = await d.createChannelPost(token, base);
+        if (out.ok) notes.push(`LinkedIn didn't take the PDF (${clip(why, 80)}), so this went as images.`);
+        doc = null;
+      }
       if (out.ok) {
         // Buffer saves a draft that is over its network's limit, but won't schedule or publish it: leave a note on the row (a created post has no other use for `error`).
-        const note = row.mode === "draft" ? limitNote(row.service, row.caption ?? "") : null;
-        await finish(client, row, { status: row.mode === "draft" ? "draft" : "sending", post_id: out.postId, slides: images.length, error: note });
+        if (row.mode === "draft") {
+          const note = limitNote(row.service, row.caption ?? "");
+          if (note) notes.push(note);
+        }
+        if (out.altDropped) notes.push(`${serviceLabel(row.service)} didn't take the alt text, so this went without it.`);
+        await finish(client, row, { status: row.mode === "draft" ? "draft" : "sending", post_id: out.postId, slides: doc ? ctx.images.length : images.length, error: notes.length ? clip(notes.join(" "), 300) : null });
         if (!d.fakeMode()) await d.logDrafts(row.user_id, [{ service: row.service, ok: true, mode: row.mode }]);
         continue;
       }

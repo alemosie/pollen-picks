@@ -4,6 +4,8 @@ import { siteOrigin } from "@/lib/buffer";
 import { effectiveIntent } from "@/lib/caption";
 import { fakeMode, type PostIntent } from "@/lib/bufferPost";
 import { requireSession } from "@/lib/guard";
+import { serviceKey } from "@/lib/channels";
+import { loadLinkedinFormat } from "@/lib/slideStyleStore";
 import { loadAppIssue } from "@/lib/sources";
 import { deleteRun } from "@/lib/currentRun";
 import { enqueue, processQueue } from "@/lib/sendQueue";
@@ -54,6 +56,8 @@ export async function POST(req: NextRequest) {
       picks,
       template: body.template ?? "",
       intent,
+      // LinkedIn's own carousel is a PDF, so that is what a LinkedIn channel gets unless the user chose images (Settings > LinkedIn format).
+      linkedinPdf: channels.some((c) => serviceKey(c.service) === "linkedin") && (await loadLinkedinFormat(g.session.userId)) === "pdf",
       newsletter: issue.newsletter,
       issueTitle: issue.title,
       // A caption over a network's limit is never published: that channel is saved as a draft to shorten in Buffer, and the rest go as asked.

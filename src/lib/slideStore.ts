@@ -13,6 +13,15 @@ export const OVER_STATUSES = ["sent", "removed", "failed", "error"];
 
 export type StoredSlide = { bytes: Buffer; type: "image/png" | "image/jpeg" };
 
+/** Uploads a send's PDF (LinkedIn's swipeable carousel). Named by its hash like the slides, so a retry or a second LinkedIn channel reuses the one file. Returns its path. */
+export async function storePdf(userId: string, bytes: Buffer): Promise<string> {
+  const hash = createHash("sha256").update(bytes).digest("hex").slice(0, 40);
+  const path = `${prefix(userId)}/${hash}.pdf`;
+  const { error } = await db().storage.from(SLIDE_BUCKET).upload(path, bytes, { contentType: "application/pdf", upsert: true, cacheControl: "31536000" });
+  if (error) throw new Error(`Could not store the PDF: ${error.message}`);
+  return path;
+}
+
 /** The public address of a stored file. */
 export const slidePublicUrl = (path: string): string => db().storage.from(SLIDE_BUCKET).getPublicUrl(path).data.publicUrl;
 
@@ -53,17 +62,22 @@ export async function removeAllSlidesOf(userId: string): Promise<void> {
  * sent twice is one file) is left alone. Best effort: called from a place that already runs for the account.
  */
 export async function pruneStoredSlides(userId: string, now = Date.now()): Promise<void> {
-  const { data, error } = await db().from("post_history").select("id, status, created_at, checked_at, slide_paths, slide_paths_small").eq("user_id", userId).not("slide_paths", "is", null);
-  if (error || !data?.length) return;
-  type R = { id: number; status: string; created_at: string; checked_at: string | null; slide_paths: string[] | null; slide_paths_small: string[] | null };
+  type R = { id: number; status: string; created_at: string; checked_at: string | null; slide_paths: string[] | null; slide_paths_small: string[] | null; slide_pdf_path?: string | null };
+  const read = (cols: string) => db().from("post_history").select(cols).eq("user_id", userId).not("slide_paths", "is", null);
+  // slide_pdf_path comes with db/supabase/0028: until it is applied, the pruning goes on without it, as before.
+  let res = await read("id, status, created_at, checked_at, slide_paths, slide_paths_small, slide_pdf_path");
+  if (res.error) res = await read("id, status, created_at, checked_at, slide_paths, slide_paths_small");
+  if (res.error || !res.data?.length) return;
+  const data = res.data as unknown as R[];
   const cutoff = now - SLIDE_RETENTION_DAYS * 86_400_000;
-  const paths = (r: R) => [...(r.slide_paths ?? []), ...(r.slide_paths_small ?? [])];
-  const over = (data as R[]).filter((r) => OVER_STATUSES.includes(r.status) && new Date(r.checked_at ?? r.created_at).getTime() < cutoff);
+  const paths = (r: R) => [...(r.slide_paths ?? []), ...(r.slide_paths_small ?? []), ...(r.slide_pdf_path ? [r.slide_pdf_path] : [])];
+  const over = data.filter((r) => OVER_STATUSES.includes(r.status) && new Date(r.checked_at ?? r.created_at).getTime() < cutoff);
   if (over.length === 0) return;
-  const stillUsed = new Set((data as R[]).filter((r) => !over.includes(r)).flatMap(paths));
+  const stillUsed = new Set(data.filter((r) => !over.includes(r)).flatMap(paths));
   const drop = [...new Set(over.flatMap(paths))].filter((p) => !stillUsed.has(p));
   if (drop.length) await removeSlides(drop);
-  await db().from("post_history").update({ slide_paths: null, slide_paths_small: null }).in("id", over.map((r) => r.id));
+  const forget = { slide_paths: null, slide_paths_small: null, ...(over.some((r) => r.slide_pdf_path !== undefined) ? { slide_pdf_path: null } : {}) };
+  await db().from("post_history").update(forget).in("id", over.map((r) => r.id));
 }
 
 /**

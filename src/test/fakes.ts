@@ -192,7 +192,7 @@ export class FakeSupabase {
   /** Files in the "slides" Storage bucket (src/lib/slideStore.ts), by path. */
   files = new Map<string, Uint8Array>();
 
-  /** The three Storage calls slideStore makes: upload, list a folder, remove by path. */
+  /** The Storage calls slideStore makes (upload, list a folder, remove by path), and a read of a public address. */
   private storage(method: string, m: RegExpExecArray, init: RequestInit): Response {
     const json = (b: unknown, status = 200) => new Response(JSON.stringify(b), { status, headers: { "Content-Type": "application/json" } });
     if (m[1] === "list") {
@@ -206,6 +206,13 @@ export class FakeSupabase {
       for (const p of b.prefixes ?? []) this.files.delete(p);
       return json((b.prefixes ?? []).map((name) => ({ name })));
     }
+    // A stored file's public address (what Buffer, or makePdf, fetches). Only the bytes and a type from the name, which is all a reader needs.
+    if (method === "GET" && m[2]) {
+      const bytes = this.files.get(decodeURIComponent(m[2]));
+      if (!bytes) return json({ message: "Object not found" }, 404);
+      const type = /\.pdf$/.test(m[2]) ? "application/pdf" : /\.jpg$/.test(m[2]) ? "image/jpeg" : "image/png";
+      return new Response(bytes as BodyInit, { status: 200, headers: { "Content-Type": type } });
+    }
     if ((method === "POST" || method === "PUT") && m[2]) {
       const body = init.body;
       this.files.set(decodeURIComponent(m[2]), body instanceof Uint8Array ? body : new TextEncoder().encode(String(body ?? "")));
@@ -216,7 +223,7 @@ export class FakeSupabase {
 
   handle(url: URL, init: RequestInit): Response {
     const method = (init.method ?? "GET").toUpperCase();
-    const storage = /\/storage\/v1\/object\/(?:(list)\/)?slides(?:\/(.+))?$/.exec(url.pathname);
+    const storage = /\/storage\/v1\/object\/(?:(list)\/|public\/)?slides(?:\/(.+))?$/.exec(url.pathname);
     if (storage) return this.storage(method, storage, init);
     const body = typeof init.body === "string" && init.body ? (JSON.parse(init.body) as Json) : {};
     const rpc = /\/rest\/v1\/rpc\/(\w+)$/.exec(url.pathname);

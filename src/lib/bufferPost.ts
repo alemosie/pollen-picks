@@ -17,18 +17,53 @@ export { fakeMode };
 const FAKE_PUBLISH_MS = 6000;
 const CREATE_TIMEOUT_MS = 25_000;
 
-export type ChannelPostInput = { channelId: string; service: string; text: string; images: string[]; intent: PostIntent };
+/** A PDF to post as one document (LinkedIn's swipeable carousel): Buffer's `document` asset needs all three. */
+export type PostDocument = { url: string; thumbnailUrl: string; title: string };
+export type ChannelPostInput = {
+  channelId: string;
+  service: string;
+  text: string;
+  images: string[];
+  /** Alt text for each image, in the same order (see slides/alt.ts). Sent as `metadata.altText`; a slide without one just has none. */
+  alts?: string[];
+  /** When set, the post carries this one document instead of the images. */
+  document?: PostDocument;
+  intent: PostIntent;
+};
 export type ChannelPostOutcome =
-  | { ok: true; postId: string }
+  /** `altDropped`: the network refused the alt text, so the post was created again without it (a refusal means nothing was created, so that is safe). */
+  | { ok: true; postId: string; altDropped?: true }
   /** `unknown`: the request died or Buffer errored mid-way, so the post may or may not exist. Never retry these blindly. `rateLimited`: Buffer said it is limiting requests (a 429, or RATE_LIMIT_EXCEEDED in the answer), so nothing was created and it is safe to try again later. */
   | { ok: false; error: string; unknown?: boolean; rateLimited?: boolean };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** The `assets` list of a post: one document, or the images with their alt text (`metadata.altText`, per Buffer's image-asset input). */
+export function assetsFor(p: Pick<ChannelPostInput, "images" | "alts" | "document">, withAlts = true): string {
+  if (p.document) return `{ document: { url: ${JSON.stringify(p.document.url)}, thumbnailUrl: ${JSON.stringify(p.document.thumbnailUrl)}, title: ${JSON.stringify(p.document.title)} } }`;
+  return p.images
+    .map((u, i) => {
+      const alt = withAlts ? p.alts?.[i]?.trim() : "";
+      return alt ? `{ image: { url: ${JSON.stringify(u)}, metadata: { altText: ${JSON.stringify(alt)} } } }` : `{ image: { url: ${JSON.stringify(u)} } }`;
+    })
+    .join(", ");
+}
+
 export async function createChannelPost(token: string, p: ChannelPostInput): Promise<ChannelPostOutcome> {
   if (fakeMode()) return fakeCreate(p);
+  const first = await createOnce(token, p, true);
+  // A network that won't take the alt text refuses the post by name ("...altText..."). That is a plain refusal (nothing was created, not even a
+  // maybe), so the same post can go once more without it: a missing description is better than a missing post.
+  if (!first.ok && !first.unknown && !first.rateLimited && !p.document && p.alts?.some((a) => a?.trim()) && /\balt/i.test(first.error)) {
+    console.warn(`[buffer] ${p.service} refused the alt text (${first.error}); sending the post without it`);
+    const second = await createOnce(token, p, false);
+    return second.ok ? { ...second, altDropped: true } : second;
+  }
+  return first;
+}
 
-  const assets = p.images.map((u) => `{ image: { url: ${JSON.stringify(u)} } }`).join(", ");
+async function createOnce(token: string, p: ChannelPostInput, withAlts: boolean): Promise<ChannelPostOutcome> {
+  const assets = assetsFor(p, withAlts);
   const metadata = p.service.toLowerCase() === "instagram" ? "metadata: { instagram: { type: post, shouldShareToFeed: true } }" : "";
   const query = `mutation {
     createPost(input: {
@@ -141,9 +176,15 @@ async function fakeCreate(p: ChannelPostInput): Promise<ChannelPostOutcome> {
   const svc = p.service.toLowerCase();
   const fit = fitFor(svc, p.text);
   if (fakeEnforcesLimits() && p.intent === "now" && !fit.fits) return { ok: false, error: `${serviceLabel(svc)} posts cannot exceed ${fit.limit} characters.` };
-  if (fakeEnforcesLimits()) {
+  if (p.document) console.log(`[fake] ${svc}: one document, "${p.document.title}" (${p.document.url}), thumbnail ${p.document.thumbnailUrl}`);
+  else if (p.alts?.some(Boolean)) console.log(`[fake] ${svc}: ${p.images.length} slides, alt text on ${p.alts.filter((a) => a?.trim()).length}`);
+  if (fakeEnforcesLimits() && !p.document) {
     const tooBig = await fakeImageProblem(svc, p.images);
     if (tooBig) return { ok: false, error: tooBig };
+  }
+  if (fakeEnforcesLimits() && p.document) {
+    const bad = await fakeDocumentProblem(svc, p.document);
+    if (bad) return { ok: false, error: bad };
   }
   const behaviour = fakeBehaviour(svc);
   if (behaviour === "fail") return { ok: false, error: "Fake mode: Buffer rejected this post." };
@@ -176,6 +217,22 @@ export async function fakeImageProblem(svc: string, images: string[]): Promise<s
     if (!s) continue;
     if (s.status >= 400) return `${serviceLabel(svc)} couldn't download slide ${s.i + 1} (HTTP ${s.status}).`;
     if (limit && s.bytes > limit) return `${serviceLabel(svc)} images cannot exceed ${kb(limit)}. Slide ${s.i + 1} is ${kb(s.bytes)}.`;
+  }
+  return null;
+}
+
+/** Buffer takes one PDF of up to 100 MB and 300 pages on LinkedIn. With limits on, fake mode fetches it the way Buffer would and checks it opens, is a PDF and is not too big. */
+const DOCUMENT_BYTE_LIMIT = 100_000_000;
+export async function fakeDocumentProblem(svc: string, doc: PostDocument): Promise<string | null> {
+  try {
+    const res = await fetch(doc.url, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
+    const buf = Buffer.from(await res.arrayBuffer());
+    console.log(`[fake] ${svc} document: HTTP ${res.status}, ${res.headers.get("content-type") ?? "?"}, ${Math.round(buf.length / 1000)} KB`);
+    if (res.status >= 400) return `${serviceLabel(svc)} couldn't download the document (HTTP ${res.status}).`;
+    if (buf.subarray(0, 5).toString("latin1") !== "%PDF-") return `${serviceLabel(svc)} documents must be PDF files.`;
+    if (buf.length > DOCUMENT_BYTE_LIMIT) return `${serviceLabel(svc)} documents cannot exceed ${DOCUMENT_BYTE_LIMIT / 1_000_000} MB.`;
+  } catch (e) {
+    console.warn(`[fake] ${svc} document: couldn't check it (${e instanceof Error ? e.message : e})`);
   }
   return null;
 }
