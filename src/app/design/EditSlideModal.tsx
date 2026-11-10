@@ -562,10 +562,11 @@ export function EditSlideModal({
                       </button>
                     ))}
                   <details className="group grid gap-3 border-t border-current/20 pt-3">
-                    <summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg text-sm font-bold [&::-webkit-details-marker]:hidden">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current [&::-webkit-details-marker]:hidden">
                       <ChevronDown aria-hidden className="size-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={2.5} />
-                      More details
-                      <span className="min-w-0 truncate text-xs font-normal group-open:hidden">
+                      <span className="whitespace-nowrap">More details</span>
+                      {/* On a phone what is set goes on a line of its own, under the label, so neither is squeezed. */}
+                      <span className="w-full min-w-0 pl-6 text-xs font-normal group-open:hidden sm:w-auto sm:flex-1 sm:truncate sm:pl-0">
                         {[value(id, "group") && "Category label", value(id, "tag") && "Instagram tag", value(id, "when") && "Date & time", value(id, "place") && "Place"].filter(Boolean).join(" · ")}
                       </span>
                     </summary>
@@ -807,7 +808,7 @@ function PhotoPicker({
         <span className="text-sm font-semibold">Picture</span>
         {loadingLink && <span className="hidden text-xs font-normal sm:inline">Checking this pick&rsquo;s link…</span>}
       </div>
-      <div className="flex items-center gap-2 overflow-x-auto p-1">
+      <div className="-m-1 flex items-center gap-2 overflow-x-auto p-2">
         <button type="button" onClick={() => onPick("")} aria-pressed={!value} className={`${TILE} ${!value ? TILE_ON : ""}`}>
           None
         </button>
