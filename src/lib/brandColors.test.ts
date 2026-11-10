@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { colorsFromPalette, contrast, DEFAULT_COLORS } from "./brand";
+import { colorsFromPalette, contrast, DEFAULT_COLORS, textOn } from "./brand";
 import { DEFAULT_PALETTE } from "./palette";
 
 test("no palette or the standard one gives the standard colors", () => {
@@ -22,4 +22,12 @@ test("a short palette keeps the standard colors for the roles it doesn't fill", 
   const c = colorsFromPalette(["#111111", "#eeeeee"]);
   assert.equal(c.card, DEFAULT_COLORS.card);
   assert.equal(c.background, "#111111");
+});
+
+test("text on a surface keeps the kit's ink when it reads, and otherwise picks the best of ink, dark and cream", () => {
+  const dark = DEFAULT_COLORS.text;
+  assert.equal(textOn("#f5cac3", dark), dark); // the standard card
+  assert.equal(textOn("#64411b", dark), DEFAULT_COLORS.background); // dark brown: cream
+  assert.equal(textOn("#ffffff", "#f7ede2"), dark); // a light kit ink on a white card: dark text
+  assert.equal(textOn("#64411b", "#f7ede2"), "#f7ede2"); // a light ink that reads is kept
 });

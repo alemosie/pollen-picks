@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactElement } from "react";
-import { BRAND_NAME, contrast, sameColor } from "@/lib/brand";
+import { BRAND_NAME, sameColor, textOn } from "@/lib/brand";
 import { MARK_SVG } from "./mark";
 import { BODY_H, CARD_GAP, CONTENT_W, TAG_SHRINK, lines, shortBlurb } from "./plan";
 import type { Slot } from "./style";
@@ -129,8 +129,6 @@ function CornerSlot({ kind, kit, logoSize, fontSize, color, maxWidth, lines = 1 
 
 const CREAM = "#f7ede2";
 
-/** Text color for a custom background: the kit's ink, or cream when that reads better. */
-const textOn = (bg: string, ink: string) => (contrast(bg, ink) >= contrast(bg, CREAM) ? ink : CREAM);
 
 export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): ReactElement {
   // A custom background recolors the slide itself; text on it flips between ink and cream. Cards keep their own ink text.

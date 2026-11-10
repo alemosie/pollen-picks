@@ -63,3 +63,12 @@ export function colorsFromPalette(palette: readonly string[] | null | undefined)
   const text = (ok.length ? ok : [pool.reduce((best, c) => (contrast(c, background) > contrast(best, background) ? c : best))]).reduce((best, c) => (worst(c) > worst(best) + 0.01 ? c : best));
   return { background, text, accent, card, chip, highlight };
 }
+
+/**
+ * Text color for a surface: `ink` (the kit's text color) when it reads there, else whichever of the kit's ink, the standard dark ink and cream reads best.
+ * A kit whose ink is light (made for a dark background) so still gets dark text on a white or pale card.
+ */
+export function textOn(bg: string, ink: string): string {
+  if (contrast(bg, ink) >= 4.5) return ink;
+  return [ink, DEFAULT_COLORS.text, DEFAULT_COLORS.background].reduce((best, c) => (contrast(bg, c) > contrast(bg, best) ? c : best));
+}
