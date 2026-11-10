@@ -34,6 +34,8 @@ export type PickEdit = {
   photoCredit?: string;
   /** Instagram handle (no "@") to tag on this pick, whether or not its link points to Instagram. It replaces the one found in the link; an empty string removes that one. It goes on the slide and, as "From @handle", into the Instagram caption. */
   tag?: string;
+  /** Leave this pick's @handle off its card. The Instagram caption keeps it. */
+  hideTag?: boolean;
 };
 
 /** A hand-built carousel. Slides hold chunk ids (1-4 each); the cover and closing slide come from `cover` / `closing`. */
@@ -64,8 +66,6 @@ export type CustomSpec = {
   slides: number[][];
   /** Background hex per pick slide, parallel to `slides` ("" or missing = default). */
   bgs?: string[];
-  /** Parallel to `slides`: true = this slide leaves out the @handle of picks that link to an Instagram account. Missing = shown. */
-  hideTags?: boolean[];
   edits?: Record<number, PickEdit>;
 };
 
@@ -141,7 +141,6 @@ export function encodeSpec(spec: CustomSpec): string {
       m: spec.closing.photo && spec.closing.photoMode === "background" ? "b" : undefined,
     },
     s: spec.slides,
-    h: spec.hideTags?.some(Boolean) ? spec.slides.map((_, i) => (spec.hideTags![i] ? 1 : 0)) : undefined,
     g: spec.bgs?.some((b) => b)
       ? spec.slides.map((_, i) => hex6(spec.bgs![i]) ?? "")
       : undefined,
@@ -150,7 +149,7 @@ export function encodeSpec(spec: CustomSpec): string {
       Object.fromEntries(
         Object.entries(spec.edits).map(([id, e]) => [
           id,
-          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg), o: e.photo || undefined, r: e.photo ? e.photoCredit || undefined : undefined, a: e.tag },
+          { t: e.title, w: e.when, p: e.place, b: e.blurb, c: e.group, g: hex6(e.bg), o: e.photo || undefined, r: e.photo ? e.photoCredit || undefined : undefined, a: e.tag, k: e.hideTag ? 1 : undefined },
         ]),
       ),
   };
@@ -201,12 +200,15 @@ export function decodeSpec(
         photoCredit: isImageId(e.o) ? str(e.r, SPEC_LIMITS.photoCredit) : undefined,
         // "" is kept on purpose: it removes the tag found in the pick's link. Anything that is not a handle is dropped.
         tag: e.a === "" ? "" : (cleanHandle(e.a) ?? undefined),
+        hideTag: e.k === 1 ? true : undefined,
       };
       (Object.keys(edit) as (keyof PickEdit)[]).forEach(
         (k) => edit[k] === undefined && delete edit[k],
       );
       if (Object.keys(edit).length) edits[Number(id)] = edit;
     }
+    // Addresses made when hiding tags was a flag of the whole slide (`h`, one 0/1 per slide): each pick on a hiding slide hides its own.
+    if (Array.isArray(w.h)) slides.forEach((g: number[], i: number) => w.h[i] === 1 && g.forEach((id) => (edits[id] = { ...edits[id], hideTag: true })));
     return omitUndefined({
       cover: w.c
         ? omitUndefined({
@@ -230,7 +232,6 @@ export function decodeSpec(
           }
         : undefined,
       slides,
-      hideTags: Array.isArray(w.h) && w.h.some((x: unknown) => x === 1) ? slides.map((_: unknown, i: number) => w.h[i] === 1) : undefined,
       bgs: Array.isArray(w.g)
         ? slides.map((_: unknown, i: number) => withHash(w.g[i]) ?? "")
         : undefined,

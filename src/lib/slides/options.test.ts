@@ -8,8 +8,7 @@ test("a spec survives the round trip, including the category label and unicode",
     closing: { title: "More", line: "Read on", cta: "Go", bg: "#112233" },
     slides: [[1, 2], [3]],
     bgs: ["#aabbcc", ""],
-    hideTags: [false, true],
-    edits: { 2: { title: "Ñandú", when: "Sat", place: "Park", blurb: "Fun", group: "West", bg: "#010203" } },
+    edits: { 2: { title: "Ñandú", when: "Sat", place: "Park", blurb: "Fun", group: "West", bg: "#010203", tag: "cafe.west", hideTag: true } },
   };
   assert.deepEqual(decodeSpec(encodeSpec(spec)), spec);
 });
@@ -134,4 +133,13 @@ test("a closing picture and where it goes survive the round trip; an address or 
   const bad = decodeSpec(encodeSpec({ slides: [[1]], closing: { title: "x", photo: "https://example.org/a.png", photoMode: "background" } }));
   assert.equal(bad?.closing?.photo, undefined);
   assert.equal(bad?.closing?.photoMode, undefined);
+});
+
+test("an address from when hiding tags was a flag of the whole slide hides the tags of that slide's picks", () => {
+  const wire = (o: unknown) => btoa(JSON.stringify(o)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const spec = decodeSpec(wire({ s: [[1, 2], [3]], h: [1, 0], e: { 2: { t: "Kept" } } }))!;
+  assert.equal(spec.edits![1].hideTag, true);
+  assert.equal(spec.edits![2].hideTag, true);
+  assert.equal(spec.edits![2].title, "Kept");
+  assert.equal(spec.edits![3], undefined);
 });
