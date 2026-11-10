@@ -62,11 +62,11 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
   const set = !!name.trim() || !!logo;
 
   return (
-    <section aria-labelledby="organization" className="rounded-2xl bg-card p-4 sm:p-6">
+    <section id="brand-organization" aria-labelledby="organization" className="scroll-mt-6 rounded-2xl bg-card p-4 sm:p-6">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
-        <h2 id="organization" className="m-0 text-2xl">
+        <h3 id="organization" className="m-0 text-xl">
           Organization
-        </h2>
+        </h3>
         <span role="status" className="text-sm font-semibold">
           {busy ? "Saving…" : ""}
         </span>
@@ -148,7 +148,7 @@ export function OrganizationEditor({ initialName, initialLogo, orgFallback }: { 
         {set && (
           <p className="m-0 text-sm">
             Choose where it appears in{" "}
-            <Link href="/settings?section=style" className="font-bold underline underline-offset-4">
+            <Link href="/settings?section=brand#brand-style" className="font-bold underline underline-offset-4">
               Slide style
             </Link>
             .

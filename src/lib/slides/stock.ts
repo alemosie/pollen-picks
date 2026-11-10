@@ -20,11 +20,12 @@ function mark(color: string, height = 280): string {
 const plain = (bg: string, fg: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="1000" height="1000" preserveAspectRatio="xMidYMid slice"><rect width="1000" height="1000" fill="${bg}"/>${mark(fg)}</svg>`;
 
-export const STOCK: { id: string; alt: string; svg: string }[] = [
+/** `retired`: no longer offered in the picker, but still drawn, so a slide or a link made with it keeps working. */
+export const STOCK: { id: string; alt: string; svg: string; retired?: true }[] = [
   { id: "00000001", alt: "Plain gray with the Pollen Picks mark", svg: plain(BG, INK) },
-  { id: "00000002", alt: "Honey yellow with the Pollen Picks mark", svg: plain("#f6bd60", "#f7ede2") },
+  { id: "00000002", alt: "Honey yellow with the Pollen Picks mark", svg: plain("#f6bd60", "#f7ede2"), retired: true },
   { id: "00000003", alt: "Sage green with the Pollen Picks mark", svg: plain("#84a59d", "#f7ede2") },
-  { id: "00000004", alt: "Coral with the Pollen Picks mark", svg: plain("#f28482", "#f7ede2") },
+  { id: "00000004", alt: "Coral with the Pollen Picks mark", svg: plain("#f28482", "#f7ede2"), retired: true },
   { id: "00000005", alt: "Blush pink with the Pollen Picks mark", svg: plain("#f5cac3", "#f28482") },
 ];
 
@@ -33,4 +34,4 @@ export const isStockId = (id: unknown): id is string => typeof id === "string" &
 export const stockSvg = (id: string) => STOCK.find((s) => s.id === id)?.svg;
 
 /** The stock pictures in the shape the picture picker lists (the address is a data URI the browser can show as it is). */
-export const STOCK_IMAGES: IssueImage[] = STOCK.map((s) => ({ id: s.id, src: `data:image/svg+xml;utf8,${encodeURIComponent(s.svg)}`, alt: s.alt }));
+export const STOCK_IMAGES: IssueImage[] = STOCK.filter((s) => !s.retired).map((s) => ({ id: s.id, src: `data:image/svg+xml;utf8,${encodeURIComponent(s.svg)}`, alt: s.alt }));

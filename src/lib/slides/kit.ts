@@ -66,7 +66,9 @@ export const fetchLogo = (raw: string): Promise<Logo | null> => fetchImage(raw, 
 export const fetchPhoto = (raw: string): Promise<Logo | null> => fetchImage(sized(raw, PHOTO_WIDTH), PHOTO_MAX_BYTES, photoCache, 12, true);
 
 /** Pictures on other sites are often WebP or AVIF, or several MB: for photos those are downloaded (up to this size) and turned into a ~1000px JPEG. */
-const PHOTO_DOWNLOAD_MAX = 8_000_000;
+const PHOTO_DOWNLOAD_MAX = 25_000_000;
+/** Those big originals (a design exported as a 2560px PNG is often 5 to 15 MB) also need longer than a logo to arrive. */
+const PHOTO_TIMEOUT_MS = 15_000;
 
 async function fetchImage(raw: string, maxBytes: number, cache: Cached, keep: number, convert = false): Promise<Logo | null> {
   const hit = cache.get(raw);
@@ -79,7 +81,7 @@ async function fetchImage(raw: string, maxBytes: number, cache: Cached, keep: nu
       const res = await fetch(url, {
         redirect: "manual",
         headers: { Accept: convert ? "image/jpeg,image/png,image/gif,image/webp,image/avif;q=0.9,image/*;q=0.5" : "image/png,image/jpeg,image/gif;q=0.8", "User-Agent": "PollenPicks/1.0 (+https://pollenpicks.netlify.app)" },
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(convert ? PHOTO_TIMEOUT_MS : TIMEOUT_MS),
         cache: "no-store",
       });
       if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
@@ -92,7 +94,10 @@ async function fetchImage(raw: string, maxBytes: number, cache: Cached, keep: nu
         if (convert) console.warn(`[photo] skipped ${url.href}: HTTP ${res.status}, content-type "${type}"`);
         break;
       }
-      if (Number(res.headers.get("content-length") ?? 0) > (convert ? PHOTO_DOWNLOAD_MAX : maxBytes)) break;
+      if (Number(res.headers.get("content-length") ?? 0) > (convert ? PHOTO_DOWNLOAD_MAX : maxBytes)) {
+        if (convert) console.warn(`[photo] skipped ${url.href}: ${res.headers.get("content-length")} bytes is over the limit`);
+        break;
+      }
       let buf: Buffer = Buffer.from(await res.arrayBuffer());
       if (buf.length > (convert ? PHOTO_DOWNLOAD_MAX : maxBytes)) break;
       // The slide renderer draws PNG, JPEG and GIF only, and a photo has to stay small: anything else (or anything big) becomes a JPEG.

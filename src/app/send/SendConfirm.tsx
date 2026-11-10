@@ -25,9 +25,10 @@ import {
   type CaptionOrder,
   type CaptionVariant,
 } from "@/lib/caption";
-import { imageLimit, serviceLabel, unsupportedReason } from "@/lib/channels";
+import { imageLimit, serviceKey, serviceLabel, unsupportedReason } from "@/lib/channels";
 import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
+import type { LinkedinFormat } from "@/lib/linkedinFormat";
 import { clearResume, clearSendBatches, loadFormat, loadSendBatches, saveSendBatches } from "@/lib/progress";
 import type { HistoryEntry } from "@/lib/postHistory";
 import type { PostIntent } from "@/lib/bufferPost";
@@ -105,6 +106,7 @@ export function SendConfirm({
   link,
   backHref,
   demo,
+  linkedinFormat = "pdf",
 }: {
   urls: string[];
   channels: Channel[];
@@ -121,6 +123,8 @@ export function SendConfirm({
   backHref: string;
   /** Public demo: the final action opens an account prompt and never creates drafts. */
   demo?: { signedIn: boolean };
+  /** How LinkedIn gets the slides (Settings > LinkedIn format): only shown as a note here, the server decides when it sends. */
+  linkedinFormat?: LinkedinFormat;
 }) {
   // What was written on the Write step, read from this browser once mounted.
   const [choice, setChoice] = useState<Choice | "missing" | null>(null);
@@ -619,6 +623,22 @@ export function SendConfirm({
             demo={Boolean(demo)}
             fit={(service) => fitIssues(service, { slideCount: urls.length, caption: captionFor(variantFor(service)) })}
           />
+          {!demo && chosen.some((c) => serviceKey(c.service) === "linkedin") && (
+            <p className="mb-0 mt-4 rounded-2xl bg-surface p-4 text-sm ring-1 ring-ink/15">
+              {linkedinFormat === "pdf" ? (
+                <>
+                  <span className="font-bold">LinkedIn gets a PDF carousel.</span> All {plural(urls.length, "slide")} in one swipeable document. If LinkedIn doesn&rsquo;t take it, the slides go as images instead.
+                </>
+              ) : (
+                <>
+                  <span className="font-bold">LinkedIn gets separate images.</span> LinkedIn shows several images as a grid with the edges cropped.
+                </>
+              )}{" "}
+              <a href="/settings?section=linkedin" target="_blank" rel="noopener" className="font-bold underline underline-offset-4">
+                Change in Settings
+              </a>
+            </p>
+          )}
         </fieldset>
       </div>
         </>

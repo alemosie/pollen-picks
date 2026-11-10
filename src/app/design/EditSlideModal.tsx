@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Camera, Check, Flower2, ImagePlus, Link2, Loader2, Newspaper, Palette, User, X, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Camera, Check, ChevronDown, Flower2, ImagePlus, Link2, Loader2, Newspaper, Palette, User, X, type LucideIcon } from "lucide-react";
 import { SourceLink } from "./SourceLink";
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
@@ -15,7 +15,7 @@ import { cleanHandle } from "@/lib/pollen/url";
 import { MAX_PHOTO_LINKS, PHOTO_MAX_PICKS, type SlideItem } from "@/lib/slides/types";
 import { oneLineLimit } from "@/lib/slides/plan";
 import { usePalette } from "@/components/usePalette";
-import { DEFAULT_COLORS, sameColor } from "@/lib/brand";
+import { colorsFromPalette, DEFAULT_COLORS, sameColor } from "@/lib/brand";
 import { textOn } from "@/app/settings/PaletteEditor";
 import { isDemo, previewMode } from "@/lib/flow";
 import { STOCK_IMAGES } from "@/lib/slides/stock";
@@ -47,8 +47,9 @@ export function previewSrc(
   mode?: string,
   sv?: string,
   width = 540,
+  pal?: string,
 ): string {
-  const p = templateParams({ spec, sv });
+  const p = templateParams({ spec, sv, pal });
   return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}${previewMode(mode)}&fmt=web&w=${width}`;
 }
 
@@ -65,6 +66,7 @@ export function EditSlideModal({
   picks,
   mode,
   styleVersion,
+  pal,
   placed,
   onSave,
   onClose,
@@ -78,15 +80,19 @@ export function EditSlideModal({
   picks: string;
   mode?: string;
   styleVersion?: string;
+  /** The demo's palette, for the preview addresses. */
+  pal?: string;
   placed: number;
   onSave: (s: CustomSpec) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState<CustomSpec>(() => structuredClone(spec));
-  // Picks whose photo credit field was opened by hand (it is also shown whenever a credit is set).
+  // Picks whose photo credit field is open for editing. A credit that is set shows as one quiet line until then.
   const [creditOpen, setCreditOpen] = useState<number[]>([]);
   const palette = usePalette();
+  // What the slides are drawn in: the standard colors, or the ones the palette gives.
+  const colors = colorsFromPalette(palette);
   const byId = new Map(items.map((i) => [i.id!, i]));
   const settled = useSettled(draft, 500);
   // Edits are batched: nothing reaches the carousel until the window closes (Done, ✕, Esc or a click outside).
@@ -120,6 +126,10 @@ export function EditSlideModal({
       for (const k of Object.keys(e) as (keyof PickEdit)[]) {
         const v = e[k];
         if (v === undefined) continue;
+        if (k === "hideTag") {
+          if (v) out.hideTag = true;
+          continue;
+        }
         const original = k === "title" ? base?.title : k === "photoCredit" ? "" : (base?.[k] ?? "");
         if (k === "tag") {
           // Typed by hand: only a real handle counts. Emptied on purpose it stays empty, which removes the one found in the pick's link.
@@ -128,7 +138,7 @@ export function EditSlideModal({
           out[k] = handle;
           continue;
         }
-        if (v === original) continue;
+        if (v === original || typeof v !== "string") continue;
         out[k] = v;
       }
       if (Object.keys(out).length) edits[Number(key)] = out;
@@ -148,7 +158,6 @@ export function EditSlideModal({
       }),
       edits: Object.keys(edits).length ? edits : undefined,
       bgs: d.bgs?.some(Boolean) ? d.bgs : undefined,
-      hideTags: d.hideTags?.some(Boolean) ? d.hideTags : undefined,
     };
   };
   const closing = () => {
@@ -201,11 +210,15 @@ export function EditSlideModal({
   const setClosingPhoto = (v: string) =>
     setDraft((d) => ({ ...d, closing: { ...d.closing, photo: v || undefined, photoMode: v ? (d.closing?.photoMode ?? "section") : undefined } }));
   const setClosingPhotoMode = (m: "section" | "background") => setDraft((d) => ({ ...d, closing: { ...d.closing, photoMode: m } }));
-  const setEdit = (id: number, key: keyof PickEdit, v: string) =>
+  const setEdit = (id: number, key: Exclude<keyof PickEdit, "hideTag">, v: string) =>
     setDraft((d) => ({
       ...d,
       edits: { ...d.edits, [id]: { ...d.edits?.[id], [key]: v } },
     }));
+
+  /** Whether this pick's @handle is drawn on its card (it is in the caption either way). */
+  const setShowTag = (id: number, show: boolean) =>
+    setDraft((d) => ({ ...d, edits: { ...d.edits, [id]: { ...d.edits?.[id], hideTag: show ? undefined : true } } }));
 
   const nd = normalize(draft);
   const slideIndex = target.kind === "slide" ? target.index : -1;
@@ -217,10 +230,10 @@ export function EditSlideModal({
         : draft.bgs?.[slideIndex];
   const defaultBg =
     target.kind === "cover"
-      ? DEFAULT_COLORS.accent
+      ? colors.accent
       : target.kind === "closing"
-        ? DEFAULT_COLORS.card
-        : DEFAULT_COLORS.background;
+        ? colors.card
+        : colors.background;
   const setBg = (v: string) =>
     setDraft((d) => {
       if (target.kind === "cover")
@@ -233,10 +246,11 @@ export function EditSlideModal({
       return { ...d, bgs };
     });
 
-  /** The color a pick's card has on the slide: the chosen one, else the template's alternating default. */
+  /** The color a pick's card has on the slide: the chosen one, else the slide's own color when it has one (it paints the cards too), else the template's alternating default. */
   const cardColor = (id: number, i: number) =>
     draft.edits?.[id]?.bg ||
-    (i % 2 === 0 ? DEFAULT_COLORS.card : DEFAULT_COLORS.accent);
+    currentBg ||
+    (i % 2 === 0 ? colors.card : colors.accent);
 
   /** A card that is (nearly) the color of its slide or of this window would vanish, so it gets an outline in both. */
   const blends = (color: string) =>
@@ -248,7 +262,7 @@ export function EditSlideModal({
       ? !!nd.cover
       : target.kind === "closing"
         ? !!nd.closing
-        : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex] || !!nd.hideTags?.[slideIndex];
+        : ids.some((id) => nd.edits?.[id]) || !!nd.bgs?.[slideIndex];
   const revert = () =>
     setDraft((d) => {
       if (target.kind === "cover") return { ...d, cover: undefined };
@@ -257,17 +271,14 @@ export function EditSlideModal({
       for (const id of d.slides[target.index] ?? []) delete edits[id];
       const bgs = [...(d.bgs ?? [])];
       bgs[target.index] = "";
-      const hideTags = [...(d.hideTags ?? [])];
-      hideTags[target.index] = false;
       return {
         ...d,
         edits: Object.keys(edits).length ? edits : undefined,
         bgs,
-        hideTags,
       };
     });
 
-  const value = (id: number, key: keyof PickEdit) =>
+  const value = (id: number, key: Exclude<keyof PickEdit, "hideTag">): string =>
     draft.edits?.[id]?.[key] ??
     (key === "title" ? byId.get(id)?.title : key === "photoCredit" ? "" : byId.get(id)?.[key]) ??
     "";
@@ -312,14 +323,14 @@ export function EditSlideModal({
         </div>
         <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-7 py-4 md:grid-cols-[17rem_minmax(0,1fr)]">
           <div className="grid content-start gap-3 md:sticky md:top-0">
-            <SlidePreview src={previewSrc(picks, normalize(settled), target, mode, styleVersion)} alt="Slide preview" />
+            <SlidePreview src={previewSrc(picks, normalize(settled), target, mode, styleVersion, 540, pal)} alt="Slide preview" />
             <div role="group" aria-labelledby="bg-heading" className="grid gap-2">
               <div className="flex items-center gap-1.5">
                 <span id="bg-heading" className="text-sm font-semibold">
                   {target.kind === "slide" ? "Slide background" : "Background"}
                 </span>
                 <a
-                  href="/settings?section=colors"
+                  href="/settings?section=brand#brand-colors"
                   target="_blank"
                   rel="noreferrer"
                   title="Edit your palette in settings"
@@ -354,30 +365,6 @@ export function EditSlideModal({
                   Fills in the category label of every pick on this slide. Each pick keeps its label if you move it.
                 </span>
               </label>
-            )}
-            {target.kind === "slide" && ids.some((id) => value(id, "tag")) && (
-              <div>
-                <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ink">
-                  <input
-                    type="checkbox"
-                    checked={!draft.hideTags?.[target.index]}
-                    onChange={(e) =>
-                      setDraft((d) => {
-                        const hideTags = [...(d.hideTags ?? [])];
-                        while (hideTags.length <= target.index) hideTags.push(false);
-                        hideTags[target.index] = !e.target.checked;
-                        return { ...d, hideTags };
-                      })
-                    }
-                    aria-describedby="tags-hint"
-                    className="size-5 shrink-0 accent-ink"
-                  />
-                  Credit Instagram accounts
-                </label>
-                <p id="tags-hint" className="mb-0 mt-1 text-xs">
-                  Shows @handle on this slide&rsquo;s picks that have an Instagram tag. The caption keeps the tags either way.
-                </p>
-              </div>
             )}
           </div>
           <div className="grid content-start gap-5">
@@ -487,7 +474,7 @@ export function EditSlideModal({
                     <CardColor
                       palette={palette}
                       value={draft.edits?.[id]?.bg}
-                      fallback={i % 2 === 0 ? DEFAULT_COLORS.card : DEFAULT_COLORS.accent}
+                      fallback={currentBg || (i % 2 === 0 ? colors.card : colors.accent)}
                       onPick={(v) => setEdit(id, "bg", v)}
                       label={`Card color for pick ${i + 1}`}
                     />
@@ -501,105 +488,6 @@ export function EditSlideModal({
                       className={input}
                     />
                   </label>
-                  {ids.length <= PHOTO_MAX_PICKS && (
-                    <PhotoPicker
-                      images={images ?? []}
-                      linkImages={link.images[id] ?? []}
-                      builtIn={STOCK_IMAGES}
-                      saved={savedOn ? saved : undefined}
-                      loadingLink={link.loading}
-                      issueLast
-                      note={savedOn ? undefined : DEMO_PICTURES_NOTE}
-                      value={value(id, "photo")}
-                      onPick={(v) => choosePhoto(id, v)}
-                      label={`Picture for pick ${i + 1}`}
-                    />
-                  )}
-                  {value(id, "photo") && ids.length <= PHOTO_MAX_PICKS &&
-                    (value(id, "photoCredit") || creditOpen.includes(id) ? (
-                      <label className="grid gap-1 text-sm font-semibold">
-                        Photo credit
-                        <input
-                          value={value(id, "photoCredit")}
-                          maxLength={SPEC_LIMITS.photoCredit}
-                          placeholder="@handle or site name (empty for no credit)"
-                          autoFocus={creditOpen.includes(id) && !value(id, "photoCredit")}
-                          onChange={(e) => setEdit(id, "photoCredit", e.target.value)}
-                          className={input}
-                        />
-                        <span className="mt-1 text-xs font-normal">Goes in the caption (&ldquo;📷 Photos: …&rdquo;), not on the slide. Short captions for X, Bluesky, Threads and Mastodon leave it out.</span>
-                      </label>
-                    ) : (
-                      <button type="button" onClick={() => setCreditOpen((o) => [...o, id])} className="inline-flex items-center gap-1.5 justify-self-start rounded-lg px-1 py-0.5 text-sm font-bold underline underline-offset-4">
-                        <Camera aria-hidden className="size-4" strokeWidth={2.25} />
-                        Add photo credit
-                      </button>
-                    ))}
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Category label
-                    <input
-                      value={value(id, "group")}
-                      maxLength={SPEC_LIMITS.group}
-                      placeholder="None"
-                      onChange={(e) => setEdit(id, "group", e.target.value)}
-                      className={input}
-                    />
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold">
-                    Instagram tag
-                    <span className="flex items-center gap-1.5">
-                      <span aria-hidden className="text-lg font-bold">
-                        @
-                      </span>
-                      <input
-                        value={value(id, "tag")}
-                        maxLength={100}
-                        placeholder="None"
-                        autoCapitalize="none"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        aria-invalid={Boolean(value(id, "tag")) && !cleanHandle(value(id, "tag"))}
-                        aria-describedby={`tag-hint-${id}`}
-                        onChange={(e) => setEdit(id, "tag", e.target.value.replace(/\s/g, "").replace(/^@+/, ""))}
-                        // A pasted profile link becomes its handle once you leave the field.
-                        onBlur={(e) => {
-                          const h = cleanHandle(e.target.value);
-                          if (h && h !== e.target.value) setEdit(id, "tag", h);
-                        }}
-                        className={`${input} min-w-0 flex-1`}
-                      />
-                    </span>
-                    {value(id, "tag") && !cleanHandle(value(id, "tag")) ? (
-                      <span id={`tag-hint-${id}`} role="alert" className="mt-1 text-xs font-bold">
-                        That isn&rsquo;t an Instagram handle. Use letters, numbers, periods and underscores (up to 30), or paste the profile link. It is left out until it is.
-                      </span>
-                    ) : (
-                      <span id={`tag-hint-${id}`} className="mt-1 text-xs font-normal">
-                        Shown on this pick&rsquo;s card and added to the Instagram caption as @handle after the title.
-                        {byId.get(id)?.tag ? ` Found in the link: @${byId.get(id)!.tag}. Clear the field to leave it out.` : ""}
-                      </span>
-                    )}
-                  </label>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="grid gap-1 text-sm font-semibold">
-                      Date &amp; time
-                      <input
-                        value={value(id, "when")}
-                        maxLength={SPEC_LIMITS.when}
-                        onChange={(e) => setEdit(id, "when", e.target.value)}
-                        className={input}
-                      />
-                    </label>
-                    <label className="grid gap-1 text-sm font-semibold">
-                      Place
-                      <input
-                        value={value(id, "place")}
-                        maxLength={SPEC_LIMITS.place}
-                        onChange={(e) => setEdit(id, "place", e.target.value)}
-                        className={input}
-                      />
-                    </label>
-                  </div>
                   <label className="grid gap-1 text-sm font-semibold">
                     Description
                     <textarea
@@ -620,6 +508,142 @@ export function EditSlideModal({
                       </span>
                     )}
                   </label>
+                  {ids.length <= PHOTO_MAX_PICKS && (
+                    <PhotoPicker
+                      images={images ?? []}
+                      linkImages={link.images[id] ?? []}
+                      builtIn={STOCK_IMAGES}
+                      saved={savedOn ? saved : undefined}
+                      loadingLink={link.loading}
+                      issueLast
+                      note={savedOn ? undefined : DEMO_PICTURES_NOTE}
+                      value={value(id, "photo")}
+                      onPick={(v) => choosePhoto(id, v)}
+                      label={`Picture for pick ${i + 1}`}
+                    />
+                  )}
+                  {value(id, "photo") && ids.length <= PHOTO_MAX_PICKS &&
+                    (creditOpen.includes(id) ? (
+                      <label className="grid gap-1 text-sm font-semibold">
+                        Photo credit
+                        <span className="flex items-center gap-2">
+                          <input
+                            value={value(id, "photoCredit")}
+                            maxLength={SPEC_LIMITS.photoCredit}
+                            placeholder="@handle or site name (empty for no credit)"
+                            autoFocus
+                            onChange={(e) => setEdit(id, "photoCredit", e.target.value)}
+                            className={`${input} min-w-0 flex-1`}
+                          />
+                          <button type="button" onClick={() => setCreditOpen((o) => o.filter((x) => x !== id))} className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold underline underline-offset-4">
+                            Done
+                          </button>
+                        </span>
+                        <span className="mt-1 text-xs font-normal">Goes in the caption (&ldquo;📷 Photos: …&rdquo;), not on the slide. Short captions for X, Bluesky, Threads and Mastodon leave it out.</span>
+                      </label>
+                    ) : value(id, "photoCredit") ? (
+                      // A credit that is set stays out of the way: one quiet line, with the field a click away.
+                      <p className="m-0 text-sm leading-relaxed">
+                        <Camera aria-hidden className="mr-1.5 inline size-4 align-text-bottom" strokeWidth={2.25} />
+                        Credit: {value(id, "photoCredit")}
+                        <span className="ml-2 whitespace-nowrap">
+                          <button type="button" onClick={() => setCreditOpen((o) => [...o, id])} className="rounded px-1 font-bold underline underline-offset-4">
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => setEdit(id, "photoCredit", "")} className="ml-1 rounded px-1 font-bold underline underline-offset-4">
+                            Remove
+                          </button>
+                        </span>
+                      </p>
+                    ) : (
+                      <button type="button" onClick={() => setCreditOpen((o) => [...o, id])} className="inline-flex items-center gap-1.5 justify-self-start rounded-lg px-1 py-0.5 text-sm font-bold underline underline-offset-4">
+                        <Camera aria-hidden className="size-4" strokeWidth={2.25} />
+                        Add photo credit
+                      </button>
+                    ))}
+                  <details className="group grid gap-3 border-t border-current/20 pt-3">
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current [&::-webkit-details-marker]:hidden">
+                      <ChevronDown aria-hidden className="size-4 shrink-0 transition-transform group-open:rotate-180" strokeWidth={2.5} />
+                      <span className="whitespace-nowrap">More details</span>
+                      {/* On a phone what is set goes on a line of its own, under the label, so neither is squeezed. */}
+                      <span className="w-full min-w-0 pl-6 text-xs font-normal group-open:hidden sm:w-auto sm:flex-1 sm:truncate sm:pl-0">
+                        {[value(id, "group") && "Category label", value(id, "tag") && "Instagram tag", value(id, "when") && "Date & time", value(id, "place") && "Place"].filter(Boolean).join(" · ")}
+                      </span>
+                    </summary>
+                    <div className="grid gap-5 pt-1">
+                      <label className="grid gap-1 text-sm font-semibold">
+                        Category label
+                        <input
+                          value={value(id, "group")}
+                          maxLength={SPEC_LIMITS.group}
+                          placeholder="None"
+                          onChange={(e) => setEdit(id, "group", e.target.value)}
+                          className={input}
+                        />
+                      </label>
+                      <label className="grid gap-1 text-sm font-semibold">
+                        Instagram tag
+                        <span className="flex items-center gap-1.5">
+                          <span aria-hidden className="text-lg font-bold">
+                            @
+                          </span>
+                          <input
+                            value={value(id, "tag")}
+                            maxLength={100}
+                            placeholder="None"
+                            autoCapitalize="none"
+                            autoCorrect="off"
+                            spellCheck={false}
+                            aria-invalid={Boolean(value(id, "tag")) && !cleanHandle(value(id, "tag"))}
+                            aria-describedby={`tag-hint-${id}`}
+                            onChange={(e) => setEdit(id, "tag", e.target.value.replace(/\s/g, "").replace(/^@+/, ""))}
+                            // A pasted profile link becomes its handle once you leave the field.
+                            onBlur={(e) => {
+                              const h = cleanHandle(e.target.value);
+                              if (h && h !== e.target.value) setEdit(id, "tag", h);
+                            }}
+                            className={`${input} min-w-0 flex-1`}
+                          />
+                        </span>
+                        {value(id, "tag") && !cleanHandle(value(id, "tag")) ? (
+                          <span id={`tag-hint-${id}`} role="alert" className="mt-1 text-xs font-bold">
+                            That isn&rsquo;t an Instagram handle. Use letters, numbers, periods and underscores (up to 30), or paste the profile link. It is left out until it is.
+                          </span>
+                        ) : (
+                          <span id={`tag-hint-${id}`} className="mt-1 text-xs font-normal">
+                            Added to the Instagram caption as @handle after the title, and shown on this pick&rsquo;s card.
+                            {byId.get(id)?.tag ? ` Found in the link: @${byId.get(id)!.tag}. Clear the field to leave it out.` : ""}
+                          </span>
+                        )}
+                      </label>
+                      {value(id, "tag") && cleanHandle(value(id, "tag")) && (
+                        <label className="-mt-2 inline-flex cursor-pointer items-center gap-2.5 text-sm font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-current">
+                          <input type="checkbox" checked={!draft.edits?.[id]?.hideTag} onChange={(e) => setShowTag(id, e.target.checked)} className="size-5 shrink-0 accent-ink" />
+                          Show @handle on the slide
+                        </label>
+                      )}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="grid gap-1 text-sm font-semibold">
+                          Date &amp; time
+                          <input
+                            value={value(id, "when")}
+                            maxLength={SPEC_LIMITS.when}
+                            onChange={(e) => setEdit(id, "when", e.target.value)}
+                            className={input}
+                          />
+                        </label>
+                        <label className="grid gap-1 text-sm font-semibold">
+                          Place
+                          <input
+                            value={value(id, "place")}
+                            maxLength={SPEC_LIMITS.place}
+                            onChange={(e) => setEdit(id, "place", e.target.value)}
+                            className={input}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </details>
                 </fieldset>
               ))}
           </div>
@@ -784,7 +808,7 @@ function PhotoPicker({
         <span className="text-sm font-semibold">Picture</span>
         {loadingLink && <span className="hidden text-xs font-normal sm:inline">Checking this pick&rsquo;s link…</span>}
       </div>
-      <div className="flex items-center gap-2 overflow-x-auto p-1">
+      <div className="-m-1 flex items-center gap-2 overflow-x-auto p-2">
         <button type="button" onClick={() => onPick("")} aria-pressed={!value} className={`${TILE} ${!value ? TILE_ON : ""}`}>
           None
         </button>

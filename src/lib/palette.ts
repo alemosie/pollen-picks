@@ -11,6 +11,15 @@ export const MAX_COLORS = 8;
 
 export const DEFAULT_PALETTE: string[] = [DEFAULT_COLORS.background, DEFAULT_COLORS.accent, DEFAULT_COLORS.card, DEFAULT_COLORS.chip, DEFAULT_COLORS.highlight, DEFAULT_COLORS.text];
 
+/** The demo has no account to keep a palette in, so its slide addresses carry it: "f6bd60-f7ede2-..." (hex codes without the #), or undefined for the standard one. */
+export const palParam = (palette: readonly string[]): string | undefined =>
+  palette.length >= MIN_COLORS && palette.length <= MAX_COLORS && palette.every((c) => isHex(c)) && palette.join().toLowerCase() !== DEFAULT_PALETTE.join().toLowerCase()
+    ? palette.map((c) => c.slice(1).toLowerCase()).join("-")
+    : undefined;
+/** The other way: a palette from an address, or null for anything that is not 2 to 8 hex codes. */
+export const palFromParam = (v: string | null | undefined): string[] | null =>
+  v && /^[0-9a-f]{6}(-[0-9a-f]{6}){1,7}$/i.test(v) ? v.split("-").map((h) => `#${h.toLowerCase()}`) : null;
+
 export const isHex = (v: string) => /^#[0-9a-f]{6}$/i.test(v);
 
 /** "#abc", "ABCDEF", "#aabbcc" -> "#aabbcc"; anything else -> null. */

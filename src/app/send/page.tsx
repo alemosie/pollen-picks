@@ -13,7 +13,7 @@ import { demoUrlFrom, parseLinkMode, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
-import { currentStyleVersion } from "@/lib/slideStyleStore";
+import { currentStyleVersion, loadLinkedinFormat } from "@/lib/slideStyleStore";
 import { coverTitle, parseTemplateFromPage, templateParams, pickEditsFor } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
 import { SendConfirm } from "./SendConfirm";
@@ -56,7 +56,11 @@ async function SendContent({
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
   // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
-  const [issue, channels] = await Promise.all([t.step("issue", loadAppIssue(mode)), t.step("channels (Buffer)", listChannels(session.accessToken))]);
+  const [issue, channels, linkedinFormat] = await Promise.all([
+    t.step("issue", loadAppIssue(mode)),
+    t.step("channels (Buffer)", listChannels(session.accessToken)),
+    t.step("LinkedIn format", loadLinkedinFormat(session.userId)),
+  ]);
   if (!issue) redirect("/source");
   const known = await t.step("handles", knownForPicks(issue.chunks, ids));
   const report = t.report();
@@ -90,6 +94,7 @@ async function SendContent({
         picks={ids}
         source={mode}
         template={extra}
+        linkedinFormat={linkedinFormat}
         link={issue.url}
         captionItems={captionItemsFor(
           issue.chunks,

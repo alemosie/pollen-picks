@@ -1,7 +1,8 @@
-import { ArrowLeft, Building2, Images, LayoutTemplate, LogOut, Newspaper, Palette, type LucideIcon } from "lucide-react";
+import { Images, LogOut, Newspaper, Palette, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { BackToApp } from "@/components/BackToApp";
 import { ApifyConnect } from "@/components/ApifyConnect";
 import { BeehiivConnect } from "@/components/BeehiivConnect";
 import { BeehiivLogo } from "@/components/BeehiivLogo";
@@ -17,11 +18,13 @@ import { db } from "@/lib/db";
 import { getApifyConnection, getBeehiivConnection, withOrganization } from "@/lib/connections";
 import { lookupAllowance } from "@/lib/instagramHandles";
 import { PaletteSync } from "@/components/PaletteSync";
-import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
+import { currentSlideSettings, loadLinkedinFormat, loadSlideStyle } from "@/lib/slideStyleStore";
+import { resolveSection } from "@/lib/settingsSections";
 import { settingsPreviews } from "@/lib/slides/settingsPreview";
 import { DEFAULT_STYLE } from "@/lib/slides/style";
 import { listPhotoLinks, MAX_PHOTO_LINKS } from "@/lib/userPhotoLinks";
 import { DeleteMyData } from "./DeleteMyData";
+import { LinkedinFormatEditor } from "./LinkedinFormatEditor";
 import { OrganizationEditor } from "./OrganizationEditor";
 import { PaletteEditor } from "./PaletteEditor";
 import { PhotosManager } from "./PhotosManager";
@@ -30,16 +33,20 @@ import { SlideStyleEditor } from "./SlideStyleEditor";
 export const metadata = { title: "Settings · Pollen Picks" };
 
 /** The sections, in the order the navigator lists them. The first is the default; `?section=` picks another, so each is linkable. */
-const SECTIONS: { id: string; label: string; hint: string; icon?: LucideIcon }[] = [
+const SECTIONS: { id: string; label: string; hint: string; icon?: LucideIcon; /** A network's mark instead of an icon. */ service?: string }[] = [
   { id: "newsletter", label: "Newsletter", hint: "Connect beehiiv", icon: Newspaper },
-  { id: "organization", label: "Organization", hint: "Name and logo", icon: Building2 },
-  { id: "instagram", label: "Instagram tagging", hint: "Account lookups" },
-  { id: "style", label: "Slide style", hint: "Header, footer and font", icon: LayoutTemplate },
-  { id: "colors", label: "Slide colors", hint: "Your palette", icon: Palette },
+  { id: "brand", label: "Brand", hint: "Name, logo, colors, slide style", icon: Palette },
+  { id: "instagram", label: "Instagram tagging", hint: "Account lookups", service: "instagram" },
+  { id: "linkedin", label: "LinkedIn format", hint: "Carousel or images", service: "linkedin" },
   { id: "photos", label: "Photos", hint: "Your saved picture links", icon: Images },
   { id: "account", label: "Account", hint: "Log out", icon: LogOut },
 ];
-const parseSection = (v: string | string[] | undefined) => SECTIONS.find((s) => s.id === (Array.isArray(v) ? v[0] : v))?.id ?? SECTIONS[0].id;
+// The old names (organization, style, colors) open Brand, where those three now are.
+const parseSection = (v: string | string[] | undefined) =>
+  resolveSection(
+    v,
+    SECTIONS.map((s) => s.id),
+  );
 
 export default function Settings(props: PageProps<"/settings">) {
   return (
@@ -71,16 +78,10 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
             <span className="max-sm:absolute max-sm:bottom-full max-sm:right-0 max-sm:mb-1">
               <SavedFlash />
             </span>
-            <Link
-              href="/source"
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-surface px-4 py-2.5 font-bold ring-1 ring-ink/15 transition hover:ring-ink/40"
-            >
-              <ArrowLeft aria-hidden className="size-4" />
-              Back to the app
-            </Link>
+            <BackToApp />
           </div>
         </div>
-        <p className="mb-0 max-w-2xl text-lg">Connect your newsletter, add your organization, set up Instagram tagging and choose how your slides look.</p>
+        <p className="mb-0 max-w-2xl text-lg">Connect your newsletter, set up your brand, set up Instagram tagging and choose how LinkedIn gets your slides.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-10">
@@ -99,7 +100,7 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
                       on ? "bg-ink text-cream" : "bg-surface ring-1 ring-ink/15 hover:ring-ink/40"
                     }`}
                   >
-                    {s.icon ? <s.icon aria-hidden className="size-4 shrink-0" strokeWidth={2.25} /> : <ChannelIcon service="instagram" className="size-4 shrink-0" />}
+                    {s.icon ? <s.icon aria-hidden className="size-4 shrink-0" strokeWidth={2.25} /> : <ChannelIcon service={s.service ?? "instagram"} className="size-4 shrink-0" />}
                     <span className="min-w-0">
                       {s.label}
                       <span className={`hidden text-xs font-normal md:block ${on ? "text-cream/80" : "text-ink/70"}`}>{s.hint}</span>
@@ -114,9 +115,8 @@ async function SettingsContent({ searchParams }: { searchParams: Promise<Record<
         <div className="min-w-0" aria-label={current.label} role="region">
           {section === "newsletter" && <NewsletterSection userId={session.userId} />}
           {section === "instagram" && <InstagramSection userId={session.userId} />}
-          {section === "organization" && <OrganizationSection userId={session.userId} />}
-          {section === "style" && <StyleSection userId={session.userId} />}
-          {section === "colors" && <PaletteEditor />}
+          {section === "linkedin" && <LinkedinSection userId={session.userId} />}
+          {section === "brand" && <BrandSection userId={session.userId} />}
           {section === "photos" && <PhotosSection userId={session.userId} />}
           {section === "account" && <AccountSection userId={session.userId} token={session.accessToken} />}
         </div>
@@ -195,15 +195,8 @@ async function InstagramSection({ userId }: { userId: string }) {
   );
 }
 
-async function StyleSection({ userId }: { userId: string }) {
-  const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).then((c) => withOrganization(userId, c)).catch(() => null)]);
-  return (
-    <SlideStyleEditor
-      initial={saved?.style ?? DEFAULT_STYLE}
-      previews={settingsPreviews(userId, saved?.version, saved?.palette?.[0])}
-      orgFallback={conn?.publications[0]?.organization}
-    />
-  );
+async function LinkedinSection({ userId }: { userId: string }) {
+  return <LinkedinFormatEditor initial={await loadLinkedinFormat(userId)} />;
 }
 
 /** The Buffer account behind this login: asked from Buffer now, with the email saved at login as the fallback. */
@@ -279,7 +272,24 @@ async function PhotosSection({ userId }: { userId: string }) {
   return <PhotosManager initial={links} max={MAX_PHOTO_LINKS} />;
 }
 
-async function OrganizationSection({ userId }: { userId: string }) {
+/**
+ * Brand: what makes the slides yours, in one place. The organization (name and logo), the palette and the slide style used to be three sections; they are
+ * its three parts now, and the Design step's "Your brand" strip links here. The organization and the style share the beehiiv lookup, so it is done once.
+ */
+async function BrandSection({ userId }: { userId: string }) {
   const [saved, conn] = await Promise.all([loadSlideStyle(userId), getBeehiivConnection(userId).then((c) => withOrganization(userId, c)).catch(() => null)]);
-  return <OrganizationEditor initialName={saved?.style.orgName ?? ""} initialLogo={saved?.style.orgLogo ?? null} orgFallback={conn?.publications[0]?.organization} />;
+  const orgFallback = conn?.publications[0]?.organization;
+  return (
+    <section aria-labelledby="brand" className="grid gap-8">
+      <div>
+        <h2 id="brand" className="mb-1 text-2xl">
+          Brand
+        </h2>
+        <p className="m-0 max-w-2xl text-sm">Your name, logo, colors and slide style, in one place. Changes save as you make them and show on every carousel you make.</p>
+      </div>
+      <OrganizationEditor initialName={saved?.style.orgName ?? ""} initialLogo={saved?.style.orgLogo ?? null} orgFallback={orgFallback} />
+      <PaletteEditor />
+      <SlideStyleEditor initial={saved?.style ?? DEFAULT_STYLE} previews={settingsPreviews(userId, saved?.version, saved?.palette?.[0])} orgFallback={orgFallback} />
+    </section>
+  );
 }

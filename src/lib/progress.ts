@@ -180,3 +180,7 @@ export function clearProgress() {
     dropLegacy();
   } catch {}
 }
+
+/** The step the user was on, when it is a page of the app (not Settings itself, and never another site); else the first step. */
+export const resumeHref = (href: string | undefined | null): string => (href && /^\/(?!\/)/.test(href) && !/^\/settings(\/|\?|#|$)/.test(href) ? href : "/source");
+

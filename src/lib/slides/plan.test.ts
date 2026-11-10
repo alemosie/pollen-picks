@@ -76,7 +76,7 @@ test("planCustom: an empty category edit removes the label; a shared label becom
 
 test("planCustom: hidden tags, at most 4 per slide, spec text beats options", () => {
   const items = [1, 2, 3, 4, 5].map((i) => it(i, { tag: "t" }));
-  const s = planCustom(items, { slides: [[1, 2, 3, 4, 5]], hideTags: [true], cover: { title: "Mine" } }, { ...opts, heading: "Theirs" });
+  const s = planCustom(items, { slides: [[1, 2, 3, 4, 5]], edits: Object.fromEntries([1, 2, 3, 4, 5].map((i) => [i, { hideTag: true }])), cover: { title: "Mine" } }, { ...opts, heading: "Theirs" });
   const p = s[1];
   assert.ok(p.kind === "picks");
   assert.equal(p.items.length, 4);
@@ -140,8 +140,8 @@ test("planCustom: a tag set by hand replaces the one from the link, and an empty
   // Left alone, a pick keeps the tag from its link.
   const same = planCustom(items, { slides: [[2]] }, opts)[1];
   assert.ok(same.kind === "picks" && same.items[0].tag === "from.link");
-  // A slide that hides tags hides these too.
-  const hidden = planCustom(items, { slides: [[1]], hideTags: [true], edits: { 1: { tag: "by.hand" } } }, opts)[1];
+  // A pick that hides its tag hides this one too.
+  const hidden = planCustom(items, { slides: [[1]], edits: { 1: { tag: "by.hand", hideTag: true } } }, opts)[1];
   assert.ok(hidden.kind === "picks" && hidden.items[0].tag === undefined);
 });
 

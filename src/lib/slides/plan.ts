@@ -127,7 +127,7 @@ export type PlanOptions = {
   spec?: CustomSpec;
   /** The id of the issue's own preview image: the cover's background when the design doesn't choose a picture (or "None") for it. */
   defaultCoverPhoto?: string;
-  /** Keep each pick's Instagram tag on its card. On unless false: then the tags are dropped here, before packing. (A hand-built slide can also hide its own, see CustomSpec.hideTags.) */
+  /** Keep each pick's Instagram tag on its card. On unless false: then the tags are dropped here, before packing. (A hand-built pick can also hide its own, see PickEdit.hideTag.) */
   showTags?: boolean;
 };
 
@@ -146,14 +146,14 @@ export function planCustom(items: SlideItem[], spec: CustomSpec, opts: PlanOptio
       place: e.place !== undefined ? e.place.trim() || null : base.place,
       blurb: e.blurb !== undefined ? e.blurb.trim() || undefined : base.blurb,
       group: e.group !== undefined ? e.group.trim() || undefined : base.group,
-      tag: e.tag !== undefined ? e.tag || undefined : base.tag, // set by hand, or removed on purpose ("")
+      tag: e.hideTag ? undefined : e.tag !== undefined ? e.tag || undefined : base.tag, // set by hand, or removed on purpose (""), or left off this card (hideTag)
       bg: e.bg || undefined,
       photoId: e.photo || undefined,
     };
   };
   const placedSlides = spec.slides
     .map((ids, i) => ({
-      g: ids.map(edited).filter((x): x is SlideItem => !!x).map((x) => (spec.hideTags?.[i] ? { ...x, tag: undefined } : x)).slice(0, 4),
+      g: ids.map(edited).filter((x): x is SlideItem => !!x).slice(0, 4),
       bg: spec.bgs?.[i] || undefined,
     }))
     .filter((x) => x.g.length > 0)

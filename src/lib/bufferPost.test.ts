@@ -487,3 +487,62 @@ describe("fake mode behaves like Buffer on its bad days", () => {
     assert.equal(draft.ok, true);
   });
 });
+
+describe("createChannelPost: alt text and documents", () => {
+  const refused = (message: string) => json({ data: { createPost: { message } } });
+
+  test("each image carries its alt text as metadata.altText, escaped like the caption", async () => {
+    stubFetch(() => created());
+    await createChannelPost("tok", input({ alts: ['Canal Yoga, "Sat 14 Nov"', "Little Sprouts"] }));
+    const q = calls[0].query;
+    assert.ok(q.includes('{ image: { url: "https://example.test/a.png", metadata: { altText: "Canal Yoga, \\"Sat 14 Nov\\"" } } }'));
+    assert.ok(q.includes('{ image: { url: "https://example.test/b.png", metadata: { altText: "Little Sprouts" } } }'));
+  });
+  test("a slide with no alt text is sent as a plain image (metadata needs an altText whenever it is there)", async () => {
+    stubFetch(() => created());
+    await createChannelPost("tok", input({ alts: ["", "Second"] }));
+    const q = calls[0].query;
+    assert.ok(q.includes('{ image: { url: "https://example.test/a.png" } }'));
+    assert.ok(q.includes('altText: "Second"'));
+  });
+  test("a hostile alt text stays inside its string", async () => {
+    stubFetch(() => created());
+    await createChannelPost("tok", input({ alts: ['"} } }) { id } mutation { deletePost(input: {id: "x"}', "ok"] }));
+    assert.ok(calls[0].query.includes('altText: "\\"} } }) { id } mutation { deletePost(input: {id: \\"x\\"}"'));
+  });
+  test("a network that refuses the alt text by name: the same post goes once more without it", async () => {
+    stubFetch((_c, n) => (n === 1 ? refused("Invalid altText: too long for this channel.") : created("post_2")));
+    const out = await createChannelPost("tok", input({ alts: ["a", "b"] }));
+    assert.deepEqual(out, { ok: true, postId: "post_2", altDropped: true });
+    assert.equal(calls.length, 2);
+    assert.match(calls[0].query, /altText/);
+    assert.doesNotMatch(calls[1].query, /altText|metadata/);
+  });
+  test("a refusal that is not about alt text is not retried", async () => {
+    stubFetch(() => refused("LinkedIn posts cannot exceed 3000 characters."));
+    const out = await createChannelPost("tok", input({ alts: ["a", "b"] }));
+    assert.equal(out.ok, false);
+    assert.equal(calls.length, 1);
+  });
+  test("a dropped connection on a publish is never retried, even with alt text: the post may exist", async () => {
+    stubFetch(() => {
+      throw new TypeError("alt: fetch failed");
+    });
+    const out = await createChannelPost("tok", input({ intent: "now", alts: ["a", "b"] }));
+    assert.equal(out.ok === false && out.unknown, true);
+    assert.equal(calls.length, 1);
+  });
+  test("a document is sent as the post's one asset, with its cover and title", async () => {
+    stubFetch(() => created());
+    await createChannelPost("tok", input({ document: { url: "https://example.test/s.pdf", thumbnailUrl: "https://example.test/c.jpg", title: 'Issue "49"' }, alts: ["a", "b"] }));
+    const q = calls[0].query;
+    assert.ok(q.includes('assets: [{ document: { url: "https://example.test/s.pdf", thumbnailUrl: "https://example.test/c.jpg", title: "Issue \\"49\\"" } }]'));
+    assert.doesNotMatch(q, /image:|altText/);
+  });
+  test("a refused document is a plain failure here (the queue decides to send images instead), and is not retried by itself", async () => {
+    stubFetch(() => refused("altText is required"));
+    const out = await createChannelPost("tok", input({ document: { url: "https://example.test/s.pdf", thumbnailUrl: "https://example.test/c.jpg", title: "T" } }));
+    assert.equal(out.ok, false);
+    assert.equal(calls.length, 1);
+  });
+});

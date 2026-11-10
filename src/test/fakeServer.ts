@@ -25,7 +25,9 @@ createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", `http://127.0.0.1:${PORT}`);
     const chunks: Buffer[] = [];
     for await (const c of req) chunks.push(c as Buffer);
-    const body = Buffer.concat(chunks).toString("utf8");
+    const raw = Buffer.concat(chunks);
+    const body = raw.toString("utf8");
+    const isStorage = url.pathname.includes("/storage/v1/");
     const send = (status: number, payload: unknown) => {
       res.writeHead(status, { "Content-Type": "application/json" });
       res.end(JSON.stringify(payload));
@@ -38,7 +40,7 @@ createServer(async (req, res) => {
     }
     const headers = new Headers();
     for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
-    const r = db.handle(url, { method: req.method, headers, body: body || undefined });
+    const r = db.handle(url, { method: req.method, headers, body: isStorage ? new Uint8Array(raw) : body || undefined });
     res.writeHead(r.status, Object.fromEntries(r.headers.entries()));
     res.end(Buffer.from(await r.arrayBuffer()));
   } catch (e) {

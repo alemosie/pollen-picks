@@ -99,11 +99,11 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
   const standard = style.top === DEFAULT_STYLE.top && style.bottom === DEFAULT_STYLE.bottom && style.bottomRight === DEFAULT_STYLE.bottomRight && style.font === DEFAULT_STYLE.font;
 
   return (
-    <section aria-labelledby="slide-style" className="rounded-2xl bg-card p-4 sm:p-6">
+    <section id="brand-style" aria-labelledby="slide-style" className="scroll-mt-6 rounded-2xl bg-card p-4 sm:p-6">
       <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
-        <h2 id="slide-style" className="m-0 text-2xl">
+        <h3 id="slide-style" className="m-0 text-xl">
           Slide style
-        </h2>
+        </h3>
         <span role="status" className="text-sm font-semibold">
           {busy ? "Saving…" : ""}
         </span>
@@ -120,7 +120,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
           {orgChosen && !orgSet && (
             <p className="m-0 -mt-3 border-l-4 border-honey pl-3 text-sm font-semibold">
               {orgFallback ? <>Your organization shows as &ldquo;{orgFallback}&rdquo; from beehiiv, without a logo. </> : <>You haven&rsquo;t set up your organization yet, so that corner stays empty. </>}
-              <Link href="/settings?section=organization" className="underline underline-offset-4">
+              <Link href="/settings?section=brand#brand-organization" className="underline underline-offset-4">
                 {orgFallback ? "Add a name or logo" : "Set up your organization"}
               </Link>
               .
@@ -210,7 +210,7 @@ export function SlideStyleEditor({ initial, previews, orgFallback }: { initial: 
           </div>
           <figcaption aria-live="polite" className="mt-2 text-xs">
             {slide === 0 ? "Sample slide 1 of 2. No category label, as on most slides." : "Sample slide 2 of 2. A slide whose picks share a category shows it in the header."} Your own picks use the same style. The background is the first color of{" "}
-            <Link href="/settings?section=colors" className="font-semibold underline underline-offset-2">
+            <Link href="/settings?section=brand#brand-colors" className="font-semibold underline underline-offset-2">
               your palette
             </Link>
             .

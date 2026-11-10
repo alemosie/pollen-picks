@@ -2,7 +2,8 @@
 // and the send queue (which draws the final slides once and stores them, see ../slideStore) both come through here, so a stored slide is
 // exactly the slide the person saw.
 
-import { DEFAULT_COLORS } from "../brand";
+import { colorsFromPalette } from "../brand";
+import { palFromParam } from "../palette";
 import type { IssueData } from "../demo";
 import { knownForPicks } from "../instagramHandles";
 import { linkImagesFor } from "../pollen/linkImages";
@@ -11,6 +12,7 @@ import { photoLinkUrl } from "../userPhotoLinks";
 import { slideItemsFor } from "./items";
 import { styleKit, withCoverPhoto, withPhotos } from "./kit";
 import type { parseTemplateFrom } from "./options";
+import { altTexts } from "./alt";
 import { planSlides } from "./plan";
 import { renderSlide } from "./render";
 import { DEFAULT_STYLE } from "./style";
@@ -27,6 +29,8 @@ export type SlideSetInput = {
 
 export type SlideSet = {
   count: number;
+  /** What each slide says, for its alt text (see ./alt). */
+  alts: string[];
   /** One slide as an HTTP response (the route sends it on as is; the queue reads its bytes and content type). */
   render(n: number, opts?: { web?: { width: number }; smallJpeg?: boolean }): Promise<Response>;
 };
@@ -42,6 +46,7 @@ export async function prepareSlideSet(i: SlideSetInput): Promise<SlideSet | null
   const savedLink = uid ? (id: string) => photoLinkUrl(uid, id) : undefined;
   return {
     count: slides.length,
+    alts: altTexts(slides),
     async render(n, opts = {}) {
       const slide = slides[n];
       const drawn =
@@ -55,7 +60,7 @@ export async function prepareSlideSet(i: SlideSetInput): Promise<SlideSet | null
             ...(saved?.styled ? { styled: true as const } : {}),
           }
         : {};
-      return renderSlide(drawn, { name: issue.newsletter, colors: DEFAULT_COLORS, ...kit }, opts.web, { smallJpeg: opts.smallJpeg });
+      return renderSlide(drawn, { name: issue.newsletter, colors: colorsFromPalette(uid ? saved?.palette : palFromParam(i.template.pal)), ...kit }, opts.web, { smallJpeg: opts.smallJpeg });
     },
   };
 }
