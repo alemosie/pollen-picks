@@ -15,7 +15,7 @@ export function SlideFit({ channels, slideCount }: { channels: Channel[]; slideC
   const anyCut = networks.some(([s]) => slideCount > imageLimit(s));
   return (
     <aside aria-label="Slide limits" className="grid content-start gap-2 text-sm">
-      <p className="m-0 font-semibold">Fits on</p>
+      <p className="m-0 text-base font-semibold">Fits on</p>
       <ul className="m-0 grid list-none gap-2 p-0">
         {networks.map(([service, n]) => {
           const room = imageLimit(service);

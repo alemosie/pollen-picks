@@ -1,3 +1,4 @@
+import { palFromParam } from "../palette";
 import { isImageId } from "@/lib/pollen/imageIds";
 import { cleanHandle } from "@/lib/pollen/url";
 import { PHOTO_MAX_PICKS } from "./types";
@@ -14,6 +15,8 @@ export type TemplateOptions = {
   spec?: CustomSpec;
   /** Version (a number) of the signed-in user's slide style from Settings. Only there so a changed style is a new address, never a cached image. */
   sv?: string;
+  /** The demo's palette (see palParam in ../palette): signed-in slides use the saved one. */
+  pal?: string;
 };
 
 /** Text changes a user made to one pick. A key that is present replaces the original (an empty string clears it). */
@@ -259,6 +262,7 @@ export function parseTemplate(get: Getter): TemplateOptions {
     cta: text("cta"),
     spec: decodeSpec(get("spec")),
     sv: /^\d{1,13}$/.test(get("sv") ?? "") ? get("sv")! : undefined,
+    pal: palFromParam(get("pal")) ? get("pal")!.toLowerCase() : undefined,
   };
 }
 
@@ -278,5 +282,6 @@ export function templateParams(o: TemplateOptions): URLSearchParams {
     if (o[k]) p.set(k, o[k]!);
   if (o.spec) p.set("spec", encodeSpec(o.spec));
   if (o.sv) p.set("sv", o.sv);
+  if (o.pal) p.set("pal", o.pal);
   return p;
 }

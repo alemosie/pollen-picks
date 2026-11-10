@@ -47,8 +47,9 @@ export function previewSrc(
   mode?: string,
   sv?: string,
   width = 540,
+  pal?: string,
 ): string {
-  const p = templateParams({ spec, sv });
+  const p = templateParams({ spec, sv, pal });
   return `/api/slide/preview?picks=${picks}&n=${previewIndex(spec, target)}&${p.toString()}${previewMode(mode)}&fmt=web&w=${width}`;
 }
 
@@ -65,6 +66,7 @@ export function EditSlideModal({
   picks,
   mode,
   styleVersion,
+  pal,
   placed,
   onSave,
   onClose,
@@ -78,6 +80,8 @@ export function EditSlideModal({
   picks: string;
   mode?: string;
   styleVersion?: string;
+  /** The demo's palette, for the preview addresses. */
+  pal?: string;
   placed: number;
   onSave: (s: CustomSpec) => void;
   onClose: () => void;
@@ -312,14 +316,14 @@ export function EditSlideModal({
         </div>
         <div className="grid min-h-0 flex-1 gap-6 overflow-y-auto px-7 py-4 md:grid-cols-[17rem_minmax(0,1fr)]">
           <div className="grid content-start gap-3 md:sticky md:top-0">
-            <SlidePreview src={previewSrc(picks, normalize(settled), target, mode, styleVersion)} alt="Slide preview" />
+            <SlidePreview src={previewSrc(picks, normalize(settled), target, mode, styleVersion, 540, pal)} alt="Slide preview" />
             <div role="group" aria-labelledby="bg-heading" className="grid gap-2">
               <div className="flex items-center gap-1.5">
                 <span id="bg-heading" className="text-sm font-semibold">
                   {target.kind === "slide" ? "Slide background" : "Background"}
                 </span>
                 <a
-                  href="/settings?section=colors"
+                  href="/settings?section=brand#brand-colors"
                   target="_blank"
                   rel="noreferrer"
                   title="Edit your palette in settings"

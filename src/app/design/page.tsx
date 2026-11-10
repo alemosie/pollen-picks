@@ -13,7 +13,7 @@ import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
 import { slideItemsFor } from "@/lib/slides/items";
 import { PaletteSync } from "@/components/PaletteSync";
-import { currentSlideSettings } from "@/lib/slideStyleStore";
+import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { listChannels } from "@/lib/buffer";
 import { TemplateEditor } from "./TemplateEditor";
@@ -58,9 +58,10 @@ async function DesignContent({
   if (!issue) redirect("/source");
   // The picks' handles and the slide settings don't depend on each other, so they load together.
   // The channels (Buffer) only say how many slides each network takes: if they can't be read the page just goes without that list.
-  const [known, { version, palette }, channels] = await Promise.all([
+  const [known, { version, palette }, savedStyle, channels] = await Promise.all([
     t.step("handles", knownForPicks(issue.chunks, ids)),
     t.step("settings", currentSlideSettings()),
+    t.step("brand", loadSlideStyle(session.userId)),
     t.step("channels (Buffer)", listChannels(session.accessToken).catch(() => undefined)),
   ]);
   const items = slideItemsFor(issue.chunks, ids, known);
@@ -83,6 +84,7 @@ async function DesignContent({
         images={issue.images}
         picks={ids}
         channels={channels}
+        brand={{ name: savedStyle?.style.orgName ?? "", fallbackName: issue.publication?.organization, logo: savedStyle?.style.orgLogo ?? null }}
         initial={{ ...parseTemplateFromPage(sp), sv: version }}
       />
     </main>

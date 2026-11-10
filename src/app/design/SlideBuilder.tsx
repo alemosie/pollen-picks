@@ -11,20 +11,23 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { PuffIcon } from "@/components/PuffIcon";
 import { usePalette } from "@/components/usePalette";
 import { DEFAULT_COLORS } from "@/lib/brand";
 import {
   MAX_CUSTOM_SLIDES,
   MAX_PER_SLIDE,
+  parseTemplateFrom,
+  templateParams,
   type CustomSpec,
 } from "@/lib/slides/options";
+import { altTexts } from "@/lib/slides/alt";
 import { planSlides } from "@/lib/slides/plan";
 import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
 import { PickSelectModal } from "./PickSelectModal";
-import { EditSlideModal, Swatches, previewSrc, type Target } from "./EditSlideModal";
+import { EditSlideModal, Swatches, previewIndex, previewSrc, type Target } from "./EditSlideModal";
 import { textOn } from "../settings/PaletteEditor";
 import { SlidePreview } from "./SlidePreview";
 import { SourceLink } from "./SourceLink";
@@ -39,6 +42,7 @@ export function SlideBuilder({
   mode,
   spec,
   styleVersion,
+  pal,
   fit,
   onChange,
 }: {
@@ -53,6 +57,8 @@ export function SlideBuilder({
   spec: CustomSpec;
   /** Version of the user's slide style (Settings). Part of every preview address, so a changed style is never served from a cache. */
   styleVersion?: string;
+  /** The demo's palette, for the preview addresses. */
+  pal?: string;
   onChange: (s: CustomSpec) => void;
 }) {
   const [editing, setEditing] = useState<Target | null>(null);
@@ -68,6 +74,12 @@ export function SlideBuilder({
   const [selecting, setSelecting] = useState<number | null>(null);
   const settled = useSettled(spec, 500);
   const palette = usePalette();
+  // The alt text each slide is sent with (see slides/alt.ts), worked out the way the send does it (the same plan, from the same settled design), so what
+  // the "ALT" button shows is what the networks get.
+  const alts = useMemo(() => {
+    const tpl = parseTemplateFrom(templateParams({ spec: settled }));
+    return altTexts(planSlides(items, { newsletter, ...tpl }));
+  }, [items, newsletter, settled]);
   // Which thumbnail's background-color popover is open ("cover", "closing" or "slide-<n>"), closed by a click anywhere else or Escape.
   const [swatchOpen, setSwatchOpen] = useState<string | null>(null);
   useEffect(() => {
@@ -268,7 +280,7 @@ export function SlideBuilder({
         </span>
       ) : (
         <>
-          <SlidePreview fill src={previewSrc(picks, settled, t, mode, styleVersion, 320)} alt="" eager={false} />
+          <SlidePreview fill src={previewSrc(picks, settled, t, mode, styleVersion, 320, pal)} alt="" eager={false} />
           <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-ink/80 py-1 text-xs font-bold text-cream opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">
             <Pencil aria-hidden className="size-3" /> Edit slide
           </span>
@@ -324,6 +336,38 @@ export function SlideBuilder({
     );
   };
 
+  /** "ALT" beside the color circle: the description this slide is sent with (to Buffer, as the image's alt text, so screen readers can say what it shows). Shown on hover, focus or click. */
+  const altButton = (t: Target, label: string) => {
+    const key = `alt-${t.kind === "slide" ? `slide-${t.index}` : t.kind}`;
+    const text = alts[previewIndex(settled, t)];
+    if (!text) return null;
+    const open = swatchOpen === key;
+    return (
+      <div data-swatch-pop className="group/alt relative">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setSwatchOpen((k) => (k === key ? null : key));
+          }}
+          aria-label={`Alt text of ${label}: ${text}`}
+          aria-expanded={open}
+          className="grid h-8 place-items-center rounded-full px-2.5 text-[11px] font-bold tracking-wide text-ink ring-1 ring-ink/25 hover:ring-2 hover:ring-ink"
+        >
+          ALT
+        </button>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`absolute bottom-full right-0 z-30 mb-2 w-max max-w-56 rounded-xl bg-surface p-3 shadow-lg ring-1 ring-ink/15 ${open ? "block" : "hidden group-hover/alt:block"}`}
+        >
+          <p className="m-0 mb-1 text-xs font-bold">Alt text</p>
+          <p className="m-0 text-sm">{text}</p>
+          <p className="m-0 mt-2 text-xs text-ink/70">Sent with this slide so screen readers can describe it. It is the slide&rsquo;s own text, so edit the slide to change it.</p>
+        </div>
+      </div>
+    );
+  };
+
   const fixed = (t: Target, name: string, hint: string) => (
     <div className="relative flex items-center gap-4 rounded-2xl bg-surface p-3 ring-1 ring-ink/10">
       {thumb(t, name)}
@@ -332,7 +376,10 @@ export function SlideBuilder({
         <p className="m-0 text-sm">{hint}</p>
       </div>
       <div className="absolute right-3 top-3">{editButton(t, name)}</div>
-      <div className="absolute bottom-3 right-3">{colorPicker(t, name)}</div>
+      <div className="absolute bottom-3 right-3 flex items-center gap-2">
+        {altButton(t, name)}
+        {colorPicker(t, name)}
+      </div>
     </div>
   );
 
@@ -574,7 +621,12 @@ export function SlideBuilder({
                     ))}
                   </ul>
                 )}
-                {ids.length > 0 && <div className="mt-auto flex justify-end pt-2">{colorPicker({ kind: "slide", index: si }, `slide ${si + 1}`)}</div>}
+                {ids.length > 0 && (
+                  <div className="mt-auto flex items-center justify-end gap-2 pt-2">
+                    {altButton({ kind: "slide", index: si }, `slide ${si + 1}`)}
+                    {colorPicker({ kind: "slide", index: si }, `slide ${si + 1}`)}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -764,6 +816,7 @@ export function SlideBuilder({
           picks={picks}
           mode={mode}
           styleVersion={styleVersion}
+          pal={pal}
           placed={placed}
           onSave={onChange}
           onClose={() => setEditing(null)}

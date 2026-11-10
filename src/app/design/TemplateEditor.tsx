@@ -24,6 +24,10 @@ import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
 import { useStyleVersion } from "@/lib/useStyleVersion";
 import type { Channel } from "@/components/ChannelPicker";
+import type { BrandInfo } from "@/lib/brandSummary";
+import { usePalette } from "@/components/usePalette";
+import { palParam } from "@/lib/palette";
+import { BrandPanel } from "./BrandPanel";
 import { SlideBuilder } from "./SlideBuilder";
 import { SlideFit } from "./SlideFit";
 import { SlidesReadyGate } from "./SlidesReadyGate";
@@ -40,6 +44,7 @@ export function TemplateEditor({
   images,
   picks,
   channels,
+  brand,
   initial,
 }: {
   /** Content source: "demo" is the public sample, with its own /demo pages. */
@@ -54,11 +59,16 @@ export function TemplateEditor({
   picks: number[];
   /** The channels the carousel can go to, to say how many slides each takes (none: nothing to show). */
   channels?: Channel[];
+  /** The organization name and logo saved in Settings, for the "Your brand" strip (none: nothing is set, as in the demo). */
+  brand?: BrandInfo;
   initial: TemplateOptions;
 }) {
   const scope = issueKey ? `${mode}|${issueKey}` : mode;
   // A style changed in Settings since this page was drawn shows at once, even if the page itself was not rendered again.
   const sv = useStyleVersion(initial.sv);
+  // The demo has no account to keep a palette in: the one chosen in this browser rides along in the slide addresses (and on to the next steps).
+  const palette = usePalette();
+  const pal = isDemo(mode) ? palParam(palette) : undefined;
   // The URL only carries a layout once you've moved on; otherwise pick up where you left off (mode and slides) from this browser.
   // undefined = not read yet (the server, and the first client render): the page doesn't know yet whether a saved layout exists.
   const stored = useSyncExternalStore<string | null | undefined>(
@@ -101,7 +111,7 @@ export function TemplateEditor({
   const placed = clean.slides.flat().length;
   const slideCount = clean.slides.filter((g) => g.length).length;
 
-  const applied: TemplateOptions = { ...(custom ? { spec: clean } : {}), sv };
+  const applied: TemplateOptions = { ...(custom ? { spec: clean } : {}), sv, pal };
   const extra = templateParams(applied).toString();
   const q = picks.join(",");
   const query = `picks=${q}${extra ? `&${extra}` : ""}`;
@@ -112,6 +122,13 @@ export function TemplateEditor({
 
   const standard = planSlides(items, { newsletter });
   const fit = channels ? <SlideFit channels={channels} slideCount={custom ? slideCount + 2 : standard.length} /> : null;
+  // The sidebar: the brand, then which networks take all the slides. (Below the slides on a phone.)
+  const side = (
+    <div className="grid gap-6">
+      <BrandPanel brand={brand} demo={isDemo(mode)} />
+      {fit}
+    </div>
+  );
   return (
     // The step stays behind the loading animation until every slide preview has been drawn, so a refresh never shows frames that look like lost slides.
     <SlidesReadyGate layoutKnown={layoutKnown}>
@@ -169,7 +186,8 @@ export function TemplateEditor({
             mode={mode}
             spec={clean}
             styleVersion={sv}
-            fit={fit}
+            pal={pal}
+            fit={side}
             onChange={setSpec}
           />
         ) : (
@@ -179,7 +197,7 @@ export function TemplateEditor({
             {standard.map((s, i) => (
               <li key={i} className="flex flex-col gap-2">
                 <SlidePreview
-                  src={`/api/slide/preview?picks=${q}&n=${i}${sv ? `&sv=${sv}` : ""}${previewMode(mode)}&fmt=web&w=540`}
+                  src={`/api/slide/preview?picks=${q}&n=${i}${sv ? `&sv=${sv}` : ""}${pal ? `&pal=${pal}` : ""}${previewMode(mode)}&fmt=web&w=540`}
                   alt={`Slide ${i + 1} of ${standard.length}`}
                   hold={!layoutKnown}
                   eager={i < 5}
@@ -195,7 +213,7 @@ export function TemplateEditor({
               </li>
             ))}
           </ol>
-          {fit && <div className="lg:sticky lg:top-4">{fit}</div>}
+          <div className="lg:sticky lg:top-4">{side}</div>
           </div>
         )}
 
