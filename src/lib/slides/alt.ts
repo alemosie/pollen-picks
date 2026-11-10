@@ -27,7 +27,8 @@ export function clipAlt(text: string, max = ALT_MAX): string {
 export function altTextFor(slide: Slide): string {
   if (slide.kind === "cover") return clipAlt([slide.title, slide.subtitle].filter(Boolean).join(". "));
   if (slide.kind === "closing") return clipAlt([slide.title, slide.line].filter(Boolean).join(". "));
-  const parts = slide.items.map((it) => [squash(it.title), it.when ? squash(it.when) : ""].filter(Boolean).join(", ")).filter(Boolean);
+  // A pick with no title says its description instead, so it still has words for a screen reader.
+  const parts = slide.items.map((it) => [squash(it.title) || squash(it.blurb ?? ""), it.when ? squash(it.when) : ""].filter(Boolean).join(", ")).filter(Boolean);
   return clipAlt(parts.join("; "));
 }
 

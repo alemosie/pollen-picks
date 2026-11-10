@@ -13,6 +13,10 @@ describe("alt text", () => {
     const s: Slide = { kind: "picks", items: [{ title: "Canal Yoga", when: "Sat 14 Nov" }, { title: "Story Time" }], page: 1, pages: 1 };
     assert.equal(altTextFor(s), "Canal Yoga, Sat 14 Nov; Story Time");
   });
+  test("a pick with no title says its description instead", () => {
+    const s: Slide = { kind: "picks", items: [{ title: "", blurb: "Songs and stories for babies", when: "Sat 14 Nov" }, { title: "  ", blurb: "Bring a blanket" }], page: 1, pages: 1 };
+    assert.equal(altTextFor(s), "Songs and stories for babies, Sat 14 Nov; Bring a blanket");
+  });
   test("the closing slide says its title and line", () => {
     const s: Slide = { kind: "closing", title: "See you next week", line: "Subscribe", more: 0 };
     assert.equal(altTextFor(s), "See you next week. Subscribe");
