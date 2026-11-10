@@ -82,6 +82,8 @@ async function loadLinkIssue(id: string, asUid?: string): Promise<IssueResult> {
         thumbnail: source.image ?? undefined,
         chunks,
         hasClicks: false,
+        // Always a list, even an empty one: its being set is what turns on the picture row for the picks (the pages they link to are read from there).
+        images: extractIssueImages("", { base: source.url, thumbnail: source.image ?? undefined }),
       },
     };
   } catch (e) {
