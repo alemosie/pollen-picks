@@ -15,7 +15,7 @@ import { cleanHandle } from "@/lib/pollen/url";
 import { MAX_PHOTO_LINKS, PHOTO_MAX_PICKS, type SlideItem } from "@/lib/slides/types";
 import { oneLineLimit } from "@/lib/slides/plan";
 import { usePalette } from "@/components/usePalette";
-import { DEFAULT_COLORS, sameColor } from "@/lib/brand";
+import { colorsFromPalette, DEFAULT_COLORS, sameColor } from "@/lib/brand";
 import { textOn } from "@/app/settings/PaletteEditor";
 import { isDemo, previewMode } from "@/lib/flow";
 import { STOCK_IMAGES } from "@/lib/slides/stock";
@@ -88,9 +88,11 @@ export function EditSlideModal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState<CustomSpec>(() => structuredClone(spec));
-  // Picks whose photo credit field was opened by hand (it is also shown whenever a credit is set).
+  // Picks whose photo credit field is open for editing. A credit that is set shows as one quiet line until then.
   const [creditOpen, setCreditOpen] = useState<number[]>([]);
   const palette = usePalette();
+  // What the slides are drawn in: the standard colors, or the ones the palette gives.
+  const colors = colorsFromPalette(palette);
   const byId = new Map(items.map((i) => [i.id!, i]));
   const settled = useSettled(draft, 500);
   // Edits are batched: nothing reaches the carousel until the window closes (Done, ✕, Esc or a click outside).
@@ -221,10 +223,10 @@ export function EditSlideModal({
         : draft.bgs?.[slideIndex];
   const defaultBg =
     target.kind === "cover"
-      ? DEFAULT_COLORS.accent
+      ? colors.accent
       : target.kind === "closing"
-        ? DEFAULT_COLORS.card
-        : DEFAULT_COLORS.background;
+        ? colors.card
+        : colors.background;
   const setBg = (v: string) =>
     setDraft((d) => {
       if (target.kind === "cover")
@@ -237,10 +239,11 @@ export function EditSlideModal({
       return { ...d, bgs };
     });
 
-  /** The color a pick's card has on the slide: the chosen one, else the template's alternating default. */
+  /** The color a pick's card has on the slide: the chosen one, else the slide's own color when it has one (it paints the cards too), else the template's alternating default. */
   const cardColor = (id: number, i: number) =>
     draft.edits?.[id]?.bg ||
-    (i % 2 === 0 ? DEFAULT_COLORS.card : DEFAULT_COLORS.accent);
+    currentBg ||
+    (i % 2 === 0 ? colors.card : colors.accent);
 
   /** A card that is (nearly) the color of its slide or of this window would vanish, so it gets an outline in both. */
   const blends = (color: string) =>
@@ -491,7 +494,7 @@ export function EditSlideModal({
                     <CardColor
                       palette={palette}
                       value={draft.edits?.[id]?.bg}
-                      fallback={i % 2 === 0 ? DEFAULT_COLORS.card : DEFAULT_COLORS.accent}
+                      fallback={currentBg || (i % 2 === 0 ? colors.card : colors.accent)}
                       onPick={(v) => setEdit(id, "bg", v)}
                       label={`Card color for pick ${i + 1}`}
                     />
@@ -520,19 +523,38 @@ export function EditSlideModal({
                     />
                   )}
                   {value(id, "photo") && ids.length <= PHOTO_MAX_PICKS &&
-                    (value(id, "photoCredit") || creditOpen.includes(id) ? (
+                    (creditOpen.includes(id) ? (
                       <label className="grid gap-1 text-sm font-semibold">
                         Photo credit
-                        <input
-                          value={value(id, "photoCredit")}
-                          maxLength={SPEC_LIMITS.photoCredit}
-                          placeholder="@handle or site name (empty for no credit)"
-                          autoFocus={creditOpen.includes(id) && !value(id, "photoCredit")}
-                          onChange={(e) => setEdit(id, "photoCredit", e.target.value)}
-                          className={input}
-                        />
+                        <span className="flex items-center gap-2">
+                          <input
+                            value={value(id, "photoCredit")}
+                            maxLength={SPEC_LIMITS.photoCredit}
+                            placeholder="@handle or site name (empty for no credit)"
+                            autoFocus
+                            onChange={(e) => setEdit(id, "photoCredit", e.target.value)}
+                            className={`${input} min-w-0 flex-1`}
+                          />
+                          <button type="button" onClick={() => setCreditOpen((o) => o.filter((x) => x !== id))} className="shrink-0 rounded-lg px-2 py-1 text-sm font-bold underline underline-offset-4">
+                            Done
+                          </button>
+                        </span>
                         <span className="mt-1 text-xs font-normal">Goes in the caption (&ldquo;📷 Photos: …&rdquo;), not on the slide. Short captions for X, Bluesky, Threads and Mastodon leave it out.</span>
                       </label>
+                    ) : value(id, "photoCredit") ? (
+                      // A credit that is set stays out of the way: one quiet line, with the field a click away.
+                      <p className="m-0 text-sm leading-relaxed">
+                        <Camera aria-hidden className="mr-1.5 inline size-4 align-text-bottom" strokeWidth={2.25} />
+                        Credit: {value(id, "photoCredit")}
+                        <span className="ml-2 whitespace-nowrap">
+                          <button type="button" onClick={() => setCreditOpen((o) => [...o, id])} className="rounded px-1 font-bold underline underline-offset-4">
+                            Edit
+                          </button>
+                          <button type="button" onClick={() => setEdit(id, "photoCredit", "")} className="ml-1 rounded px-1 font-bold underline underline-offset-4">
+                            Remove
+                          </button>
+                        </span>
+                      </p>
                     ) : (
                       <button type="button" onClick={() => setCreditOpen((o) => [...o, id])} className="inline-flex items-center gap-1.5 justify-self-start rounded-lg px-1 py-0.5 text-sm font-bold underline underline-offset-4">
                         <Camera aria-hidden className="size-4" strokeWidth={2.25} />

@@ -14,7 +14,7 @@ import {
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import { PuffIcon } from "@/components/PuffIcon";
 import { usePalette } from "@/components/usePalette";
-import { DEFAULT_COLORS } from "@/lib/brand";
+import { colorsFromPalette } from "@/lib/brand";
 import {
   MAX_CUSTOM_SLIDES,
   MAX_PER_SLIDE,
@@ -74,6 +74,8 @@ export function SlideBuilder({
   const [selecting, setSelecting] = useState<number | null>(null);
   const settled = useSettled(spec, 500);
   const palette = usePalette();
+  // What the slides are drawn in: the standard colors, or the ones the palette gives.
+  const colors = colorsFromPalette(palette);
   // The alt text each slide is sent with (see slides/alt.ts), worked out the way the send does it (the same plan, from the same settled design), so what
   // the "ALT" button shows is what the networks get.
   const alts = useMemo(() => {
@@ -116,7 +118,7 @@ export function SlideBuilder({
 
   /** The background chosen for a slide ("" = the template's own), and what the template uses when none is chosen. */
   const bgOf = (t: Target) => (t.kind === "cover" ? spec.cover?.bg : t.kind === "closing" ? spec.closing?.bg : spec.bgs?.[t.index]) ?? "";
-  const defaultBgOf = (t: Target) => (t.kind === "cover" ? DEFAULT_COLORS.accent : t.kind === "closing" ? DEFAULT_COLORS.card : DEFAULT_COLORS.background);
+  const defaultBgOf = (t: Target) => (t.kind === "cover" ? colors.accent : t.kind === "closing" ? colors.card : colors.background);
   const setBgOf = (t: Target, v: string) => {
     const clean = <T extends object>(o: T): T | undefined => (Object.values(o).some((x) => x !== undefined && x !== "") ? o : undefined);
     if (t.kind === "cover") return onChange({ ...spec, cover: clean({ ...spec.cover, bg: v || undefined }) });
