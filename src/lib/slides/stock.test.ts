@@ -8,9 +8,14 @@ test("every built-in picture has a valid picture id, so a design can carry it, a
   for (const s of STOCK) {
     assert.ok(isImageId(s.id) && isStockId(s.id));
     assert.ok(stockSvg(s.id)!.startsWith("<svg"));
-    assert.ok(STOCK_IMAGES.some((i) => i.id === s.id && i.src.startsWith("data:image/svg+xml")));
+    assert.equal(STOCK_IMAGES.some((i) => i.id === s.id && i.src.startsWith("data:image/svg+xml")), !s.retired);
   }
   assert.equal(isStockId("0a1b2c3d"), false);
   const spec = { slides: [[1]], cover: { photo: STOCK[0].id, photoMode: "background" as const } };
   assert.deepEqual(decodeSpec(encodeSpec(spec)), spec);
+});
+
+test("the picker offers gray, sage and blush; retired ones are still drawn", () => {
+  assert.deepEqual(STOCK_IMAGES.map((i) => i.alt.split(" with")[0]), ["Plain gray", "Sage green", "Blush pink"]);
+  for (const id of ["00000002", "00000004"]) assert.ok(isStockId(id) && stockSvg(id)!.startsWith("<svg"));
 });
