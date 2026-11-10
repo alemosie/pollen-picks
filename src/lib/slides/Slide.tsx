@@ -151,8 +151,8 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
     const bgPhoto = slide.photo && slide.photoMode === "background" ? slide.photo : undefined;
     const boxPhoto = slide.photo && slide.photoMode !== "background" ? slide.photo : undefined;
     // On a picture the text is always light, over a darkening layer, whatever the slide color would have chosen.
-    const ink = bgPhoto ? CREAM : (fg ?? c.text);
-    const coverKit: Kit = bgPhoto ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
+    const ink = bgPhoto ? CREAM : (fg ?? textOn(c.accent, c.text));
+    const coverKit: Kit = bgPhoto || ink !== c.text ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
     // The corner dandelion hangs below the top margin; the picture starts below it rather than under it.
     const brandH = topChoice ? 96 : kit.logoOnAccent ?? kit.logo ? 150 : kit.nameLines ? 124 : 42;
     const puffClear = slide.puff && boxPhoto ? Math.max(0, P + PUFF_H + 28 - (P + brandH + 48)) : 0;
@@ -204,13 +204,14 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   }
   if (slide.kind === "closing") {
     const dark = !!slide.dark;
-    const fgClosing = custom ? fg! : dark ? (kit.onBackground ?? c.text) : c.text;
+    const fgClosing = custom ? fg! : dark ? (kit.onBackground ?? c.text) : textOn(c.card, c.text);
     const bgPhoto = slide.photo && slide.photoMode === "background" ? slide.photo : undefined;
     const boxPhoto = slide.photo && slide.photoMode !== "background" ? slide.photo : undefined;
     // On a picture the text is always light, over a darkening layer, whatever the slide color would have chosen.
     const onPhoto = !!bgPhoto;
     const ink = onPhoto ? CREAM : fgClosing;
-    const photoKit: Kit = onPhoto ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
+    const flipped = !custom && !dark && ink !== c.text;
+    const photoKit: Kit = onPhoto || flipped ? { ...kit, onBackground: ink, nameOnBackground: ink } : kit;
     const csz = textSizes(slide.title, slide.line, { title: 132, titleMax: 240, titleLh: 1.02, body: 46, bodyMax: 72, bodyMin: 30, room: (boxPhoto ? 380 : 700) - (slide.more > 0 ? 90 : 0) - (slide.link ? 70 : 0) });
     return (
       <div style={{ ...base, background: custom ?? (dark ? c.background : c.card), color: ink, position: "relative" }}>
@@ -224,7 +225,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
         )}
         {/* Padding lives on this inner box: the renderer offsets absolutely placed pictures by the parent's padding. */}
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", padding: P, width: SLIDE_W, height: SLIDE_H, ...(boxPhoto ? { gap: 48 } : {}) }}>
-        {topChoice ? <CornerSlot kind={topChoice} kit={kit} logoSize={96} fontSize={34} color={onPhoto ? ink : dark ? kit.nameOnBackground : undefined} maxWidth={760} lines={2} /> : <Brand kit={photoKit} size={140} logo={dark || onPhoto ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={onPhoto ? ink : dark ? kit.nameOnBackground : undefined} />}
+        {topChoice ? <CornerSlot kind={topChoice} kit={kit} logoSize={96} fontSize={34} color={onPhoto || flipped ? ink : dark ? kit.nameOnBackground : undefined} maxWidth={760} lines={2} /> : <Brand kit={photoKit} size={140} logo={dark || onPhoto ? (kit.logoOnBackground ?? kit.logo) : kit.logo} fontSize={34} color={onPhoto || flipped ? ink : dark ? kit.nameOnBackground : undefined} />}
         {boxPhoto && (
           <div style={{ display: "flex", flex: 1, minHeight: 280, maxHeight: COVER_PHOTO_MAX_H, borderRadius: 44, overflow: "hidden" }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -233,7 +234,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           {slide.more > 0 && (
-            <div style={{ display: "flex", alignSelf: "flex-start", background: c.accent, borderRadius: 999, padding: "10px 28px", fontSize: 40, fontWeight: 700 }}>
+            <div style={{ display: "flex", alignSelf: "flex-start", background: c.accent, color: textOn(c.accent, c.text), borderRadius: 999, padding: "10px 28px", fontSize: 40, fontWeight: 700 }}>
               +{slide.more} more
             </div>
           )}
@@ -284,7 +285,7 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
   return (
     <div style={{ ...base, background: custom ?? c.background, padding: P, gap: 28, color: kit.onBackground ?? c.text }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
-        <div style={{ display: "flex", background: slide.group ? c.chip : "transparent", borderRadius: 999, padding: slide.group ? "8px 26px" : 0, fontSize: 32, fontWeight: 700, color: c.text }}>
+        <div style={{ display: "flex", background: slide.group ? c.chip : "transparent", borderRadius: 999, padding: slide.group ? "8px 26px" : 0, fontSize: 32, fontWeight: 700, color: slide.group ? textOn(c.chip, c.text) : c.text }}>
           {slide.group ??
             (kit.slots ? (
               <CornerSlot kind={topKind ?? "none"} kit={kit} logoSize={64} fontSize={32} color={kit.nameOnBackground} maxWidth={720} />
@@ -299,9 +300,11 @@ export function SlideView({ slide, kit: baseKit }: { slide: Slide; kit: Kit }): 
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", flex: 1, gap: 28 }}>
-        {slide.items.map((it, i) => (
-          <Card key={i} item={it} n={n} tone={it.bg ?? cardTone(i % 2 === 0 ? c.card : c.accent, custom, c.background)} showGroup={!slide.group && n <= 2} chip={c.chip} display={DISPLAY} dw={DW} text={it.bg ? textOn(it.bg, c.text) : c.text} outline={!!it.bg && sameColor(it.bg, custom ?? c.background)} />
-        ))}
+        {slide.items.map((it, i) => {
+          // A slide color paints the whole slide, cards included: they take the slide's color and are told apart by an outline. A card with its own color keeps it.
+          const tone = it.bg ?? custom ?? (i % 2 === 0 ? c.card : c.accent);
+          return <Card key={i} item={it} n={n} tone={tone} showGroup={!slide.group && n <= 2} chip={c.chip} chipText={textOn(c.chip, c.text)} display={DISPLAY} dw={DW} text={textOn(tone, c.text)} outline={sameColor(tone, custom ?? c.background)} />;
+        })}
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", height: slide.items.length === 1 && slide.items[0].image ? 104 : 64 }}>
         {kit.slots ? (
@@ -359,9 +362,8 @@ const LOGO_H = { 1: 100, 2: 72, 3: 56, 4: 44 } as const;
 const PHOTO_H = { 1: 320, 2: 120 } as const;
 
 /** A card the same color as its slide would vanish; swap it for the kit background (or, if that is the slide color, the other card tone). */
-const cardTone = (tone: string, bg: string | undefined, fallback: string) => (bg && tone.toLowerCase() === bg.toLowerCase() ? (fallback.toLowerCase() === bg.toLowerCase() ? "#fffaf3" : fallback) : tone);
 
-function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; display: string; dw: number; text: string; outline?: boolean }) {
+function Card({ item, n, tone, showGroup, chip, chipText, display, dw, text, outline }: { item: SlideItem; n: number; tone: string; showGroup: boolean; chip: string; chipText: string; display: string; dw: number; text: string; outline?: boolean }) {
   const z = SIZES[n as 1 | 2 | 3 | 4];
   const photoH = item.photo && n <= PHOTO_MAX_PICKS ? PHOTO_H[n as 1 | 2] : 0;
   // The description gets whatever height is left after everything else on the card (chip, title, date line, @handle), so the
@@ -441,7 +443,7 @@ function Card({ item, n, tone, showGroup, chip, display, dw, text, outline }: { 
         <img src={item.photo} width={CONTENT_W - 2 * z.pad} height={photoH} alt="" style={{ borderRadius: 28, objectFit: "cover", flexShrink: 0 }} />
       )}
       {showGroup && item.group && (
-        <div style={{ display: "flex", alignSelf: "flex-start", background: chip, borderRadius: 999, padding: "4px 20px", fontSize: z.meta - 8, fontWeight: 700 }}>{item.group}</div>
+        <div style={{ display: "flex", alignSelf: "flex-start", background: chip, color: chipText, borderRadius: 999, padding: "4px 20px", fontSize: z.meta - 8, fontWeight: 700 }}>{item.group}</div>
       )}
       {item.logo && (
         <div style={{ display: "flex", alignItems: "center" }}>

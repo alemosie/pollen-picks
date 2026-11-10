@@ -45,3 +45,21 @@ export function sameColor(a: string, b: string): boolean {
   const [x, y] = [rgb(a), rgb(b)];
   return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]) < 24;
 }
+
+/**
+ * The slide colors for a saved palette. The palette's colors fill the roles in order (background, accent, card, chip, highlight; DEFAULT_PALETTE has the
+ * same order), and the standard palette, or none, gives the standard colors. The text color is chosen, not taken from the palette: of the palette's own
+ * colors and the standard ink and white, the one that reads best on the background, the cards and the cover.
+ */
+export function colorsFromPalette(palette: readonly string[] | null | undefined): KitColors {
+  if (!palette || palette.length < 2) return DEFAULT_COLORS;
+  const d = DEFAULT_COLORS;
+  const [background = d.background, accent = d.accent, card = d.card, chip = d.chip, highlight = d.highlight] = palette;
+  if (background === d.background && accent === d.accent && card === d.card && chip === d.chip && highlight === d.highlight && (palette[5] ?? d.text) === d.text) return d;
+  // Most text sits on the background, so it must read there first; among those, the one that also reads best on the cards and the cover.
+  const worst = (ink: string) => Math.min(contrast(ink, background), contrast(ink, card), contrast(ink, accent));
+  const pool = [d.text, "#ffffff", ...palette];
+  const ok = pool.filter((c) => contrast(c, background) >= 4.5);
+  const text = (ok.length ? ok : [pool.reduce((best, c) => (contrast(c, background) > contrast(best, background) ? c : best))]).reduce((best, c) => (worst(c) > worst(best) + 0.01 ? c : best));
+  return { background, text, accent, card, chip, highlight };
+}
