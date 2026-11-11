@@ -93,18 +93,17 @@ function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): str
 export const isInstagram = (service: string) => service.toLowerCase().replace(/[^a-z]/g, "") === "instagram";
 
 /**
- * The captions: Instagram has no clickable links in captions, so it points to the bio. "Long" is the one for networks with room
+ * The captions: Instagram has no clickable links in captions, so it points to the bio. "Base" is the one for networks with room
  * (LinkedIn, Facebook), with the newsletter URL. "Short" is for X, Bluesky, Threads and Mastodon: a few titles and the link.
  */
 export type CaptionVariant = "instagram" | "link" | "short";
 export const CAPTION_VARIANTS: { id: CaptionVariant; label: string }[] = [
-  { id: "link", label: "Long" },
+  { id: "link", label: "Base" },
   { id: "instagram", label: "Instagram" },
   { id: "short", label: "Short" },
 ];
-/** A caption's name where it is shown. With no Short caption beside it, "Long" is the one every text network gets, so it is called "Base". */
-export const variantLabel = (id: CaptionVariant, shown: CaptionVariant[]): string =>
-  id === "link" && !shown.includes("short") ? "Base" : CAPTION_VARIANTS.find((v) => v.id === id)!.label;
+/** A caption's name wherever it is shown (Write's tabs, Send's preview). The one for networks with room is always "Base", whether or not a Short one sits beside it. */
+export const variantLabel = (id: CaptionVariant): string => CAPTION_VARIANTS.find((v) => v.id === id)!.label;
 export const variantFor = (service: string): CaptionVariant => (isInstagram(service) ? "instagram" : SHORT_NETWORKS.has(serviceKey(service)) ? "short" : "link");
 /** Every network a caption is written for (by name, in a fixed order), whether or not the account has it connected. */
 export const networksOf = (variant: CaptionVariant): string[] => [

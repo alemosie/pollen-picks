@@ -227,8 +227,8 @@ test("limitNote: says what is over, only when something is", () => {
   assert.match(limitNote("instagram", "x".repeat(2300) + " " + handles(22)) ?? "", /\(\d+ characters over, 2 @tags over the limit of 20\)/);
 });
 
-test("variantLabel: Long is called Base when there is no Short caption beside it", () => {
-  assert.equal(variantLabel("link", ["link", "instagram"]), "Base");
-  assert.equal(variantLabel("link", ["link", "instagram", "short"]), "Long");
-  assert.equal(variantLabel("instagram", ["link", "instagram"]), "Instagram");
+test("variantLabel: the caption for networks with room is always called Base, with or without a Short one beside it", () => {
+  assert.equal(variantLabel("link"), "Base");
+  assert.equal(variantLabel("instagram"), "Instagram");
+  assert.equal(variantLabel("short"), "Short");
 });

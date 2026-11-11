@@ -9,6 +9,7 @@ import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { currentSession, toLogin } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
+import { lastSendChannelIds } from "@/lib/postHistory";
 import { demoUrlFrom, parseLinkMode, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
@@ -56,10 +57,11 @@ async function SendContent({
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
   // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
-  const [issue, channels, linkedinFormat] = await Promise.all([
+  const [issue, channels, linkedinFormat, lastSend] = await Promise.all([
     t.step("issue", loadAppIssue(mode)),
     t.step("channels (Buffer)", listChannels(session.accessToken)),
     t.step("LinkedIn format", loadLinkedinFormat(session.userId)),
+    t.step("last send", lastSendChannelIds(session.userId)),
   ]);
   if (!issue) redirect("/source");
   const known = await t.step("handles", knownForPicks(issue.chunks, ids));
@@ -91,6 +93,7 @@ async function SendContent({
             `/api/slide/preview?picks=${q}&n=${i}${extra ? `&${extra}` : ""}${previewMode(mode)}`,
         )}
         channels={channels}
+        lastSend={lastSend}
         picks={ids}
         source={mode}
         template={extra}

@@ -11,7 +11,9 @@ import { SaveCreationButton } from "@/components/SaveCreationButton";
 import { loadFormat, saveFormat } from "@/lib/progress";
 import { Check, Copy, Info, X } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
-import type { Channel } from "@/components/ChannelPicker";
+import { useChannelSelection, type Channel } from "@/components/ChannelPicker";
+import { PostingTo } from "@/components/PostingTo";
+import { fitScope } from "@/lib/postingTo";
 import { ChannelFit } from "./ChannelFit";
 import {
   CAPTION_ORDERS,
@@ -30,7 +32,7 @@ import {
   type CaptionOrder,
   type CaptionVariant,
 } from "@/lib/caption";
-import { serviceLabel, unsupportedReason } from "@/lib/channels";
+import { serviceLabel } from "@/lib/channels";
 
 /** Same accents as the pick-type tabs on /pick. */
 const ACCENT: Record<CaptionVariant, { solid: string; light: string; border: string }> = {
@@ -56,11 +58,12 @@ const list = (items: string[]) =>
   items.length <= 2 ? items.join(" and ") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 
 /**
- * Write the caption. Where it goes is chosen on the next step, so this shows a caption for each kind of network the account
- * has connected (Instagram, and "everything else"), not only for the channels that end up ticked.
+ * Write the caption. It is written for the networks ticked under "Posting to" (every connected one when none is ticked): a caption for
+ * each kind of network among them (Instagram, and "everything else"). The choice can be changed here and again on Send.
  */
 export function WriteView({
   channels,
+  lastSend,
   source,
   picks,
   captionItems,
@@ -75,6 +78,8 @@ export function WriteView({
   demo = false,
 }: {
   channels: Channel[];
+  /** The channels the user's last send went to: where the "Posting to" choice starts in a browser with none saved. */
+  lastSend?: string[];
   /** The flow mode that names the issue (the sample issue has no saving). */
   source?: string;
   picks: number[];
@@ -90,7 +95,9 @@ export function WriteView({
   /** Public demo: the channels are examples. */
   demo?: boolean;
 }) {
-  const usable = channels.filter((c) => !unsupportedReason(c.service));
+  const { selected, setSelected } = useChannelSelection(channels, demo, { lastSend, refetch: false });
+  // The caption is written for the networks that are ticked ("Posting to"); with none ticked, for every usable one.
+  const usable = fitScope(channels, selected);
   const taggedCount = captionItems.filter((i) => i.tag).length;
   const [chosenOrder, setOrder] = useState<CaptionOrder>("clicks");
   // Only the orders the picks can support: highlights have no click ranking and no dates, so they can only go A–Z.
@@ -128,6 +135,16 @@ export function WriteView({
   const generated = (variant: CaptionVariant) =>
     buildCaption(captionItems, { newsletter, author, creditLink, heading, order, variant, link, limit: limitFor(variant) });
   const captionFor = (variant: CaptionVariant) => edited[variant] ?? generated(variant);
+  // Opens a caption from "Fits on": its tab, then scrolls to the box and puts the cursor in it, so the link also does something when that tab is already open.
+  function showCaption(v: CaptionVariant) {
+    setTab(v);
+    setTimeout(() => {
+      const panel = document.getElementById("caption-panel");
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      panel?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "center" });
+      panel?.querySelector("textarea")?.focus({ preventScroll: true });
+    }, 0);
+  }
   async function copyCaption(text: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -155,7 +172,7 @@ export function WriteView({
   const visible = CAPTION_VARIANTS.filter((v) => usedBy(v.id).length > 0);
   const activeTab = visible.find((v) => v.id === tab)?.id ?? visible[0]?.id;
   const variant = CAPTION_VARIANTS.find((v) => v.id === activeTab);
-  const labelOf = (id: CaptionVariant) => variantLabel(id, visible.map((v) => v.id));
+  const labelOf = (id: CaptionVariant) => variantLabel(id);
   // The connected networks this caption is too long for (the same check as the channel list).
   // True when the only problem is too many @tags (the caption isn't too long anywhere).
   const tagsOnly = (v: CaptionVariant) => usedBy(v).every((c) => fitFor(c.service, captionFor(v)).over === 0);
@@ -173,7 +190,7 @@ export function WriteView({
             <StepWord>Write</StepWord> your {visible.length > 1 ? "captions" : "caption"}
           </h1>
           <p className="col-span-2 row-start-3 mb-0 max-w-2xl text-lg sm:col-span-1 sm:col-start-1 sm:row-start-2">
-          Choose how the caption reads. You&rsquo;ll pick where it goes, and review everything, on the next step.
+          Choose how the caption reads. You&rsquo;ll review where it goes, and everything else, on the next step.
           {demo ? " In demo mode, the channels are examples." : ""}
         </p>
           <div className="relative flex shrink-0 items-center gap-3 col-span-2 row-start-1 mb-2 justify-self-end sm:col-span-1 sm:col-start-2 sm:mb-0 sm:self-start sm:row-span-2 sm:mt-2">
@@ -325,7 +342,17 @@ export function WriteView({
         )}
       </section>
       <div className={orders.length > 1 ? "lg:col-start-2 lg:row-start-2" : "lg:col-start-2 lg:row-start-1"}>
-        <ChannelFit channels={usable} captionFor={captionFor} onShow={setTab} />
+        <div className="grid gap-6">
+          {!demo && (
+            <PostingTo
+              channels={channels}
+              selected={selected}
+              setSelected={setSelected}
+              hint={(service) => (fitFor(service, captionFor(variantFor(service))).fits ? null : "caption wouldn't fit")}
+            />
+          )}
+          <ChannelFit channels={usable} captionFor={captionFor} leftOut={leftOut} onShow={showCaption} />
+        </div>
       </div>
       </div>
 

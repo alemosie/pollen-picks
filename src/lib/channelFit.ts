@@ -17,3 +17,18 @@ export function fitIssues(service: string, o: { slideCount: number; caption: str
   if (!f.fits) issues.push("Send now saves it as a draft to shorten in Buffer.");
   return issues;
 }
+
+/**
+ * How a network's line under "Fits on" on Write reads. A caption that was only made to fit by leaving picks out is not "fits": the picks are missing.
+ *   fits   a check
+ *   over   too long (`label`: "over by N")
+ *   tags   too many @tags (`label`: "N too many tags")
+ *   cut    fits only because picks were left out (`label`: "N picks left out")
+ */
+export function captionFitState(service: string, caption: string, leftOut: number): { state: "fits" | "over" | "tags" | "cut"; label: string | null } {
+  const f = fitFor(service, caption);
+  if (f.over > 0) return { state: "over", label: `over by ${f.over.toLocaleString("en")}` };
+  if (f.mentionsOver > 0) return { state: "tags", label: `${f.mentionsOver} too many tags` };
+  if (leftOut > 0) return { state: "cut", label: `${leftOut} ${leftOut === 1 ? "pick" : "picks"} left out` };
+  return { state: "fits", label: null };
+}

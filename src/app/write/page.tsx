@@ -9,6 +9,7 @@ import { SaveStep } from "@/components/SaveStep";
 import { Track } from "@/components/Track";
 import { currentSession, toLogin } from "@/lib/auth";
 import { listChannels } from "@/lib/buffer";
+import { lastSendChannelIds } from "@/lib/postHistory";
 import { demoUrlFrom, parseLinkMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
@@ -55,7 +56,11 @@ async function WriteContent({
   if (ids.length === 0) redirect(stepUrl(mode, "pick"));
 
   // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
-  const [issue, channels] = await Promise.all([t.step("issue", loadAppIssue(mode)), t.step("channels (Buffer)", listChannels(session.accessToken))]);
+  const [issue, channels, lastSend] = await Promise.all([
+    t.step("issue", loadAppIssue(mode)),
+    t.step("channels (Buffer)", listChannels(session.accessToken)),
+    t.step("last send", lastSendChannelIds(session.userId)),
+  ]);
   if (!issue) redirect("/source");
   const q = ids.join(",");
   const known = await t.step("handles", knownForPicks(issue.chunks, ids));
@@ -78,6 +83,7 @@ async function WriteContent({
       <WriteView
         key={`${mode}|${issue.url}|${q}|${extra}`}
         channels={channels}
+        lastSend={lastSend}
         source={mode}
         picks={ids}
         template={extra}

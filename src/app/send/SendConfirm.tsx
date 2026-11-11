@@ -9,6 +9,7 @@ import { FeedbackPrompt } from "@/components/FeedbackPrompt";
 import { PollenSpinner } from "@/components/PollenSpinner";
 import { ChannelPicker, useChannelSelection, type Channel } from "@/components/ChannelPicker";
 import { fitIssues } from "@/lib/channelFit";
+import { fitScope } from "@/lib/postingTo";
 import { DemoGate } from "@/components/DemoGate";
 import { FlowBar, primaryButton, primaryDisabled } from "@/components/FlowBar";
 import { RunAutosave } from "@/components/RunAutosave";
@@ -25,7 +26,7 @@ import {
   type CaptionOrder,
   type CaptionVariant,
 } from "@/lib/caption";
-import { imageLimit, serviceKey, serviceLabel, unsupportedReason } from "@/lib/channels";
+import { imageLimit, serviceKey, serviceLabel } from "@/lib/channels";
 import { track } from "@/lib/events";
 import { pollenBurst } from "@/lib/pollen-puff";
 import type { LinkedinFormat } from "@/lib/linkedinFormat";
@@ -95,6 +96,7 @@ type Choice = {
 export function SendConfirm({
   urls,
   channels,
+  lastSend,
   picks,
   source,
   captionItems,
@@ -110,6 +112,8 @@ export function SendConfirm({
 }: {
   urls: string[];
   channels: Channel[];
+  /** The channels the user's last send went to: where the choice starts in a browser with none saved. */
+  lastSend?: string[];
   picks: number[];
   /** The content source the picks come from (the page's `mode`). The server loads the issue from it. */
   source?: string;
@@ -150,7 +154,17 @@ export function SendConfirm({
   const byBatchRef = useRef<Record<string, HistoryEntry[]>>({});
   // The folder on this page: where it goes, or one last look.
   const [view, setView] = useState<"channels" | "preview">("channels");
-  const { selected, setSelected, ready: selectionReady } = useChannelSelection(channels, Boolean(demo));
+  const { selected, setSelected, ready: selectionReady } = useChannelSelection(channels, Boolean(demo), { lastSend });
+  // The caption's room comes from the channels that were ticked when this page opened (what Write showed), not from later ticks here: changing the
+  // channels must not rewrite the caption under the user. A network that needs more room than the caption has shows its alert triangle instead.
+  const [captionScope, setCaptionScope] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!selectionReady) return;
+    const t = setTimeout(() => setCaptionScope((s) => s ?? new Set(selected)), 0);
+    return () => clearTimeout(t);
+    // Once, when the saved choice has been restored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionReady]);
 
   // Must match the key Write saves under.
   const sig = `${link}|${picks.join(",")}|${template}`;
@@ -368,8 +382,8 @@ export function SendConfirm({
   // The demo has no channel picker: all of its example channels are used.
   const chosen = demo ? channels : channels.filter((c) => selected.has(c.id));
   const n = chosen.length;
-  // The caption Write showed: its room is the tightest limit among the account's usable channels (not only the ticked ones), so it reads the same here.
-  const usable = channels.filter((c) => !unsupportedReason(c.service));
+  // The caption Write showed: its room is the tightest limit among the channels that were ticked on arrival, so it reads the same here.
+  const usable = fitScope(channels, captionScope ?? selected);
   const captionFor = (v: CaptionVariant) =>
     edited[v] ??
     buildCaption(captionItems, {
@@ -662,7 +676,7 @@ export function SendConfirm({
               <div key={v.id} className={`grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border-[3px] p-4 ${ACCENT[v.id]}`}>
                 <p className="m-0 flex items-center gap-2 text-sm font-semibold">
                   {v.id === "instagram" && <ChannelIcon service="instagram" className="size-4 shrink-0" />}
-                  {variantLabel(v.id, visible.map((x) => x.id))} · {plural(chosen.filter((c) => variantFor(c.service) === v.id).length, "channel")}
+                  {variantLabel(v.id)} · {plural(chosen.filter((c) => variantFor(c.service) === v.id).length, "channel")}
                 </p>
                 <div className="whitespace-pre-wrap [overflow-wrap:anywhere] rounded-xl bg-surface px-3 py-2 ring-1 ring-ink/15">
                   {captionFor(v.id)}

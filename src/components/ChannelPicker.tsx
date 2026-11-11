@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowUp, Search, TriangleAlert } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import { serviceLabel, unsupportedReason } from "@/lib/channels";
+import { seedSelection, splitNetworks } from "@/lib/postingTo";
 import { loadChannelChoice, saveChannelChoice } from "@/lib/progress";
 
 export type Channel = { id: string; name: string; service: string };
@@ -15,14 +16,17 @@ const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, "en", { sensitivity: "base", numeric: true });
 
 /**
- * Which channels are ticked. Everything usable starts ticked; the choice is remembered. Channels are fetched on the server,
+ * Which channels are ticked ("Posting to"). Everything usable starts ticked, or the channels of the last send when there is one; the choice is remembered
+ * in the browser and shared by Design, Write and Send. Channels are fetched on the server,
  * so coming back from Buffer's settings tab re-runs that fetch (not in the demo, whose channels are examples), and any
  * channel connected since is ticked while one that was removed drops out.
  */
-export function useChannelSelection(channels: Channel[], demo = false) {
+export function useChannelSelection(channels: Channel[], demo = false, { lastSend, refetch = true }: { lastSend?: string[]; refetch?: boolean } = {}) {
   const usable = channels.filter((c) => !unsupportedReason(c.service));
   const usableKey = usable.map((c) => c.id).join(",");
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(usable.map((c) => c.id)));
+  // Without a saved choice (a new browser) the first selection is the last send's channels, else everything. The server and the browser
+  // work it out from the same props, so their first render matches.
+  const [selected, setSelected] = useState<Set<string>>(() => (demo ? new Set(usable.map((c) => c.id)) : seedSelection(usable.map((c) => c.id), lastSend)));
   const [ready, setReady] = useState(false);
   const known = useRef(new Set(usable.map((c) => c.id)));
 
@@ -73,7 +77,8 @@ export function useChannelSelection(channels: Channel[], demo = false) {
 
   const router = useRouter();
   useEffect(() => {
-    if (demo) return;
+    // Design and Write don't re-fetch on focus: their server work is heavy, and Send picks up channels connected meanwhile.
+    if (demo || !refetch) return;
     let last = Date.now();
     const refresh = () => {
       if (document.visibilityState !== "visible" || Date.now() - last < 10_000) return;
@@ -86,7 +91,7 @@ export function useChannelSelection(channels: Channel[], demo = false) {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", refresh);
     };
-  }, [demo, router]);
+  }, [demo, refetch, router]);
 
   return { selected, setSelected, ready, usable };
 }
@@ -142,6 +147,46 @@ export function ChannelPicker({
     serviceLabel(a).localeCompare(serviceLabel(b), "en", { sensitivity: "base" }),
   );
   const blockedNetworks = [...new Set(channels.filter((c) => unsupportedReason(c.service)).map((c) => c.service))];
+  const split = splitNetworks(channels, selected);
+
+  // One pill per network: on (ink) when any of its channels is ticked.
+  const renderPill = (svc: string) => {
+      const group = byService.get(svc)!;
+      const ticked = group.filter((c) => selected.has(c.id)).length;
+      const on = ticked > 0;
+      // Only for a network that will get a post: a warning about one that is switched off would just be noise.
+      const issues = on ? (fit?.(svc) ?? []) : [];
+      return (
+        <button
+          key={svc}
+          type="button"
+          aria-pressed={on}
+          onClick={() => {
+            if (!on) pendingJump.current = svc;
+            setSelected((s) => {
+              const next = new Set(s);
+              for (const c of group) {
+                if (on) next.delete(c.id);
+                else next.add(c.id);
+              }
+              return next;
+            });
+          }}
+          className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-base font-bold transition sm:gap-2.5 sm:px-5 sm:py-3 sm:text-lg ${on ? "bg-ink text-cream" : "bg-ink/10 ring-1 ring-ink/15 hover:bg-ink/15"}`}
+        >
+          <ChannelIcon service={svc} className="size-5 shrink-0" />
+          {serviceLabel(svc)}
+          {/* How many are ticked: "(5)" when all, otherwise "(1 of 5)", and "(0 of 5)" when none. */}
+          <span className="font-normal opacity-80">({ticked === group.length ? ticked : `${ticked} of ${group.length}`})</span>
+          {issues.length > 0 && (
+            <>
+              <TriangleAlert aria-hidden className="size-5 shrink-0 text-coral" strokeWidth={2.5} />
+              <span className="sr-only">Doesn&rsquo;t fully fit. {issues.join(" ")}</span>
+            </>
+          )}
+        </button>
+      );
+  };
 
   return (
     <div className="grid gap-4">
@@ -168,51 +213,37 @@ export function ChannelPicker({
           )}
         </p>
       </div>
-      <div className="flex flex-wrap gap-3" role="group" aria-label="Networks">
-        {networks.map((svc) => {
-          const group = byService.get(svc)!;
-          const ticked = group.filter((c) => selected.has(c.id)).length;
-          const on = ticked > 0;
-          // Only for a network that will get a post: a warning about one that is switched off would just be noise.
-          const issues = on ? (fit?.(svc) ?? []) : [];
-          return (
-            <button
-              key={svc}
-              type="button"
-              aria-pressed={on}
-              onClick={() => {
-                if (!on) pendingJump.current = svc;
-                setSelected((s) => {
-                  const next = new Set(s);
-                  for (const c of group) {
-                    if (on) next.delete(c.id);
-                    else next.add(c.id);
-                  }
-                  return next;
-                });
-              }}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-base font-bold transition sm:gap-2.5 sm:px-5 sm:py-3 sm:text-lg ${on ? "bg-ink text-cream" : "bg-ink/10 ring-1 ring-ink/15 hover:bg-ink/15"}`}
-            >
-              <ChannelIcon service={svc} className="size-5 shrink-0" />
-              {serviceLabel(svc)}
-              {/* How many are ticked: "(5)" when all, otherwise "(1 of 5)", and "(0 of 5)" when none. */}
-              <span className="font-normal opacity-80">({ticked === group.length ? ticked : `${ticked} of ${group.length}`})</span>
-              {issues.length > 0 && (
-                <>
-                  <TriangleAlert aria-hidden className="size-5 shrink-0 text-coral" strokeWidth={2.5} />
-                  <span className="sr-only">Doesn&rsquo;t fully fit. {issues.join(" ")}</span>
-                </>
-              )}
-            </button>
-          );
-        })}
+      {/* "Posting to" first: the networks with a ticked channel. The others wait under "Unselected channels", open when nothing is ticked yet. */}
+      <div className="grid gap-3">
+        <div>
+          <h3 className="m-0 mb-2 font-sans text-sm font-semibold">Posting to</h3>
+          {split.on.length > 0 ? (
+            <div className="flex flex-wrap gap-3" role="group" aria-label="Networks you are posting to">
+              {split.on.map(renderPill)}
+            </div>
+          ) : (
+            <p className="m-0 text-sm">Nothing ticked yet. Pick a network below.</p>
+          )}
+        </div>
+        {(split.off.length > 0 || blockedNetworks.length > 0) && (
+          <details open={split.on.length === 0 && split.off.length > 0} className="group">
+            <summary className="cursor-pointer text-sm font-semibold underline-offset-4 hover:underline">
+              Unselected channels{split.off.length > 0 ? ` (${split.off.length})` : ""}
+            </summary>
+            {split.off.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-3" role="group" aria-label="Unselected networks">
+                {split.off.map(renderPill)}
+              </div>
+            )}
+            {blockedNetworks.length > 0 && (
+              <p className="m-0 mt-3 text-xs">
+                Not supported yet:{" "}
+                {blockedNetworks.map((svc) => `${serviceLabel(svc)} (${unsupportedReason(svc)?.toLowerCase()})`).join(", ")}.
+              </p>
+            )}
+          </details>
+        )}
       </div>
-      {blockedNetworks.length > 0 && (
-        <p className="m-0 text-xs">
-          Not supported yet:{" "}
-          {blockedNetworks.map((svc) => `${serviceLabel(svc)} (${unsupportedReason(svc)?.toLowerCase()})`).join(", ")}.
-        </p>
-      )}
 
       {networks
         .filter((svc) => byService.get(svc)!.some((c) => selected.has(c.id)) || held.has(svc))

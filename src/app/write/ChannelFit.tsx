@@ -1,21 +1,26 @@
 import { Check, X } from "lucide-react";
 import { ChannelIcon } from "@/components/ChannelIcon";
 import type { Channel } from "@/components/ChannelPicker";
-import { fitFor, variantFor, type CaptionVariant } from "@/lib/caption";
+import { variantFor, type CaptionVariant } from "@/lib/caption";
+import { captionFitState } from "@/lib/channelFit";
 import { serviceLabel } from "@/lib/channels";
 
 /**
- * Will each network's caption fit? One quiet line per network, like the pills on Send: a check when it fits, a cross and "over by N"
- * when it doesn't (the only time there is more to read; it jumps to the caption to shorten). Every channel of a network gets the same
- * caption and has the same limit, so a network fits or doesn't as a whole. Which channels are ticked is chosen on Send.
+ * Will each network's caption fit? One quiet line per network, like the pills on Send: a check when it fits whole, a cross and "over by N"
+ * when it doesn't, or "N picks left out" when the generated caption only fits by dropping picks (the only times there is more to read; it
+ * jumps to the caption). Every channel of a network gets the same
+ * caption and has the same limit, so a network fits or doesn't as a whole. `channels` are the ticked ones (see "Posting to").
  */
 export function ChannelFit({
   channels,
   captionFor,
+  leftOut,
   onShow,
 }: {
   channels: Channel[];
   captionFor: (v: CaptionVariant) => string;
+  /** The picks the generated caption had to leave out to fit its tightest network (empty once the caption is edited by hand). Every network that uses it gets that shorter caption. */
+  leftOut: (v: CaptionVariant) => string[];
   /** Jump to the tab of the caption a network uses. */
   onShow: (v: CaptionVariant) => void;
 }) {
@@ -29,20 +34,21 @@ export function ChannelFit({
       <ul className="m-0 grid list-none gap-1.5 p-0">
         {networks.map(([service, group]) => {
           const variant = variantFor(service);
-          const fit = fitFor(service, captionFor(variant));
+          const { state, label } = captionFitState(service, captionFor(variant), leftOut(variant).length);
+          const ok = state === "fits";
           return (
             <li key={service} className="flex items-center gap-2" title={group.map((c) => c.name).join(", ")}>
-              <span aria-hidden className={`grid size-4 shrink-0 place-items-center rounded-full text-ink-deep ${fit.fits ? "bg-sage" : "bg-coral"}`}>
-                {fit.fits ? <Check className="size-3" strokeWidth={4} /> : <X className="size-3" strokeWidth={4} />}
+              <span aria-hidden className={`grid size-4 shrink-0 place-items-center rounded-full text-ink-deep ${ok ? "bg-sage" : "bg-coral"}`}>
+                {ok ? <Check className="size-3" strokeWidth={4} /> : <X className="size-3" strokeWidth={4} />}
               </span>
               <ChannelIcon service={service} className="size-3.5 shrink-0" />
               <span className="min-w-0 truncate">
                 {serviceLabel(service)} <span className="opacity-75">({group.length})</span>
               </span>
-              <span className="sr-only">{fit.fits ? "caption fits" : fit.over > 0 ? `over the limit by ${fit.over}` : `${fit.mentionsOver} too many tags`}</span>
-              {!fit.fits && (
+              <span className="sr-only">{ok ? "caption fits" : label}</span>
+              {!ok && (
                 <button type="button" onClick={() => onShow(variant)} className="ml-auto shrink-0 font-semibold underline underline-offset-4">
-                  {fit.over > 0 ? `over by ${fit.over.toLocaleString("en")}` : `${fit.mentionsOver} too many tags`}
+                  {label}
                 </button>
               )}
             </li>

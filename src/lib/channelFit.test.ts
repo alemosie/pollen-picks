@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { fitIssues } from "./channelFit";
+import { captionFitState, fitIssues } from "./channelFit";
 
 // What the Send step's alert triangle says. Slides: a network with a smaller carousel takes only the first ones. Caption: over the network's
 // character limit, or more @tags than Instagram allows. Nothing to say means no triangle.
@@ -34,5 +34,24 @@ describe("fitIssues", () => {
   });
   test("the Send now note is only for a caption problem", () => {
     assert.ok(!fitIssues("bluesky", { slideCount: 9, caption: short }).some((i) => i.includes("Send now")));
+  });
+});
+
+// The line for a network under "Fits on" on Write. A caption trimmed to fit (picks left out) must not read as a plain "fits".
+describe("captionFitState", () => {
+  test("a caption that fits whole is a check", () => {
+    assert.deepEqual(captionFitState("twitter", short, 0), { state: "fits", label: null });
+  });
+  test("a caption that fits only because picks were left out is not a check, and says how many", () => {
+    assert.deepEqual(captionFitState("twitter", short, 1), { state: "cut", label: "1 pick left out" });
+    assert.deepEqual(captionFitState("twitter", short, 3), { state: "cut", label: "3 picks left out" });
+  });
+  test("a caption over the limit says by how much (that wins over picks left out)", () => {
+    assert.deepEqual(captionFitState("threads", "x".repeat(520), 0), { state: "over", label: "over by 20" });
+    assert.equal(captionFitState("threads", "x".repeat(520), 2).state, "over");
+  });
+  test("too many @tags on Instagram says how many", () => {
+    const tags = Array.from({ length: 22 }, (_, i) => `@user${i}`).join(" ");
+    assert.deepEqual(captionFitState("instagram", tags, 0), { state: "tags", label: "2 too many tags" });
   });
 });
