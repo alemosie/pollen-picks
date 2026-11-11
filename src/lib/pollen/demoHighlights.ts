@@ -23,6 +23,12 @@ export const wordCount = (text: string) =>
 export const demoWords = (rows: CustomRow[]) =>
   rows.reduce((n, r) => n + wordCount(r.text), 0);
 /**
+ * The demo's limits as the tray words them. The word limit only concerns text the visitor highlighted on the Manual tab, so it is left out
+ * until something is highlighted: "0/250 words" next to picks from the issue's own list would read as if they counted.
+ */
+export const meterText = (m: { count: number; maxCount: number; words: number; maxWords: number }) =>
+  `${m.count}/${m.maxCount} picks${m.words > 0 ? `, ${m.words}/${m.maxWords} highlighted words` : ""}`;
+/**
  * A backstop on the encoded value, which is also the longest the `hl=` part of a share link can get (about 3.6 KB: fine for
  * browsers, chat apps and servers, and inside a cookie's 4 KB). 250 ordinary words come to around 2 KB encoded, so it only
  * matters for odd text, such as very long unbroken words.

@@ -5,6 +5,7 @@ import { PuffIcon } from "@/components/PuffIcon";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/events";
 import { TagChip, type TagState } from "./TagChip";
+import { meterText } from "@/lib/pollen/demoHighlights";
 
 /** A pick. `highlight`: made in the Manual tab. */
 export type TrayItem = { id: number; text: string; url: string | null; pick: number; tag?: TagState; highlight?: boolean };
@@ -97,7 +98,7 @@ export function PickTray({
           <div className="max-h-[calc(100dvh-15rem)] overflow-y-auto px-3 pb-24 pt-1">
             {meter && (
               <p className={`mb-3 mt-0 text-sm font-semibold ${near ? "text-ink-deep" : ""}`}>
-                {meter.count}/{meter.maxCount} picks, {meter.words}/{meter.maxWords} words.
+                {meterText(meter)}
               </p>
             )}
             {note && <p role="alert" className="mb-3 mt-0 border-l-4 border-coral pl-3 text-sm font-semibold">{note}</p>}
