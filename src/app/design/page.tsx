@@ -11,7 +11,7 @@ import { requireSession } from "@/lib/auth";
 import { demoUrlFrom, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
-import { slideItemsFor } from "@/lib/slides/items";
+import { picksInIssue, slideItemsFor } from "@/lib/slides/items";
 import { PaletteSync } from "@/components/PaletteSync";
 import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
 import { parseTemplateFromPage } from "@/lib/slides/options";
@@ -48,15 +48,18 @@ async function DesignContent({
   const t = timer("/design");
   const session = await t.step("session", requireSession(`/design?${back.toString()}`));
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
-  const ids = String(picks ?? "")
+  const asked = String(picks ?? "")
     .split(",")
     .filter(Boolean)
     .map(Number)
     .filter(Number.isFinite);
-  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
+  if (asked.length === 0) redirect(stepUrl(mode, "pick"));
 
   const issue = await t.step("issue", loadAppIssue(mode));
   if (!issue) redirect("/source");
+  // Picks the issue doesn't have (unsaved highlights, say) would leave blank slides: none left means there is nothing to design yet.
+  const ids = picksInIssue(issue.chunks, asked);
+  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
   // The picks' handles and the slide settings don't depend on each other, so they load together.
   // The channels (Buffer) only say how many slides each network takes: if they can't be read the page just goes without that list.
   const [known, { version, palette }, savedStyle, channels, lastSend] = await Promise.all([

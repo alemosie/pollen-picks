@@ -13,7 +13,7 @@ import { lastSendChannelIds } from "@/lib/postHistory";
 import { demoUrlFrom, parseLinkMode, previewMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
-import { captionItemsFor, slideItemsFor } from "@/lib/slides/items";
+import { captionItemsFor, picksInIssue, slideItemsFor } from "@/lib/slides/items";
 import { currentStyleVersion, loadLinkedinFormat } from "@/lib/slideStyleStore";
 import { coverTitle, parseTemplateFromPage, templateParams, pickEditsFor } from "@/lib/slides/options";
 import { planSlides } from "@/lib/slides/plan";
@@ -47,14 +47,13 @@ async function SendContent({
   const tpl = { ...parseTemplateFromPage(sp), sv };
   const extra = templateParams(tpl).toString();
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
-  const ids = String(sp.picks ?? "")
+  const asked = String(sp.picks ?? "")
     .split(",")
     .filter(Boolean)
     .map(Number)
     .filter(Number.isFinite);
-  const tail = `${ids.join(",")}${extra ? `&${extra}` : ""}`;
-  if (!session) toLogin(`/send?mode=${encodeURIComponent(mode)}&picks=${tail}`);
-  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
+  if (!session) toLogin(`/send?mode=${encodeURIComponent(mode)}&picks=${asked.join(",")}${extra ? `&${extra}` : ""}`);
+  if (asked.length === 0) redirect(stepUrl(mode, "pick"));
 
   // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
   const [issue, channels, linkedinFormat, lastSend] = await Promise.all([
@@ -64,6 +63,10 @@ async function SendContent({
     t.step("last send", lastSendChannelIds(session.userId)),
   ]);
   if (!issue) redirect("/source");
+  // Picks the issue doesn't have (unsaved highlights, say) can't be sent: none left means back to Pick.
+  const ids = picksInIssue(issue.chunks, asked);
+  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
+  const tail = `${ids.join(",")}${extra ? `&${extra}` : ""}`;
   const known = await t.step("handles", knownForPicks(issue.chunks, ids));
   const report = t.report();
   const slides = planSlides(slideItemsFor(issue.chunks, ids, known), {

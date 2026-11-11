@@ -80,24 +80,6 @@ export default function Home() {
   return (
     <main className="relative min-h-dvh overflow-x-clip">
       <PollenCursor />
-      <div
-        role="region"
-        aria-label="Project status"
-        className="bg-ink px-6 py-3 text-center text-sm font-semibold text-cream"
-      >
-        <span className="sm:hidden">Before 11 Nov: </span>
-        <span className="hidden sm:inline">
-          In build mode 🏗️ for Buffer Commit.{" "}
-        </span>
-        Try the <span className="hidden sm:inline">2-min </span>demo and{" "}
-        <Link
-          href="/feedback"
-          className="underline decoration-honey decoration-[3px] underline-offset-4 hover:decoration-coral"
-        >
-          leave feedback
-        </Link>{" "}
-        to help our self-funded nonprofit win up to $25,600!
-      </div>
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <Logo height={56} />
         <HomeNav />

@@ -13,7 +13,7 @@ import { lastSendChannelIds } from "@/lib/postHistory";
 import { demoUrlFrom, parseLinkMode, stepUrl } from "@/lib/flow";
 import { loadAppIssue } from "@/lib/sources";
 import { knownForPicks } from "@/lib/instagramHandles";
-import { captionItemsFor } from "@/lib/slides/items";
+import { captionItemsFor, picksInIssue } from "@/lib/slides/items";
 import { currentStyleVersion } from "@/lib/slideStyleStore";
 import { coverTitle, parseTemplateFromPage, templateParams, pickEditsFor } from "@/lib/slides/options";
 import { WriteView } from "./WriteView";
@@ -46,14 +46,14 @@ async function WriteContent({
   const tpl = { ...parseTemplateFromPage(sp), sv };
   const extra = templateParams(tpl).toString();
   // filter(Boolean) first: Number("") is 0, so an empty ?picks= would otherwise count as pick #0.
-  const ids = String(sp.picks ?? "")
+  const asked = String(sp.picks ?? "")
     .split(",")
     .filter(Boolean)
     .map(Number)
     .filter(Number.isFinite);
-  const self = `/write?mode=${encodeURIComponent(mode)}&picks=${ids.join(",")}${extra ? `&${extra}` : ""}`;
+  const self = `/write?mode=${encodeURIComponent(mode)}&picks=${asked.join(",")}${extra ? `&${extra}` : ""}`;
   if (!session) toLogin(self);
-  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
+  if (asked.length === 0) redirect(stepUrl(mode, "pick"));
 
   // The issue (database, beehiiv) and the channels (Buffer) don't depend on each other, so they load together.
   const [issue, channels, lastSend] = await Promise.all([
@@ -62,6 +62,9 @@ async function WriteContent({
     t.step("last send", lastSendChannelIds(session.userId)),
   ]);
   if (!issue) redirect("/source");
+  // Picks the issue doesn't have (unsaved highlights, say) can't be written about: none left means back to Pick.
+  const ids = picksInIssue(issue.chunks, asked);
+  if (ids.length === 0) redirect(stepUrl(mode, "pick"));
   const q = ids.join(",");
   const known = await t.step("handles", knownForPicks(issue.chunks, ids));
   const report = t.report();

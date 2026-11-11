@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ProjectBanner } from "@/components/ProjectBanner";
 import localFont from "next/font/local";
 import "./globals.css";
 
@@ -35,7 +34,6 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${dmSans.variable} ${madimi.variable}`}>
       <body className="min-h-dvh">
-        <ProjectBanner />
         {children}
       </body>
     </html>
