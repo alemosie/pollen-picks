@@ -98,6 +98,7 @@ export function Picker({
   /** Which issue these chunks are from (its address). Picks are positions in one issue's list, so saved picks are only restored for the same issue, even when `mode` is the same ("own" = the latest issue of whichever publication is chosen). */
   issueKey?: string;
   chunks: Chunk[];
+  /** Something in the issue is ranked by clicks (beehiiv returning click rows is not enough). The Top clicks tab is off without it. */
   hasClicks: boolean;
   initialView?: View;
   initialPicks?: number[];
@@ -439,7 +440,7 @@ export function Picker({
             aria-selected={view === t.id}
             disabled={t.disabled}
             onClick={() => setView(t.id)}
-            title={t.disabled ? "Needs the newsletter's beehiiv key" : t.hint}
+            title={t.disabled ? "No items in this issue have click data to rank" : t.hint}
             className={`flex flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-t-2xl px-2 text-sm font-bold transition min-[420px]:text-base sm:flex-none sm:px-6 sm:text-lg ${
               view === t.id
                 ? `${ACCENT[t.id].solid} relative z-10 -mb-[3px] py-3.5 text-ink-deep`

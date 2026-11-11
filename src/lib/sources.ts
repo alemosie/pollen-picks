@@ -169,13 +169,14 @@ async function dumpForDebugging(postId: string, raw: BeehiivIssueContent, issue:
 }
 
 /** Upcoming items ordered by unique verified clickers, for any layout (see rankChunks), against today's date. */
-function buildIssue(raw: BeehiivIssueContent, newsletter: string): IssueData {
+export function buildIssue(raw: BeehiivIssueContent, newsletter: string): IssueData {
   const html = contentRoot(raw.html);
   const today = new Date().toISOString().slice(0, 10);
   const parsed = parseChunks(html);
   const ranks = rankChunks(parsed, mergeClicks(raw.clicks), { today, reference: raw.publishedAt.slice(0, 10) });
   const chunks = withDates(parsed, raw.publishedAt.slice(0, 10)).map((c) => ({ ...c, rank: ranks.get(c.id)?.rank ?? null, score: ranks.get(c.id)?.score ?? null }));
-  return { title: raw.title, newsletter, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: raw.clicks.length > 0, images: extractIssueImages(raw.html, { base: raw.url, thumbnail: raw.thumbnail }) };
+  // The Top clicks tab needs something to rank: click rows alone (the footer, a story, events that are over) would open it onto an empty list.
+  return { title: raw.title, newsletter, publishedAt: raw.publishedAt, url: raw.url ?? "", chunks, hasClicks: ranks.size > 0, images: extractIssueImages(raw.html, { base: raw.url, thumbnail: raw.thumbnail }) };
 }
 
 // Every step reloads the issue, and beehiiv renders expanded content on demand, so keep a fetched issue for a few minutes.

@@ -1,0 +1,11 @@
+{
+ "post": {
+  "id": "post_00000000-0000-4000-8000-000000000050",
+  "title": "A quiet one: the 4 pm wall (#50, test fixture with no links)",
+  "publishedAt": "2026-11-02T14:00:00Z",
+  "url": "https://example.com/p/a-quiet-one",
+  "author": "Alex Siega",
+  "thumbnail": ""
+ },
+ "clicks": []
+}
