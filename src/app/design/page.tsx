@@ -16,13 +16,14 @@ import { PaletteSync } from "@/components/PaletteSync";
 import { currentSlideSettings, loadSlideStyle } from "@/lib/slideStyleStore";
 import { parseTemplateFromPage } from "@/lib/slides/options";
 import { listChannels } from "@/lib/buffer";
+import { lastSendChannelIds } from "@/lib/postHistory";
 import { TemplateEditor } from "./TemplateEditor";
 
 export const metadata = { title: "Design · Pollen Picks" };
 
 export default function Design(props: PageProps<"/design">) {
   return (
-    <Suspense fallback={<FlowLoader label="Setting up your carousel…" />}>
+    <Suspense fallback={<FlowLoader instant label="Setting up your carousel…" />}>
       <DesignContent searchParams={props.searchParams} />
     </Suspense>
   );
@@ -58,11 +59,12 @@ async function DesignContent({
   if (!issue) redirect("/source");
   // The picks' handles and the slide settings don't depend on each other, so they load together.
   // The channels (Buffer) only say how many slides each network takes: if they can't be read the page just goes without that list.
-  const [known, { version, palette }, savedStyle, channels] = await Promise.all([
+  const [known, { version, palette }, savedStyle, channels, lastSend] = await Promise.all([
     t.step("handles", knownForPicks(issue.chunks, ids)),
     t.step("settings", currentSlideSettings()),
     t.step("brand", loadSlideStyle(session.userId)),
     t.step("channels (Buffer)", listChannels(session.accessToken).catch(() => undefined)),
+    t.step("last send", lastSendChannelIds(session.userId)),
   ]);
   const items = slideItemsFor(issue.chunks, ids, known);
   const report = t.report();
@@ -84,6 +86,7 @@ async function DesignContent({
         images={issue.images}
         picks={ids}
         channels={channels}
+        lastSend={lastSend}
         brand={{ name: savedStyle?.style.orgName ?? "", fallbackName: issue.publication?.organization, logo: savedStyle?.style.orgLogo ?? null }}
         initial={{ ...parseTemplateFromPage(sp), sv: version }}
       />

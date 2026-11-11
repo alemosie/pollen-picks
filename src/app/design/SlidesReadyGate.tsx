@@ -2,21 +2,21 @@
 
 import { createContext, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FlowLoader } from "@/components/FlowLoader";
-import { useLoaderVisible } from "@/components/useLoaderVisible";
 
 /** What a slide preview gets to tell the gate: it is on the page (`add`), and it has loaded or failed (`done`). */
 export type SlideSlot = { done: () => void; remove: () => void };
 type Gate = { ready: boolean; add: () => SlideSlot };
+const MIN_MS = 800;
 export const SlidesReadyContext = createContext<Gate | null>(null);
 
 /**
  * Keeps the design step behind the loading animation until every slide preview on the page has been drawn (or has failed, or `maxMs` has passed),
  * so a refresh never shows grey frames that look like lost slides. Only the first load waits: once the slides are in, editing swaps previews quietly.
  * The content stays mounted under the animation (hidden, not removed), so the previews load meanwhile, all of them at once rather than as you scroll.
- * A quick load never shows the animation at all. `layoutKnown` is false until the page knows whether the saved layout is the standard one or yours:
+ * The animation shows at once and for at least a moment, even when the slides are quick. `layoutKnown` is false until the page knows whether the saved layout is the standard one or yours:
  * the previews of the wrong one must not count as the slides being ready.
  */
-export function SlidesReadyGate({ layoutKnown, maxMs = 15_000, label = "Drawing your slides…", children }: { layoutKnown: boolean; maxMs?: number; label?: string; children: ReactNode }) {
+export function SlidesReadyGate({ layoutKnown, maxMs = 15_000, label = "Setting up your carousel…", children }: { layoutKnown: boolean; maxMs?: number; label?: string; children: ReactNode }) {
   const [ready, setReady] = useState(false);
   // One entry per preview on the page: has it loaded (or failed) yet?
   const slots = useRef(new Map<number, boolean>());
@@ -58,12 +58,19 @@ export function SlidesReadyGate({ layoutKnown, maxMs = 15_000, label = "Drawing 
     return () => clearTimeout(t);
   }, [maxMs]);
 
-  // Once the animation is up it stays a little while (so it never blinks), and the step stays hidden for exactly as long.
-  const showLoader = useLoaderVisible(!ready);
+  // The animation is up from the first frame (the person has just clicked Design: nothing of the step may show first, not even its header), and
+  // stays at least MIN_MS so it never blinks; the step stays hidden for exactly as long.
+  const [held, setHeld] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setHeld(false), MIN_MS);
+    return () => clearTimeout(t);
+  }, []);
+  const showLoader = !ready || held;
   const value = useMemo(() => ({ ready, add }), [ready, add]);
   return (
     <SlidesReadyContext.Provider value={value}>
-      {showLoader && <FlowLoader label={label} />}
+      {/* No fade-in: it follows the page's own loader (also instant), so the two read as one. */}
+      {showLoader && <FlowLoader label={label} instant />}
       <div className={ready && !showLoader ? undefined : "invisible"}>{children}</div>
     </SlidesReadyContext.Provider>
   );

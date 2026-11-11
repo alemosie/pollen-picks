@@ -23,7 +23,10 @@ import { planSlides } from "@/lib/slides/plan";
 import type { IssueImage } from "@/lib/pollen/imageIds";
 import type { SlideItem } from "@/lib/slides/types";
 import { useStyleVersion } from "@/lib/useStyleVersion";
-import type { Channel } from "@/components/ChannelPicker";
+import { useChannelSelection, type Channel } from "@/components/ChannelPicker";
+import { PostingTo } from "@/components/PostingTo";
+import { imageLimit } from "@/lib/channels";
+import { fitScope } from "@/lib/postingTo";
 import type { BrandInfo } from "@/lib/brandSummary";
 import { usePalette } from "@/components/usePalette";
 import { palParam } from "@/lib/palette";
@@ -44,6 +47,7 @@ export function TemplateEditor({
   images,
   picks,
   channels,
+  lastSend,
   brand,
   initial,
 }: {
@@ -59,11 +63,14 @@ export function TemplateEditor({
   picks: number[];
   /** The channels the carousel can go to, to say how many slides each takes (none: nothing to show). */
   channels?: Channel[];
+  /** The channels the user's last send went to: where the "Posting to" choice starts in a browser with none saved. */
+  lastSend?: string[];
   /** The organization name and logo saved in Settings, for the "Your brand" strip (none: nothing is set, as in the demo). */
   brand?: BrandInfo;
   initial: TemplateOptions;
 }) {
   const scope = issueKey ? `${mode}|${issueKey}` : mode;
+  const { selected, setSelected } = useChannelSelection(channels ?? [], isDemo(mode), { lastSend, refetch: false });
   // A style changed in Settings since this page was drawn shows at once, even if the page itself was not rendered again.
   const sv = useStyleVersion(initial.sv);
   // The demo has no account to keep a palette in: the one chosen in this browser rides along in the slide addresses (and on to the next steps).
@@ -121,7 +128,21 @@ export function TemplateEditor({
   const shareUrl = () => `${window.location.origin}${stepUrl(mode, "design", query)}`;
 
   const standard = planSlides(items, { newsletter });
-  const fit = channels ? <SlideFit channels={channels} slideCount={custom ? slideCount + 2 : standard.length} /> : null;
+  const total = custom ? slideCount + 2 : standard.length;
+  // Only the ticked networks set the limits (see "Posting to"); the others are named quietly.
+  const fit = channels ? (
+    <>
+      {!demo && (
+        <PostingTo
+          channels={channels}
+          selected={selected}
+          setSelected={setSelected}
+          hint={(service) => (total > imageLimit(service) ? `first ${imageLimit(service)} slides only` : null)}
+        />
+      )}
+      <SlideFit channels={fitScope(channels, selected)} slideCount={total} />
+    </>
+  ) : null;
   // The sidebar: the brand, then which networks take all the slides. (Below the slides on a phone.)
   const side = (
     <div className="grid gap-6">

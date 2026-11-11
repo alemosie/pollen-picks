@@ -17,7 +17,7 @@ export const metadata = { title: "Demo: Design · Pollen Picks" };
 
 export default function DemoDesign(props: PageProps<"/demo/design">) {
   return (
-    <Suspense fallback={<FlowLoader label="Setting up your carousel…" />}>
+    <Suspense fallback={<FlowLoader instant label="Setting up your carousel…" />}>
       <DemoDesignContent searchParams={props.searchParams} />
     </Suspense>
   );
