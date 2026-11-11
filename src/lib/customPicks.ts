@@ -25,6 +25,14 @@ export async function addCustomChunk(userId: string, issue: string, text: string
   return customChunk(fromDb(data as DbRow));
 }
 
+/** How many of the user's highlights no saved creation holds. Choosing a new source discards exactly these (see clearCustomChunks). */
+export async function countUnsavedHighlights(userId: string): Promise<number> {
+  const [rows, keep] = await Promise.all([db().from("custom_picks").select("id").eq("user_id", userId), savedHighlightIds(userId)]);
+  if (rows.error) throw new Error(`Could not read highlights: ${rows.error.message}`);
+  const kept = new Set(keep);
+  return ((rows.data ?? []) as { id: number }[]).filter((r) => !kept.has(r.id)).length;
+}
+
 /**
  * Deletes the user's highlights: a new source starts a new run, and the last run's highlights are not carried into it.
  * Highlights that one of the user's saved creations uses stay, so that creation can still be opened later.

@@ -11,7 +11,7 @@ const noStore = { "Cache-Control": "no-store" };
 const fail = (status: number, error: string, extra: Record<string, unknown> = {}) => NextResponse.json({ error, ...extra }, { status, headers: noStore });
 
 /**
- * GET: where the run stands, cheaply (no issue is loaded): `{ run, unsaved, hasSavedForIssue }`, with `run` null when there is none.
+ * GET: where the run stands, cheaply (no issue is loaded): `{ run, unsaved, hasSavedForIssue, unsavedHighlights }`, with `run` null when there is none.
  * GET ?open=1: the run itself, ready to put back (the issue is read again and picks it no longer has are left out).
  */
 export async function GET(req: NextRequest) {
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       const run = await getRun(auth.session.userId);
       if (!run) return fail(404, "There is no run to continue.");
       const opened = await openCreation(run);
-      if ("error" in opened) return fail(opened.status, opened.error);
+      if ("error" in opened) return fail(opened.status, opened.error, opened.picksGone ? { picksGone: true } : {});
       let savedUpdatedAt: string | null = null;
       if (run.savedId) {
         const saved = await getCreationBySource(auth.session.userId, run.source);

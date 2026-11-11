@@ -160,10 +160,13 @@ export function ModePicker({ beehiiv: initialBeehiiv, initialIssues, initialIssu
     if (!href) return;
     e?.preventDefault();
     const to = href;
-    void guard(() => {
-      startFreshRun();
-      router.push(to);
-    });
+    void guard(
+      () => {
+        startFreshRun();
+        router.push(to);
+      },
+      { startsNew: true },
+    );
   };
 
   return (

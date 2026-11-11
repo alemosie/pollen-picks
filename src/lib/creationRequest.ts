@@ -22,12 +22,12 @@ export async function prepareCreation(body: Record<string, unknown>, steps: read
  * A stored creation or run, ready to be put back: the issue is read again and picks it no longer has are left out (`dropped` says how many).
  * The caption was written for the full set of picks, so with some gone it is not kept. Saved at Send, it then opens at Write instead.
  */
-export async function openCreation(c: OpenedCreation): Promise<{ creation: OpenedCreation } | { status: number; error: string }> {
+export async function openCreation(c: OpenedCreation): Promise<{ creation: OpenedCreation } | { status: number; error: string; /** None of the picks are in the issue any more (highlights that were discarded, say). */ picksGone?: true }> {
   const issue = await loadAppIssue(c.source);
   if (!issue) return { status: 409, error: "This issue can't be loaded right now. Try again in a moment." };
   const have = new Set(issue.chunks.map((x) => x.id));
   const picks = c.picks.filter((p) => have.has(p));
-  if (picks.length === 0) return { status: 409, error: "None of the picks in this creation are in the issue any more." };
+  if (picks.length === 0) return { status: 409, error: "None of the picks in this creation are in the issue any more.", picksGone: true };
   const dropped = c.picks.length - picks.length;
   return { creation: { ...c, link: issue.url, picks, dropped, format: dropped > 0 ? null : c.format, step: dropped > 0 && c.step === 5 ? 4 : c.step } };
 }

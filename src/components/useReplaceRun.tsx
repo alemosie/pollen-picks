@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { PollenSpinner } from "@/components/PollenSpinner";
 import { forgetRun } from "@/lib/runSync";
 
-type Status = { run: { source: string; newsletter: string; title: string; picks: number; step: number } | null; unsaved: boolean; hasSavedForIssue: boolean };
-type Pending = { status: Status; go: () => void; intoSource?: string };
+type Status = { run: { source: string; newsletter: string; title: string; picks: number; step: number } | null; unsaved: boolean; hasSavedForIssue: boolean; unsavedHighlights?: number };
+/** `highlights`: how many unsaved highlights a new source would discard (0 when the question is only about the run). */
+type Pending = { status: Status; go: () => void; intoSource?: string; highlights: number };
 
 /**
  * Throws away the current run on the server and what this browser knew about it. Throws if the server did not confirm: a run that is still there would
@@ -22,28 +23,31 @@ async function discardRun() {
  * Anything that replaces the current run (opening a saved creation, choosing a new source, "Start over") goes through `guard`. If the run holds work that
  * no saved creation holds, the person is asked first: save it, or discard it for good. Otherwise the run is replaced without a question.
  * `intoSource` is the issue being opened (a saved creation of the same issue as an unsaved run can't be a place to save that run first).
+ * `startsNew` is a new source: its first Pick page discards every highlight no saved creation holds, run or no run (a highlight that was never picked is in
+ * no run), so those are asked about too.
  * Render `dialog` somewhere in the component.
  */
-export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?: string }) => Promise<void>; dialog: ReactNode } {
+export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?: string; startsNew?: boolean }) => Promise<void>; dialog: ReactNode } {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const ref = useRef<HTMLDialogElement>(null);
 
-  const guard = useCallback(async (go: () => void, opts?: { intoSource?: string }) => {
+  const guard = useCallback(async (go: () => void, opts?: { intoSource?: string; startsNew?: boolean }) => {
     let status: Status | null = null;
     try {
       const res = await fetch("/api/run", { cache: "no-store" });
       if (res.ok) status = (await res.json()) as Status;
     } catch {}
-    if (!status?.run || !status.unsaved) {
+    const highlights = opts?.startsNew ? (status?.unsavedHighlights ?? 0) : 0;
+    if ((!status?.run || !status.unsaved) && highlights === 0) {
       // Nothing is lost if this fails (the run is saved, or there is none): go on, and the browser still remembers the run it knew, so autosave matches it.
       await discardRun().catch(() => {});
       go();
       return;
     }
     setError("");
-    setPending({ status, go, intoSource: opts?.intoSource });
+    setPending({ status: status!, go, intoSource: opts?.intoSource, highlights });
   }, []);
 
   useEffect(() => {
@@ -77,7 +81,9 @@ export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?:
     }
   }
 
-  const run = pending?.status.run;
+  // The run is asked about only when it holds unsaved work; otherwise the question is about the highlights alone.
+  const run = pending?.status.unsaved ? pending.status.run : null;
+  const highlights = pending?.highlights ?? 0;
   const sameIssue = Boolean(run && pending?.intoSource && run.source === pending.intoSource);
   const name = run?.title || run?.newsletter || "your current run";
   const dialog = (
@@ -87,6 +93,29 @@ export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?:
       aria-labelledby="replace-run-title"
       className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl bg-cream p-6 text-ink backdrop:bg-ink/50"
     >
+      {pending && !run && highlights > 0 && (
+        <div className="grid gap-3">
+          <h2 id="replace-run-title" className="m-0 text-2xl">
+            {highlights === 1 ? "Your highlight isn't saved" : `Your ${highlights} highlights aren't saved`}
+          </h2>
+          <p className="m-0 text-sm">
+            {highlights === 1 ? "A highlight" : "Highlights"} from your last pick {highlights === 1 ? "isn't" : "aren't"} in a saved creation. Choosing a new source discards {highlights === 1 ? "it" : "them"} for good. To keep {highlights === 1 ? "it" : "them"}, cancel, go back to Pick, pick {highlights === 1 ? "it" : "them"} and save the creation first.
+          </p>
+          {error && (
+            <p role="alert" className="m-0 border-l-4 border-coral pl-3 text-sm font-semibold">
+              {error}
+            </p>
+          )}
+          <span className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setPending(null)} disabled={busy} className="rounded-lg bg-honey px-4 py-2 text-sm font-bold text-ink-deep hover:brightness-95 disabled:opacity-60">
+              Cancel
+            </button>
+            <button type="button" onClick={() => proceed(false)} disabled={busy} className="rounded-lg bg-coral px-4 py-2 text-sm font-bold text-ink-deep hover:brightness-95 disabled:opacity-60">
+              Discard and continue
+            </button>
+          </span>
+        </div>
+      )}
       {pending && run && (
         <div className="grid gap-3">
           <h2 id="replace-run-title" className="m-0 text-2xl">
@@ -97,6 +126,7 @@ export function useReplaceRun(): { guard: (go: () => void, opts?: { intoSource?:
               ? `You have changes to "${name}" that aren't saved. Opening the saved version discards them, and they can't be brought back.`
               : `"${name}" (${run.picks} ${run.picks === 1 ? "pick" : "picks"}) isn't saved anywhere. Going on replaces it. Save it first, or discard it for good.`}
           </p>
+          {highlights > 0 && <p className="m-0 text-xs font-semibold">Highlights that aren&rsquo;t in a saved creation are discarded with it, including any you didn&rsquo;t pick.</p>}
           {!sameIssue && pending.status.hasSavedForIssue && <p className="m-0 text-xs font-semibold">Saving it replaces the saved creation you already have for this issue.</p>}
           {error && (
             <p role="alert" className="m-0 border-l-4 border-coral pl-3 text-sm font-semibold">

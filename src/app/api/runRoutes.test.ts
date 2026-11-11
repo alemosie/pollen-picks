@@ -5,7 +5,8 @@ import { inRequest, makeRequest } from "../../test/request";
 import { checkKey } from "../../lib/beehiiv";
 import { FAKE_KEY } from "../../lib/fakeBeehiiv";
 import { getRun } from "../../lib/currentRun";
-import { getCreation } from "../../lib/savedCreations";
+import { getCreation, saveCreation } from "../../lib/savedCreations";
+import { addCustomChunk } from "../../lib/customPicks";
 import { DELETE as runDelete, GET as runGet, PUT as runPut } from "./run/route";
 import { POST as runSave } from "./run/save/route";
 import { POST as savedPost } from "./saved/route";
@@ -135,8 +136,18 @@ describe("GET /api/run: 'Load the saved run'", () => {
   test("no run: status says so, and opening it is a 404 (the banner shows the error and keeps the screen)", async () => {
     const uid = await signedIn();
     const s = await call(runGet as never, "GET", "/api/run", uid);
-    assert.deepEqual(s.json, { run: null, unsaved: false, hasSavedForIssue: false });
+    assert.deepEqual(s.json, { run: null, unsaved: false, hasSavedForIssue: false, unsavedHighlights: 0 });
     assert.equal((await call(runGet as never, "GET", "/api/run?open=1", uid)).status, 404);
+  });
+  test("highlights no saved creation holds are counted, with or without a run (a highlight nobody picked is in no run)", async () => {
+    const uid = await signedIn();
+    const a = await addCustomChunk(uid, "pub:post", "first", null);
+    const b = await addCustomChunk(uid, "pub:post", "second", null);
+    const count = async () => (await call(runGet as never, "GET", "/api/run", uid)).json.unsavedHighlights;
+    assert.equal(await count(), 2);
+    await saveCreation(uid, { source: SOURCE, link: "https://example.test/p", picks: [a!.id], template: "", format: null, step: 3, newsletter: "N", title: "T" });
+    assert.equal(await count(), 1, "the one a saved creation holds is safe");
+    assert.ok(b);
   });
   test("opening gives the other device's picks, step and the time to write against; not signed in is 401", async () => {
     const uid = await signedIn();

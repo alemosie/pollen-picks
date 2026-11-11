@@ -38,7 +38,7 @@ beforeEach(() => fakes.reset());
 describe("current run: one slot per account", () => {
   test("nothing stored: no run, nothing unsaved", async () => {
     assert.equal(await getRun(A), null);
-    assert.deepEqual(await runStatus(A), { run: null, unsaved: false, hasSavedForIssue: false });
+    assert.deepEqual(await runStatus(A), { run: null, unsaved: false, hasSavedForIssue: false, unsavedHighlights: 0 });
   });
   test("a first write is stored and read back whole", async () => {
     const r = await put(A, input());
@@ -219,7 +219,7 @@ describe("run status and 'save it first'", () => {
   test("a run equal to its saved creation has nothing unsaved; a changed one does", async () => {
     await saveCreation(A, input());
     await put(A, input());
-    assert.deepEqual(await runStatus(A), { run: (await runStatus(A)).run, unsaved: false, hasSavedForIssue: true });
+    assert.deepEqual(await runStatus(A), { run: (await runStatus(A)).run, unsaved: false, hasSavedForIssue: true, unsavedHighlights: 0 });
     await put(A, input({ picks: [1, 2, 3] }), { force: true });
     assert.equal((await runStatus(A)).unsaved, true);
   });

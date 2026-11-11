@@ -2,6 +2,7 @@
 // so another device can carry on where this one stopped. One row per account, replaced when a new run starts and deleted when the send is queued.
 // It holds the caption text while the run is in progress (the privacy page says so).
 
+import { countUnsavedHighlights } from "./customPicks";
 import { db } from "./db";
 import { decideRunWrite, keepStoredCaptions, sameCreation, cleanFormat, type CreationInput, type OpenedCreation } from "./savedCreationShape";
 import { getCreationBySource, saveCreation, toStep } from "./savedCreations";
@@ -75,16 +76,24 @@ export type RunStatus = {
   unsaved: boolean;
   /** A saved creation exists for the run's issue (saving the run would replace it). */
   hasSavedForIssue: boolean;
+  /** Highlights no saved creation holds, with or without a run: choosing a new source discards them, so the person is asked first. */
+  unsavedHighlights: number;
 };
 
 export async function runStatus(userId: string): Promise<RunStatus> {
   const run = await getRun(userId);
-  if (!run) return { run: null, unsaved: false, hasSavedForIssue: false };
+  // Only a warning: if the highlights can't be counted the answer is still the run's.
+  const unsavedHighlights = await countUnsavedHighlights(userId).catch((e) => {
+    console.error("counting unsaved highlights failed:", (e as Error).message);
+    return 0;
+  });
+  if (!run) return { run: null, unsaved: false, hasSavedForIssue: false, unsavedHighlights };
   const saved = await getCreationBySource(userId, run.source);
   return {
     run: { source: run.source, newsletter: run.newsletter, title: run.title, picks: run.picks.length, step: run.step, updatedAt: run.updatedAt! },
     unsaved: !saved || !sameCreation(run, saved),
     hasSavedForIssue: Boolean(saved),
+    unsavedHighlights,
   };
 }
 
