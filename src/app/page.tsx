@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuthLink } from "@/components/AuthLink";
+import { HomeNav } from "@/components/HomeNav";
 import { BeehiivLogo, BeehiivMark } from "@/components/BeehiivLogo";
 import { BufferLogo } from "@/components/BufferLogo";
 import { SubstackMark } from "@/components/SubstackLogo";
@@ -99,19 +100,7 @@ export default function Home() {
       </div>
       <header className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
         <Logo height={56} />
-        <nav aria-label="Get started" className="flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/demo/source"
-            className="hidden rounded-xl px-3 py-2 text-sm font-semibold underline decoration-[3px] decoration-transparent underline-offset-[7px] transition hover:decoration-coral sm:inline-block sm:px-4"
-          >
-            Try demo
-          </Link>
-          <AuthLink
-            className="rounded-xl bg-ink px-3.5 py-2 text-sm font-bold text-cream transition hover:bg-ink-deep sm:px-4"
-            loggedOut="Log in to create"
-            loggedIn="Open app"
-          />
-        </nav>
+        <HomeNav />
       </header>
 
       {/* Hero */}
@@ -477,6 +466,9 @@ export default function Home() {
       <footer className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 pb-28 pt-10 text-sm">
         <span>{BRAND_NAME}, built for Buffer Commit 2026.</span>
         <span className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <Link href="/about" className="font-semibold underline underline-offset-4">
+            About
+          </Link>
           <Link href="/privacy" className="font-semibold underline underline-offset-4">
             Privacy
           </Link>

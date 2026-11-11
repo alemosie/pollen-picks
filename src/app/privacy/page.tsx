@@ -8,7 +8,7 @@ export const metadata = { title: "Privacy · Pollen Picks" };
 
 // Keep this in step with what the app really stores. When a new connection or data store lands (beehiiv API key,
 // brand logo uploads, ...), add its line to the matching section below and bump UPDATED.
-const UPDATED = "6 November 2026";
+const UPDATED = "10 November 2026";
 
 type Section = { id: string; title: string; body: ReactNode };
 
@@ -32,6 +32,10 @@ const sections: Section[] = [
           </li>
           <li>
             History: for each draft or post Pollen Picks tried to create in Buffer for you, the channel, the newsletter and issue title, Buffer&rsquo;s id for the post, its last known status, its live link and, if it failed, Buffer&rsquo;s short error message. This is what the &ldquo;History&rdquo; page shows. The caption is kept only while a send is waiting in the queue, and is deleted as soon as the post is created. If a post fails, or its request breaks off so we can&rsquo;t tell whether it arrived, its caption is kept for 24 hours so you can retry it, then deleted. When you create a draft or post, the final slide images are stored so Buffer always has them. They sit in a public storage area under long random file names that can&rsquo;t be guessed, so only people who have an address can open it (Buffer, and anyone Buffer or the network shows the post to). The images of a draft or scheduled post are kept for as long as it is still a draft or scheduled in Buffer (Pollen Picks finds out when you open History). Once it has been published, deleted in Buffer or has failed, its images are deleted after 30 days. They are also deleted when you delete your account. The previews on your screen are drawn each time and are never stored.
+          </li>
+          <li>
+            The slides you send: the slide images (and the PDF, if you ask LinkedIn for one) are stored so Buffer can download them. They have
+            unlisted web addresses, and are removed 30 days after the post is over. The text in each slide is also kept as its alt text.
           </li>
           <li>
             Your current run: while you work (Pick, Design, Write, Send), Pollen Picks keeps one copy of where you are on its server, so you can carry on from another device. It holds
