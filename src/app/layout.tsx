@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { SIGNED_IN_HINT_SCRIPT } from "@/lib/signedInHint";
 
 // Self-hosted (OFL) so the same files serve the app and the slide renderer.
 const dmSans = localFont({
@@ -30,9 +31,13 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION, images: ["/opengraph-image"] },
 };
 
+// suppressHydrationWarning on <html>: the script in <head> may add data-in to it before React looks at it.
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${dmSans.variable} ${madimi.variable}`}>
+    <html lang="en" className={`${dmSans.variable} ${madimi.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SIGNED_IN_HINT_SCRIPT }} />
+      </head>
       <body className="min-h-dvh">
         {children}
       </body>

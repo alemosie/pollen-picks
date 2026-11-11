@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { AccountLinks } from "@/components/AccountLinks";
 import { hasSession } from "@/lib/auth";
-import { HINT_COOKIE } from "@/lib/session";
 
 const TRY_DEMO = "hidden whitespace-nowrap text-sm font-semibold underline underline-offset-4 sm:inline";
 // The same underlined link as History and Settings (AccountLinks). Hidden on the narrowest phones, where the header has no room; the footer links to About too.
@@ -36,24 +35,21 @@ function LoggedOut() {
 /**
  * The splash page's header links: "About" for everyone, then "Try demo" and "Log in to create" for visitors; History, Settings and Log out for people who are signed in
  * (the same links as the app's own header). Built like AuthLink, whose reasoning applies: the page is built once, so the first paint can't know who is
- * looking. Visitors see no change. For someone signed in, a tiny script right after the markup reads the "signed in" marker cookie and flips the
- * header before the first paint; the server then confirms from the real session cookie.
+ * looking. Visitors see no change. The placeholder holds both versions (pp-out, pp-in) and CSS shows one from the "signed in" marker the root layout's script
+ * sets before the first paint (see lib/signedInHint); the server then confirms from the real session cookie.
  */
 export function HomeNav() {
-  // Runs while the page loads, straight after the links. Only touches its own nav; fails silently.
-  const swap = `(function(){try{var s=document.currentScript,n=s&&s.parentElement;if(n&&/(^|; )${HINT_COOKIE}=1/.test(document.cookie))n.setAttribute("data-in","")}catch(e){}})()`;
   return (
     <Suspense
       fallback={
-        <nav aria-label="Account" className={`group ${NAV}`} suppressHydrationWarning>
+        <nav aria-label="Account" className={NAV}>
           <About />
-          <div className="contents group-data-[in]:hidden">
+          <div className="pp-out contents">
             <LoggedOut />
           </div>
-          <div className="hidden group-data-[in]:block">
+          <div className="pp-in">
             <AccountLinks />
           </div>
-          <script dangerouslySetInnerHTML={{ __html: swap }} />
         </nav>
       }
     >
