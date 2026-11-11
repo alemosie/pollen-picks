@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Chunk } from "@/lib/pollen/chunks";
-import { captionItemsFor } from "./items";
+import { captionItemsFor, picksInIssue } from "./items";
 
 const chunk = (id: number, url: string | null): Chunk & { rank: number | null } =>
   ({ id, kind: "link", title: `Pick ${id}`, text: "", blurb: "", group: undefined, when: null, place: null, url, rank: null }) as unknown as Chunk & { rank: number | null };
@@ -13,4 +13,12 @@ test("the caption's tag: from the pick's Instagram link, set by hand, or removed
   assert.deepEqual(tags({ 2: { tag: "by.hand" } }), ["from.link", "by.hand", "other.one"], "a pick that is not from Instagram can be tagged");
   assert.deepEqual(tags({ 1: { tag: "changed" } }), ["changed", null, "other.one"], "replaces the one from the link");
   assert.deepEqual(tags({ 3: { tag: "" } }), ["from.link", null, null], "an empty tag removes the one from the link");
+});
+
+test("picksInIssue keeps the picks the issue has, in order, and drops the ones it doesn't", () => {
+  assert.deepEqual(picksInIssue([{ id: 1 }, { id: 2 }, { id: 5 }], [5, 9, 1]), [5, 1]);
+});
+
+test("picksInIssue with none of them there is empty, so the step can go back to Pick", () => {
+  assert.deepEqual(picksInIssue([{ id: 1 }], [7, 8, 9]), []);
 });

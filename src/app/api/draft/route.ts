@@ -7,6 +7,10 @@ import { requireSession } from "@/lib/guard";
 import { serviceKey } from "@/lib/channels";
 import { loadLinkedinFormat } from "@/lib/slideStyleStore";
 import { loadAppIssue } from "@/lib/sources";
+import { planSlides } from "@/lib/slides/plan";
+import { slideItemsFor } from "@/lib/slides/items";
+import { parseTemplateFrom } from "@/lib/slides/options";
+import { postTitleOf } from "@/lib/slides/postTitle";
 import { deleteRun } from "@/lib/currentRun";
 import { enqueue, processQueue } from "@/lib/sendQueue";
 
@@ -50,6 +54,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Slide images are served from ${base}, which Buffer can't reach. Use the deployed site (or set PUBLIC_BASE_URL to a tunnel).` }, { status: 400 });
   }
 
+  // What History calls this send. Only a label: if it can't be worked out, the send goes ahead and History names it by its issue.
+  let postTitle = "";
+  try {
+    postTitle = postTitleOf(planSlides(slideItemsFor(issue.chunks, picks), { newsletter: issue.newsletter, ...parseTemplateFrom(new URLSearchParams(body.template ?? "")) }));
+  } catch (e) {
+    console.error("naming the send failed:", (e as Error).message);
+  }
+
   try {
     const { batchId } = await enqueue(g.session.userId, {
       source: body.source as string,
@@ -59,7 +71,9 @@ export async function POST(req: NextRequest) {
       // LinkedIn's own carousel is a PDF, so that is what a LinkedIn channel gets unless the user chose images (Settings > LinkedIn format).
       linkedinPdf: channels.some((c) => serviceKey(c.service) === "linkedin") && (await loadLinkedinFormat(g.session.userId)) === "pdf",
       newsletter: issue.newsletter,
-      issueTitle: issue.title,
+      // The issue's or public post's title, or its link when the page has none: History shows it as where the send came from.
+      issueTitle: issue.title?.trim() || issue.url,
+      postTitle,
       // A caption over a network's limit is never published: that channel is saved as a draft to shorten in Buffer, and the rest go as asked.
       channels: channels.map((c) => {
         const caption = body.captions?.[c.id] ?? body.caption ?? "";

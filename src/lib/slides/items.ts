@@ -7,6 +7,16 @@ import type { CaptionItem } from "@/lib/caption";
 import type { PickEdit } from "./options";
 import type { SlideItem } from "./types";
 
+/**
+ * The picks in a link that still exist in the issue, in the same order. A link (or the place someone left off) can carry picks the issue no longer has:
+ * highlights from the Manual tab that were never saved or were discarded, or an issue that changed. Left in, they would show as picks with nothing
+ * to draw, so the steps after Pick count only the ones that are there (and go back to Pick when none are).
+ */
+export const picksInIssue = (chunks: { id: number }[], ids: number[]): number[] => {
+  const have = new Set(chunks.map((c) => c.id));
+  return ids.filter((id) => have.has(id));
+};
+
 /** Picked chunk ids (in pick order) -> slide items. */
 export function slideItemsFor(chunks: Chunk[], ids: number[], known?: KnownHandles): SlideItem[] {
   const byId = new Map(chunks.map((c) => [c.id, c]));

@@ -15,6 +15,8 @@ export type HistoryEntry = {
   mode: "draft" | "now";
   newsletter: string;
   issueTitle: string;
+  /** What the send is called: its first pick's title, or its description cut short. Empty for sends from before db/supabase/0029, which History names by their issue. */
+  postTitle: string;
   slides: number | null;
   /** Buffer's PostStatus as last seen (draft | scheduled | sending | sent | error | needs_approval), or ours: failed | unknown. */
   status: string;
@@ -46,6 +48,8 @@ type Row = {
   mode: "draft" | "now";
   newsletter: string;
   issue_title: string;
+  /** Absent when the database has no post_title column yet (db/supabase/0029). */
+  post_title?: string | null;
   slides: number | null;
   status: string;
   live_url: string | null;
@@ -57,7 +61,7 @@ type Row = {
   attempts: number;
   caption: string | null;
 };
-const COLUMNS = "id, post_id, service, channel_name, mode, newsletter, issue_title, slides, status, live_url, error, channel_id, batch_id, created_at, attempts, caption, slide_paths";
+const COLUMNS = "id, post_id, service, channel_name, mode, newsletter, issue_title, post_title, slides, status, live_url, error, channel_id, batch_id, created_at, attempts, caption, slide_paths";
 
 const toEntry = (r: Row): HistoryEntry => ({
   id: r.id,
@@ -67,6 +71,7 @@ const toEntry = (r: Row): HistoryEntry => ({
   mode: r.mode,
   newsletter: r.newsletter,
   issueTitle: r.issue_title,
+  postTitle: r.post_title ?? "",
   slides: r.slides,
   status: r.status,
   liveUrl: r.live_url,
@@ -139,15 +144,20 @@ export async function requeueFailed(userId: string, ids: number[], confirmed = f
 export async function listHistory(userId: string, opts: { limit?: number; batchId?: string; filters?: HistoryFilters } = {}): Promise<HistoryEntry[]> {
   const f = opts.filters ?? {};
   await purgeStaleCaptions(userId);
-  let q = db().from("post_history").select(COLUMNS).eq("user_id", userId);
-  if (opts.batchId) q = q.eq("batch_id", opts.batchId);
-  if (f.service) q = q.eq("service", f.service.toLowerCase());
-  if (f.channelId) q = q.eq("channel_id", f.channelId);
-  if (f.mode) q = q.eq("mode", f.mode);
-  if (f.status) q = q.in("status", [...STATUS_GROUPS[f.status].statuses]);
-  const { data, error } = await q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(opts.limit ?? 100);
+  const read = (columns: string) => {
+    let q = db().from("post_history").select(columns).eq("user_id", userId);
+    if (opts.batchId) q = q.eq("batch_id", opts.batchId);
+    if (f.service) q = q.eq("service", f.service.toLowerCase());
+    if (f.channelId) q = q.eq("channel_id", f.channelId);
+    if (f.mode) q = q.eq("mode", f.mode);
+    if (f.status) q = q.in("status", [...STATUS_GROUPS[f.status].statuses]);
+    return q.order("created_at", { ascending: false }).order("id", { ascending: false }).limit(opts.limit ?? 100);
+  };
+  let { data, error } = await read(COLUMNS);
+  // Until db/supabase/0029 is applied there is no post_title column: History still lists everything, named by its issue.
+  if (error && /post_title/.test(error.message)) ({ data, error } = await read(COLUMNS.replace(" post_title,", "")));
   if (error) throw new Error(`Could not read your history: ${error.message}`);
-  return ((data ?? []) as Row[]).map(toEntry);
+  return ((data ?? []) as unknown as Row[]).map(toEntry);
 }
 
 /**

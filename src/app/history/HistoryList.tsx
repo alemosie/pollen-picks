@@ -92,6 +92,45 @@ function summarize(entries: HistoryEntry[], now: number | null) {
   return { total: entries.length, bad, going, drafts, scheduled, gone, live };
 }
 
+/**
+ * How a send is named: its own title first (two sends of the same issue share the issue's title, so that alone can't tell them apart), then where it
+ * came from and when. Sends from before post titles existed (db/supabase/0029) have no title of their own, so they keep the issue's title on top.
+ */
+function sendName(c: HistoryEntry, now: number | null) {
+  const source = c.issueTitle || c.newsletter;
+  const title = c.postTitle || source;
+  const from = c.postTitle ? source : c.newsletter !== title ? c.newsletter : "";
+  return { title, from, at: now === null ? "" : when(c.createdAt) };
+}
+
+/** The top of a send: title, "source · date", then whatever `children` say about how it went. */
+function SendHeading({ c, now, children }: { c: HistoryEntry; now: number | null; children: ReactNode }) {
+  const { title, from, at } = sendName(c, now);
+  return (
+    <span className="min-w-0 flex-1">
+      <span className="block truncate font-semibold" title={title}>
+        {title}
+      </span>
+      <span className="flex min-w-0 text-xs text-ink/80">
+        {from && (
+          <>
+            <span className="min-w-0 truncate" title={from}>
+              {from}
+            </span>
+            <span aria-hidden className="shrink-0 whitespace-pre">
+              {" · "}
+            </span>
+          </>
+        )}
+        <time dateTime={c.createdAt} suppressHydrationWarning className="shrink-0">
+          {at}
+        </time>
+      </span>
+      <span className="mt-1 block text-sm">{children}</span>
+    </span>
+  );
+}
+
 /** The History page: every attempt to create a post in Buffer for this account, failed ones too, with the Buffer link and live link. */
 export function HistoryList({ filterQuery = "" }: { /** The page's filters as a query string, only to tell "nothing yet" from "nothing matches". */ filterQuery?: string }) {
   const { items, now, error, watching, gaveUp, retrying, retry, check, checking } = useHistory();
@@ -270,15 +309,9 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
               <details key={g.key} open={gi === 0 ? true : undefined} className="group overflow-hidden rounded-xl bg-surface ring-1 ring-ink/10">
                 <summary className="flex cursor-pointer list-none items-start gap-2 rounded-xl p-4 group-open:rounded-b-none group-open:bg-coral/15 group-open:pb-3 [&::-webkit-details-marker]:hidden">
                   <ChevronRight aria-hidden className="mt-1 size-4 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2.5} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-semibold" title={g.entries[0].issueTitle}>
-                      {g.entries[0].issueTitle || g.entries[0].newsletter}
-                    </span>
-                    <time dateTime={g.entries[0].createdAt} suppressHydrationWarning className="block text-xs text-ink/80">
-                      {now === null ? "" : when(g.entries[0].createdAt)}
-                    </time>
-                    <span className="mt-1 block text-sm">{g.entries.length} need a look</span>
-                  </span>
+                  <SendHeading c={g.entries[0]} now={now}>
+                    {g.entries.length} need a look
+                  </SendHeading>
                   <SendStatus entries={g.entries} now={now} />
                 </summary>
                 <ul className="m-0 mx-4 mb-2 grid list-none divide-y divide-ink/10 border-t border-ink/10 p-0">
@@ -348,23 +381,19 @@ export function HistoryList({ filterQuery = "" }: { /** The page's filters as a 
             <details key={g.key} open={i === 0 ? true : undefined} className="group overflow-hidden rounded-xl bg-surface ring-1 ring-ink/10">
               <summary className="flex cursor-pointer list-none items-start gap-2 rounded-xl p-4 group-open:rounded-b-none group-open:bg-sage/30 group-open:pb-3 [&::-webkit-details-marker]:hidden">
                 <ChevronRight aria-hidden className="mt-1 size-4 shrink-0 transition-transform group-open:rotate-90" strokeWidth={2.5} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-semibold" title={first.issueTitle}>
-                    {first.issueTitle || first.newsletter}
-                  </span>
-                  <time dateTime={first.createdAt} suppressHydrationWarning className="block text-xs text-ink/80">
-                    {now === null ? "" : when(first.createdAt)}
-                  </time>
-                  <span className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm">
-                    <span>{sum.total} {sum.total === 1 ? "channel" : "channels"}</span>
-                    {sum.live > 0 && <span>{sum.live} live</span>}
-                    {sum.drafts > 0 && <span>{sum.drafts} {sum.drafts === 1 ? "draft" : "drafts"}</span>}
-                    {sum.scheduled > 0 && <span>{sum.scheduled} scheduled</span>}
-                    {sum.gone > 0 && <span>{sum.gone} deleted</span>}
-                    {sum.going > 0 && <span>{sum.going} in progress</span>}
-                    {sum.bad > 0 && <span>{sum.bad} need a look</span>}
-                  </span>
-                </span>
+                <SendHeading c={first} now={now}>
+                  {[
+                    `${sum.total} ${sum.total === 1 ? "channel" : "channels"}`,
+                    sum.live > 0 && `${sum.live} live`,
+                    sum.drafts > 0 && `${sum.drafts} ${sum.drafts === 1 ? "draft" : "drafts"}`,
+                    sum.scheduled > 0 && `${sum.scheduled} scheduled`,
+                    sum.gone > 0 && `${sum.gone} deleted`,
+                    sum.going > 0 && `${sum.going} in progress`,
+                    sum.bad > 0 && `${sum.bad} need a look`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </SendHeading>
                 <SendStatus entries={g.entries} now={now} />
               </summary>
               <div className="overflow-x-auto px-4 pb-3">

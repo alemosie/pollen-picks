@@ -55,6 +55,8 @@ export type QueueRequest = {
   intent: PostIntent;
   newsletter: string;
   issueTitle: string;
+  /** What this send is called in History (see slides/postTitle): its first pick's title or description. Empty when there are no words to use. */
+  postTitle?: string;
   /** `intent` per channel overrides the batch one: a channel whose caption is too long for a publish-now is saved as a draft. */
   channels: { id: string; service: string; name: string; caption: string; intent?: PostIntent }[];
   /** LinkedIn channels get the slides as one PDF (a swipeable carousel) instead of a set of images. The route sets it from the user's LinkedIn format. */
@@ -73,6 +75,7 @@ export async function enqueue(userId: string, r: QueueRequest, client: SupabaseC
     mode: c.intent ?? r.intent,
     newsletter: clip(r.newsletter, 120),
     issue_title: clip(r.issueTitle, 200),
+    ...(r.postTitle ? { post_title: clip(r.postTitle, 200) } : {}),
   });
   const rows = r.channels.map((c) => {
     const blocked = unsupportedReason(c.service);
@@ -90,11 +93,15 @@ export async function enqueue(userId: string, r: QueueRequest, client: SupabaseC
         };
   });
   let { error } = await client.from("post_history").insert(rows);
-  // The PDF is what LinkedIn gets by default, so until db/supabase/0028 is applied (no as_pdf column) every LinkedIn send would fail here. It goes
-  // as images instead, which is how it worked before: a missing column must not cost anyone their post.
-  if (error && /as_pdf/.test(error.message) && rows.some((row) => "as_pdf" in row)) {
-    console.error("post_history has no as_pdf column yet (db/supabase/0028); LinkedIn goes as images:", error.message);
-    ({ error } = await client.from("post_history").insert(rows.map((row) => Object.fromEntries(Object.entries(row).filter(([k]) => k !== "as_pdf")))));
+  // A column that isn't in the database yet must not cost anyone their post. The PDF is what LinkedIn gets by default, so until db/supabase/0028
+  // is applied (no as_pdf column) every LinkedIn send would fail here; it goes as images instead, which is how it worked before. Likewise a send
+  // without post_title (db/supabase/0029) is only named by its issue in History.
+  for (const column of ["as_pdf", "post_title"]) {
+    if (error && new RegExp(column).test(error.message) && rows.some((row) => column in row)) {
+      console.error(`post_history has no ${column} column yet; sending without it:`, error.message);
+      rows.forEach((row) => delete (row as Record<string, unknown>)[column]);
+      ({ error } = await client.from("post_history").insert(rows));
+    }
   }
   if (error) throw new Error(`Could not queue the send: ${error.message}`);
   return { batchId };

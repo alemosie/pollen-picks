@@ -68,6 +68,13 @@ describe("listHistory", () => {
     for (let i = 0; i < 5; i++) row({ created_at: ago(i * HOUR + 1) });
     assert.equal((await listHistory(A, { limit: 2 })).length, 2);
   });
+  test("a send's own title comes through; rows from before it existed have none", async () => {
+    const titled = row({ post_title: "Baby Rhyme Time" });
+    const old = row({ created_at: ago(2 * HOUR) });
+    const byId = new Map((await listHistory(A)).map((e) => [e.id, e]));
+    assert.equal(byId.get(titled.id)!.postTitle, "Baby Rhyme Time");
+    assert.equal(byId.get(old.id)!.postTitle, "");
+  });
   test("one send: only its batch", async () => {
     const x = row({ batch_id: "batch-x" });
     row({ batch_id: "batch-y" });

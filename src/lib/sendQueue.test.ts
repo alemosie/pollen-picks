@@ -552,6 +552,24 @@ describe("enqueue: writing the rows", () => {
     assert.ok(String(r.newsletter).length <= 120);
   });
 
+  test("the send's title is written on every row, and left off when there is none", async () => {
+    const fake = new FakeDb();
+    await enqueue("u1", request([{ id: "a", service: "instagram", name: "A", caption: "c" }, { id: "b", service: "linkedin", name: "B", caption: "c" }], { postTitle: "Baby Rhyme Time" }), fake.client as unknown as SupabaseClient);
+    assert.deepEqual(fake.rows.map((r) => r.post_title), ["Baby Rhyme Time", "Baby Rhyme Time"]);
+    const bare = new FakeDb();
+    await enqueue("u1", request([{ id: "a", service: "instagram", name: "A", caption: "c" }]), bare.client as unknown as SupabaseClient);
+    assert.equal("post_title" in bare.rows[0], false);
+  });
+
+  test("a database without the post_title column yet: the send is queued without it", async () => {
+    const fake = new FakeDb();
+    fake.missingColumns = ["post_title"];
+    await enqueue("u1", request([{ id: "a", service: "instagram", name: "A", caption: "c" }], { postTitle: "Baby Rhyme Time" }), fake.client as unknown as SupabaseClient);
+    assert.equal(fake.rows.length, 1);
+    assert.equal("post_title" in fake.rows[0], false);
+    assert.equal(fake.rows[0].status, "queued");
+  });
+
   test("if the rows can't be written the send fails loudly, so nothing is silently lost", async () => {
     const fake = new FakeDb();
     fake.insertError = "connection refused";
