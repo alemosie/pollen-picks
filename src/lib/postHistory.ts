@@ -150,6 +150,22 @@ export async function listHistory(userId: string, opts: { limit?: number; batchI
   return ((data ?? []) as Row[]).map(toEntry);
 }
 
+/**
+ * The channels the user's latest send went to (Buffer's channel ids), to start the "Posting to" choice in a browser that has none saved yet.
+ * Empty when nothing was sent or it can't be read: that only means the choice starts from every channel.
+ */
+export async function lastSendChannelIds(userId: string): Promise<string[]> {
+  try {
+    const { data: last } = await db().from("post_history").select("batch_id").eq("user_id", userId).not("batch_id", "is", null).not("channel_id", "is", null).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(1);
+    const batch = (last as { batch_id: string }[] | null)?.[0]?.batch_id;
+    if (!batch) return [];
+    const { data } = await db().from("post_history").select("channel_id").eq("user_id", userId).eq("batch_id", batch).not("channel_id", "is", null).limit(200);
+    return [...new Set(((data ?? []) as { channel_id: string }[]).map((r) => r.channel_id))];
+  } catch {
+    return [];
+  }
+}
+
 /** The networks and channels this account has history for, for the filter bar. Newest first, so recent channels lead. */
 export async function historyFacets(userId: string): Promise<HistoryFacets> {
   const { data, error } = await db()

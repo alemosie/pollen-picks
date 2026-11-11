@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { beforeEach, describe, test } from "node:test";
 import { fakes } from "../test/setup"; // first: sets the env and the fake network
 import { jsonResponse } from "../test/fakes";
-import { CAPTION_KEEP_HOURS, historyFacets, listHistory, refreshHistory, requeueFailed } from "./postHistory";
+import { CAPTION_KEEP_HOURS, historyFacets, lastSendChannelIds, listHistory, refreshHistory, requeueFailed } from "./postHistory";
 
 // The log behind the History page. What matters:
 //   - an account only ever sees and changes its own rows;
@@ -452,5 +452,29 @@ describe("refreshHistory: asking Buffer where publish-now posts stand", () => {
     stateOf({ "bp-1": { status: "x".repeat(60) } });
     await refreshHistory(A, "tok");
     assert.equal((stored(r.id).status as string).length, 30);
+  });
+});
+
+// Where the "Posting to" choice starts in a browser with none saved: the channels of the user's latest send.
+describe("lastSendChannelIds", () => {
+  test("is the channels of the latest batch only, each once", async () => {
+    row({ batch_id: "old", channel_id: "ch-old", created_at: ago(5 * HOUR) });
+    row({ batch_id: "new", channel_id: "ch-a", created_at: ago(2 * HOUR) });
+    row({ batch_id: "new", channel_id: "ch-b", created_at: ago(2 * HOUR) });
+    row({ batch_id: "new", channel_id: "ch-a", created_at: ago(1 * HOUR) }); // a retry of the same channel
+    assert.deepEqual((await lastSendChannelIds(A)).sort(), ["ch-a", "ch-b"]);
+  });
+  test("never includes another account's channels", async () => {
+    row({ user_id: B, batch_id: "theirs", channel_id: "ch-b", created_at: ago(1 * HOUR) });
+    row({ batch_id: "mine", channel_id: "ch-a", created_at: ago(3 * HOUR) });
+    assert.deepEqual(await lastSendChannelIds(A), ["ch-a"]);
+  });
+  test("is empty when nothing was sent, so the choice starts from every channel", async () => {
+    assert.deepEqual(await lastSendChannelIds(A), []);
+  });
+  test("ignores rows with no batch or no channel (an attempt that died early)", async () => {
+    row({ batch_id: null, channel_id: "ch-x", created_at: ago(1 * HOUR) });
+    row({ batch_id: "b", channel_id: null, created_at: ago(1 * HOUR) });
+    assert.deepEqual(await lastSendChannelIds(A), []);
   });
 });
