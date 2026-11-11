@@ -1,3 +1,4 @@
+import { Carousel } from "@/components/Carousel";
 import { Reveal } from "@/components/path/PollenPath";
 
 type Shot = {
@@ -10,6 +11,9 @@ type Example = {
   /** The small heading: whose newsletter this is. */
   org: string;
   description: string;
+  /** Where the newsletter lives, and the Instagram post it became. Both open in a new tab. */
+  newsletterUrl: string;
+  instagramUrl: string;
   before: Shot;
   after: Shot;
 };
@@ -20,9 +24,27 @@ type Example = {
  */
 const EXAMPLES: Example[] = [
   {
-    org: "A nonprofit organization",
+    org: "From: A freelancer\u2019s newsletter",
+    newsletterUrl: "https://thefreelancebesties.com/newsletter",
+    instagramUrl: "https://www.instagram.com/p/Dfmli7SDdJk/",
     description:
-      "The bi-monthly activities newsletter becomes an Instagram carousel with the newsletter\u2019s most clicked content \u2014 plus organizer tagging.",
+      "The Freelance Besties turned newsletter insights from a TEDx talk into a carousel post for Instagram.",
+    before: {
+      src: "/images/what-it-does/freelancer-newsletter-before.png",
+      alt: "A newsletter issue called Are goals actually helping us? The paragraphs introducing a TEDx talk and the quote \u201cI missed the goal, but I lived the dream.\u201d are in view.",
+      position: "center",
+    },
+    after: {
+      src: "/images/what-it-does/freelancer-instagram-after.png",
+      alt: "An Instagram post from The Freelance Besties: slide 3 of 8 is an orange card with the quote \u201cI missed the goal, but I lived the dream.\u201d, next to a caption that starts with the TEDx The Hague story.",
+    },
+  },
+  {
+    org: "From: An events digest",
+    newsletterUrl: "https://amsterdamparentproject.beehiiv.com/p/2-16-nov-2026",
+    instagramUrl: "https://www.instagram.com/p/Dfgxg7sFaUq/?img_index=1",
+    description:
+      "A family activities newsletter transformed the most clicked events into an Instagram carousel, tagging the event organizers in the caption.",
     before: {
       src: "/images/what-it-does/newsletter-before.png",
       alt: "A newsletter section called What\u2019s happening around town, with Sint Maarten events listed with links, dates and descriptions.",
@@ -91,8 +113,22 @@ function Frame({ shot, label, tone, sticker, tilt }: { shot: Shot; label: string
   );
 }
 
+/** A link that opens in a new tab, underlined like the other links on the page. */
+function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline decoration-[3px] underline-offset-[7px] hover:decoration-coral"
+    >
+      {children}
+      <span className="sr-only"> (opens in a new tab)</span>
+    </a>
+  );
+}
+
 export function WhatItDoes() {
-  const showText = EXAMPLES.length > 1;
   return (
     <section
       id="what-it-does"
@@ -100,28 +136,31 @@ export function WhatItDoes() {
       className="mx-auto max-w-6xl px-6 pb-4 sm:pb-8"
     >
       <Reveal>
-        <h2 id="what-it-does-title" className="mb-12 text-center text-3xl leading-tight sm:text-5xl">
+        <h2 id="what-it-does-title" className="mb-4 text-center text-3xl leading-tight sm:text-5xl">
           Words in, <span className="pp-squig">posts out</span>
         </h2>
       </Reveal>
-      <div className="grid gap-16">
-        {EXAMPLES.map((ex, i) => (
-          <Reveal key={ex.org} delay={i === 0 ? 0 : 0.05}>
-            {/* The name and description only appear once there is more than one example, to tell them apart. */}
-            {showText && (
+      <Reveal delay={0.05}>
+        <Carousel label="Examples of newsletters turned into Instagram carousels">
+          {EXAMPLES.map((ex) => (
+            <div key={ex.org}>
               <div className="mx-auto mb-10 max-w-2xl text-center">
                 <h3 className="mb-2 font-display text-xl leading-tight sm:text-2xl">{ex.org}</h3>
                 <p className="m-0 text-balance text-lg leading-relaxed sm:text-xl">{ex.description}</p>
               </div>
-            )}
-            <div className="mx-auto grid w-4/5 max-w-[55rem] items-center gap-10 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-6">
-              <Frame shot={ex.before} label="Before" tone="bg-blush shadow-[7px_7px_0_0_#f5cac380]" sticker="border-blush" tilt="md:-rotate-1" />
-              <Arrow />
-              <Frame shot={ex.after} label="After" tone="bg-sage shadow-[7px_7px_0_0_#84a59d80]" sticker="border-sage" tilt="md:rotate-1" />
+              <div className="mx-auto grid w-full max-w-[55rem] items-center gap-10 md:w-4/5 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:gap-6">
+                <Frame shot={ex.before} label="Before" tone="bg-blush shadow-[7px_7px_0_0_#f5cac380]" sticker="border-blush" tilt="md:-rotate-1" />
+                <Arrow />
+                <Frame shot={ex.after} label="After" tone="bg-sage shadow-[7px_7px_0_0_#84a59d80]" sticker="border-sage" tilt="md:rotate-1" />
+              </div>
+              <p className="m-0 mt-8 flex flex-wrap justify-center gap-x-8 gap-y-2 text-base font-semibold">
+                <ExternalLink href={ex.newsletterUrl}>Read the newsletter</ExternalLink>
+                <ExternalLink href={ex.instagramUrl}>See the Instagram post</ExternalLink>
+              </p>
             </div>
-          </Reveal>
-        ))}
-      </div>
+          ))}
+        </Carousel>
+      </Reveal>
     </section>
   );
 }

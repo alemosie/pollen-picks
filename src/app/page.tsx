@@ -113,7 +113,7 @@ export default function Home() {
         </h1>
         <p className="mx-auto max-w-2xl text-balance text-lg leading-relaxed sm:text-xl">
           <strong>From picks to posts:</strong> Pollen Picks turns any newsletter
-          or blog into carousel posts via Buffer, tagging creators along the
+          or blog into carousel posts via Buffer, tagging your community along the
           way. No AI, just your words in more places.
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:mt-0">
