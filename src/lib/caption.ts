@@ -4,11 +4,11 @@ import type { PostIntent } from "./bufferPost";
 
 /** What a caption line needs from a pick. `date` is the first ISO date (YYYY-MM-DD) found in its date line. `tag` is the Instagram handle (no "@") its link points to. */
 export type CaptionItem = { title: string; when: string | null; place: string | null; rank: number | null; date: string | null; /** Last day of a multi-day pick (YYYY-MM-DD). */ endDate?: string | null; time?: string; tag?: string | null; /** Category label, e.g. "West". */ group?: string; /** Who to credit for the picture on this pick's slide ("@handle", a site's name). Goes in the caption, not on the slide. */ photoCredit?: string };
-export type CaptionOrder = "clicks" | "alpha" | "date";
+export type CaptionOrder = "slides" | "clicks" | "date";
 /** `bullet` starts every line of that ordering's caption; change them here. */
 export const CAPTION_ORDERS: { id: CaptionOrder; label: string; bullet: string; hint: string }[] = [
+  { id: "slides", label: "Slides", bullet: "👉", hint: "In the order of your slides" },
   { id: "clicks", label: "Clicks", bullet: "🔥", hint: "Most-clicked picks first" },
-  { id: "alpha", label: "A–Z", bullet: "➡️", hint: "Alphabetical by title" },
   { id: "date", label: "Date", bullet: "🗓️", hint: "Soonest first, with the date up front" },
 ];
 const bulletFor = (order: CaptionOrder) => CAPTION_ORDERS.find((o) => o.id === order)!.bullet;
@@ -53,13 +53,15 @@ const cleanText = (s: string) => s.replace(/\s+/g, " ").trim();
 const cleanWhen = (s: string) => cleanText(s).replace(/\s*\((weekly|every[^)]*)\)/i, "").trim();
 
 const byRank = (a: CaptionItem, b: CaptionItem) => (a.rank ?? Infinity) - (b.rank ?? Infinity);
-// Sort on the words, so a leading emoji doesn't push a pick to the top of A–Z.
+// Ties by date fall back to the title, on the words, so a leading emoji doesn't push a pick to the top.
 const byTitle = (a: CaptionItem, b: CaptionItem) => stripEmoji(a.title).localeCompare(stripEmoji(b.title), "en", { sensitivity: "base" });
 const byDate = (a: CaptionItem, b: CaptionItem) =>
   (a.date ?? "9999").localeCompare(b.date ?? "9999") || (a.time ?? "99:99").localeCompare(b.time ?? "99:99") || byTitle(a, b);
 
 export function sortCaptionItems(items: CaptionItem[], order: CaptionOrder): CaptionItem[] {
-  const cmp = order === "clicks" ? byRank : order === "alpha" ? byTitle : byDate;
+  // The picks arrive in slide order (slide by slide, top to bottom), so that order is the list as given.
+  if (order === "slides") return [...items];
+  const cmp = order === "clicks" ? byRank : byDate;
   // Array.sort is stable, so ties keep the order the picks were made in.
   return [...items].sort(cmp);
 }
@@ -69,7 +71,7 @@ export const fromTag = (tag: string | null | undefined, variant: CaptionVariant)
 
 /**
  * One line per pick. By date: "🏮 9-11 Nov: Lantern making at Robbeburg @handle" (the pick's own emoji leads, else 🗓️; a range has no weekday).
- * Clicks and A-Z: "🔥 Sint Maarten in Bilderdijkpark @handle (Wed 11 Nov, Kinkerbuurt)" (the day, then the place; no time).
+ * Slides and clicks: "🔥 Sint Maarten in Bilderdijkpark @handle (Wed 11 Nov, Kinkerbuurt)" (the day, then the place; no time).
  */
 function line(i: CaptionItem, order: CaptionOrder, variant: CaptionVariant): string {
   const title = cleanText(i.title);

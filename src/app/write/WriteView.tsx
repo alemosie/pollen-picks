@@ -99,11 +99,12 @@ export function WriteView({
   // The caption is written for the networks that are ticked ("Posting to"); with none ticked, for every usable one.
   const usable = fitScope(channels, selected);
   const taggedCount = captionItems.filter((i) => i.tag).length;
-  const [chosenOrder, setOrder] = useState<CaptionOrder>("clicks");
-  // Only the orders the picks can support: highlights have no click ranking and no dates, so they can only go A–Z.
+  const [chosenOrder, setOrder] = useState<CaptionOrder>("slides");
+  // Only the orders the picks can support: slide order always works; highlights have no click ranking and no dates, so they get no
+  // Clicks or Date. The caption starts in slide order, the first of the orders.
   const orders = CAPTION_ORDERS.filter(
     (o) =>
-      o.id === "alpha" ||
+      o.id === "slides" ||
       captionItems.some((i) => (o.id === "clicks" ? i.rank != null : i.date != null)),
   );
   const order = orders.some((o) => o.id === chosenOrder) ? chosenOrder : orders[0].id;

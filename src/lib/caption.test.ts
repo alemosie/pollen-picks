@@ -35,14 +35,22 @@ test("networks: Instagram points to the bio, the rest get the link", () => {
   for (const s of ["twitter", "x", "bluesky", "threads", "mastodon", "Threads"]) assert.equal(variantFor(s), "short", s);
 });
 
-test("sorting: clicks (unranked last), A-Z without emoji or case, date then time (undated last)", () => {
+test("sorting: clicks (unranked last), date then time (undated last, ties by title without emoji or case)", () => {
   const titles = (items: CaptionItem[], order: Parameters<typeof sortCaptionItems>[1]) => sortCaptionItems(items, order).map((i) => i.title);
   assert.deepEqual(titles([it("C"), it("A", { rank: 2 }), it("B", { rank: 1 })], "clicks"), ["B", "A", "C"]);
-  assert.deepEqual(titles([it("banana"), it("🎃 Apple"), it("Cherry")], "alpha"), ["🎃 Apple", "banana", "Cherry"]);
+  assert.deepEqual(titles([it("banana"), it("🎃 Apple"), it("Cherry")], "date"), ["🎃 Apple", "banana", "Cherry"]);
   assert.deepEqual(
     titles([it("Undated"), it("Late", { date: "2026-10-25", time: "09:00" }), it("Early", { date: "2026-10-25", time: "08:00" }), it("First", { date: "2026-10-24" })], "date"),
     ["First", "Early", "Late", "Undated"],
   );
+});
+
+test("slide order keeps the picks as given, whatever their clicks, dates or titles", () => {
+  const items = [it("Zebra", { rank: 3, date: "2026-11-20" }), it("Apple", { rank: 1, date: "2026-11-10" }), it("Mango")];
+  assert.deepEqual(sortCaptionItems(items, "slides").map((i) => i.title), ["Zebra", "Apple", "Mango"]);
+  const text = buildCaption(items, { ...base, order: "slides", variant: "link" });
+  assert.ok(text.indexOf("Zebra") < text.indexOf("Apple") && text.indexOf("Apple") < text.indexOf("Mango"));
+  assert.ok(text.includes("👉 Zebra"));
 });
 
 test("sorting is stable: ties keep the order the picks were made in", () => {
@@ -84,7 +92,7 @@ test("only Instagram gets the @tag credit", () => {
   assert.ok(!buildCaption(items, { ...base, order: "clicks", variant: "link" }).includes("@theowner"));
 });
 
-test("clicks and A-Z: the tag follows the title, then (day, place) with no time", () => {
+test("slides and clicks: the tag follows the title, then (day, place) with no time", () => {
   const text = buildCaption([it("Sint Maarten in Bilderdijkpark", { rank: 1, when: "Wed 11 Nov @ 17:00", date: "2026-11-11", time: "17:00", place: "Kinkerbuurt", tag: "bilderdijkpark_amsterdam" })], { ...base, order: "clicks", variant: "instagram" });
   assert.ok(text.includes("🔥 Sint Maarten in Bilderdijkpark @bilderdijkpark_amsterdam (Wed 11 Nov, Kinkerbuurt)"), text);
 });

@@ -13,7 +13,7 @@ type Example = {
   description: string;
   /** Where the newsletter lives, and the Instagram post it became. Both open in a new tab. */
   newsletterUrl: string;
-  instagramUrl: string;
+  instagramUrl?: string;
   before: Shot;
   after: Shot;
 };
@@ -44,7 +44,7 @@ const EXAMPLES: Example[] = [
     newsletterUrl: "https://amsterdamparentproject.beehiiv.com/p/2-16-nov-2026",
     instagramUrl: "https://www.instagram.com/p/Dfgxg7sFaUq/?img_index=1",
     description:
-      "A family activities newsletter transformed the most clicked events into an Instagram carousel, tagging the event organizers in the caption.",
+      "A family activities newsletter transformed the most-clicked events into an Instagram carousel, tagging the event organizers in the caption.",
     before: {
       src: "/images/what-it-does/newsletter-before.png",
       alt: "A newsletter section called What\u2019s happening around town, with Sint Maarten events listed with links, dates and descriptions.",
@@ -53,6 +53,21 @@ const EXAMPLES: Example[] = [
     after: {
       src: "/images/what-it-does/instagram-after.png",
       alt: "An Instagram post from Amsterdam Parent Project: a carousel slide for A Big Dill Pickle Exhibition, with a caption listing events and the accounts tagged in them.",
+    },
+  },
+  {
+    org: "From: A health psychologist's Substack",
+    newsletterUrl: "https://wintrymix.substack.com/p/what-do-you-need-more-of",
+    description:
+      "Dr. Kari Leibowitz, author of How to Winter, created a carousel from her Substack on advice for navigating winter.",
+    before: {
+      src: "/images/what-it-does/wintry-before.png",
+      alt: "A newsletter issue called Wintry Mix: 5 ways to make the most of the season. The paragraphs introducing the five ways are in view.",
+      position: "center",
+    },
+    after: {
+      src: "/images/what-it-does/wintry-after.jpeg",
+      alt: "A demo Instagram post from Dr. Kari Leibowitz.",
     },
   },
 ];
@@ -155,7 +170,7 @@ export function WhatItDoes() {
               </div>
               <p className="m-0 mt-8 flex flex-wrap justify-center gap-x-8 gap-y-2 text-base font-semibold">
                 <ExternalLink href={ex.newsletterUrl}>Read the newsletter</ExternalLink>
-                <ExternalLink href={ex.instagramUrl}>See the Instagram post</ExternalLink>
+                {ex.instagramUrl && <ExternalLink href={ex.instagramUrl}>See the Instagram post</ExternalLink>}
               </p>
             </div>
           ))}

@@ -18,6 +18,7 @@ import {
   CAPTION_VARIANTS,
   variantLabel,
   buildCaption,
+  CAPTION_ORDERS,
   captionLength,
   effectiveIntent,
   variantFor,
@@ -173,7 +174,7 @@ export function SendConfirm({
       const f = loadFormat();
       setChoice(
         f && f.sig === sig
-          ? { order: f.order as CaptionOrder, edited: f.edited as Choice["edited"] }
+          ? { order: (CAPTION_ORDERS.some((o) => o.id === f.order) ? f.order : "slides") as CaptionOrder, edited: f.edited as Choice["edited"] }
           : "missing",
       );
     }, 0);
