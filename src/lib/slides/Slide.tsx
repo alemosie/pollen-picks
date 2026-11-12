@@ -353,6 +353,8 @@ const wrapLines = (text: string, px: number, em: number, width: number) => {
 
 /** The largest a title may grow when its card has no description. */
 const TITLE_MAX = { 1: 300, 2: 190, 3: 110, 4: 84 } as const;
+/** The largest a description may grow when its card has no title. */
+const BODY_MAX = { 1: 120, 2: 80, 3: 52, 4: 40 } as const;
 
 const LOGO_H = { 1: 100, 2: 72, 3: 56, 4: 44 } as const;
 
@@ -366,8 +368,8 @@ function Card({ item, n, tone, showGroup, chip, chipText, display, dw, text, out
   const photoH = item.photo && n <= PHOTO_MAX_PICKS ? PHOTO_H[n as 1 | 2] : 0;
   // The description gets whatever height is left after everything else on the card (chip, title, date line, @handle), so the
   // @handle and the date line are never squeezed or pushed over the text. A rough model, like the one that packs picks onto slides.
-  const blurbLines = (() => {
-    if (!item.blurb) return 0;
+  const blurb = (() => {
+    if (!item.blurb) return { lines: 0, size: z.blurb };
     const width = CONTENT_W - 2 * z.pad;
     const meta = [item.when, item.place].filter(Boolean).join(" · ");
     let fixed = 2 * z.pad + (item.title ? Math.min(z.titleLines, lines(item.title, z.title, 0.6, width)) * z.title * 1.08 : 0);
@@ -395,8 +397,20 @@ function Card({ item, n, tone, showGroup, chip, chipText, display, dw, text, out
     const room = (BODY_H - (n - 1) * CARD_GAP) / n - fixed - (parts - 1) * z.gap + 8; // 8: the bottom padding can give a little
     // With one or two picks per slide the description may use every line that is left; with more, a short one-liner is the design.
     const fits = Math.floor(room / (z.blurb * 1.35));
-    // Without a title the description is the card: it may use every line that is left, however many picks share the slide.
-    return Math.max(0, n <= 2 || !item.title ? fits : Math.min(z.blurbLines, fits));
+    // Without a title the description is the card: it may use every line that is left, however many picks share the slide, and it grows as
+    // large as it can while all of it fits (so a long one stays small), by the same rough model as a title with no description.
+    if (!item.title) {
+      const longest = Math.max(1, ...item.blurb.split(/\s+/).map((w) => w.length));
+      let size: number = z.blurb;
+      for (let s = BODY_MAX[n as 1 | 2 | 3 | 4]; s > z.blurb; s -= 4) {
+        if (longest * s * 0.56 <= width && wrapLines(item.blurb, s, 0.56, width) * s * 1.35 <= room) {
+          size = s;
+          break;
+        }
+      }
+      return { lines: Math.max(1, Math.floor(room / (size * 1.35))), size };
+    }
+    return { lines: Math.max(0, n <= 2 ? fits : Math.min(z.blurbLines, fits)), size: z.blurb };
   })();
   // No description: the title takes the room it would have had, as large as it fits (same rough model as above: lines from the character
   // count, and no single word wider than the card).
@@ -460,7 +474,7 @@ function Card({ item, n, tone, showGroup, chip, chipText, display, dw, text, out
       {(item.when || item.place) && (
         <div style={{ display: "flex", fontSize: z.meta, fontWeight: 700, flexShrink: 0, ...clamp(2) }}>{[item.when, item.place].filter(Boolean).join(" · ")}</div>
       )}
-      {blurbLines > 0 && item.blurb && <div style={{ display: "flex", fontSize: z.blurb, lineHeight: 1.35, ...clamp(blurbLines) }}>{n >= 3 && item.title ? shortBlurb(item.blurb) : item.blurb}</div>}
+      {blurb.lines > 0 && item.blurb && <div style={{ display: "flex", fontSize: blurb.size, lineHeight: 1.35, ...clamp(blurb.lines) }}>{n >= 3 && item.title ? shortBlurb(item.blurb) : item.blurb}</div>}
       {item.tag && <div style={{ display: "flex", fontSize: z.meta - TAG_SHRINK, fontWeight: 700, flexShrink: 0, ...clamp(1) }}>{`@${item.tag}`}</div>}
     </div>
   );
