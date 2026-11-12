@@ -5,6 +5,7 @@ import { PuffIcon } from "@/components/PuffIcon";
 import { useEffect, useRef, useState } from "react";
 import { track } from "@/lib/events";
 import { TagChip, type TagState } from "./TagChip";
+import { PreviewButton } from "./PreviewButton";
 import { meterText } from "@/lib/pollen/demoHighlights";
 
 /** A pick. `highlight`: made in the Manual tab. */
@@ -18,6 +19,7 @@ const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1).trim
  * Sits above the flow bar (about 5rem tall).
  */
 export function PickTray({
+  mode,
   items,
   full,
   meter,
@@ -25,6 +27,8 @@ export function PickTray({
   onRemove,
   onToggle,
 }: {
+  /** The issue the picks are from (a slide preview draws the pick from it). */
+  mode: string;
   items: TrayItem[];
   /** The pick limit is reached. */
   full: boolean;
@@ -132,15 +136,18 @@ export function PickTray({
                       {clip(h.text, 110)}
                       <TagChip state={h.tag ?? null} small className="mt-1" />
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => onRemove(h.id)}
-                      aria-label={on ? "Remove this pick" : "Remove this highlight"}
-                      title={on ? "Remove this pick" : "Remove this highlight"}
-                      className={`-mr-1 grid size-6 shrink-0 place-items-center rounded-full ${on ? "hover:bg-cream/15" : "hover:bg-ink/10"}`}
-                    >
-                      <X aria-hidden className="size-4" strokeWidth={2.5} />
-                    </button>
+                    <span className="-my-0.5 -mr-1 flex shrink-0 items-center">
+                      <PreviewButton mode={mode} id={h.id} label={clip(h.text, 40)} className={`size-6 ${on ? "hover:bg-cream/15" : "hover:bg-ink/10"}`} />
+                      <button
+                        type="button"
+                        onClick={() => onRemove(h.id)}
+                        aria-label={on ? "Remove this pick" : "Remove this highlight"}
+                        title={on ? "Remove this pick" : "Remove this highlight"}
+                        className={`grid size-6 shrink-0 place-items-center rounded-full ${on ? "hover:bg-cream/15" : "hover:bg-ink/10"}`}
+                      >
+                        <X aria-hidden className="size-4" strokeWidth={2.5} />
+                      </button>
+                    </span>
                   </li>
                 );
               })}

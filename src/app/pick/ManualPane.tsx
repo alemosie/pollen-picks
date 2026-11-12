@@ -380,6 +380,10 @@ export function ManualPane({
   return (
     <div>
       <div className="mb-3">
+        <p className="mb-4 mt-0 text-base">
+          <strong>A pick</strong> is an excerpt from your text that will become its own slide in the standard carousel. We magically extract title,
+          description, dates, and links from your pick, so we recommend selecting more text for you to tweak on your slide later.
+        </p>
         <h2 className="m-0 font-display text-lg">To select a pick</h2>
         <ul className="m-0 mt-2 grid list-none gap-1.5 p-0 text-base">
           {touch ? (

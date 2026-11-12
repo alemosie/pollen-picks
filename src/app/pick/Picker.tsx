@@ -22,6 +22,7 @@ import { ApifyConnect } from "@/components/ApifyConnect";
 import { TagChip, type TagState } from "./TagChip";
 import { ManualPane, deleteHighlight } from "./ManualPane";
 import { PickTray, type TrayItem } from "./PickTray";
+import { PreviewButton } from "./PreviewButton";
 import { MAX_DEMO_WORDS, demoWords } from "@/lib/pollen/demoHighlights";
 import { CUSTOM_BASE } from "@/lib/pollen/custom";
 import type { View } from "./picking";
@@ -539,6 +540,7 @@ export function Picker({
         )}
 
         <PickTray
+          mode={mode}
           items={trayItems}
           full={full}
           meter={
@@ -593,7 +595,7 @@ export function Picker({
                     </p>
                   )}
                   <label
-                    className={`relative flex cursor-pointer items-start gap-3 rounded-2xl p-4 pr-12 ring-1 transition ${
+                    className={`relative flex cursor-pointer items-start gap-3 rounded-2xl p-4 pr-20 ring-1 transition ${
                       on
                         ? `${ACCENT[view].solid} ring-2 ring-ink`
                         : "bg-surface ring-ink/10 hover:ring-ink/30"
@@ -609,21 +611,21 @@ export function Picker({
                     {(() => {
                       const { icon: Kind, label } = elementType(c);
                       return (
-                        <span
-                          title={label}
-                          className="absolute right-4 top-4 text-ink/75"
-                        >
-                          {view === "top-clicks" && c.rank && (
-                            <span aria-hidden className="font-display text-base leading-none">
-                              #{c.rank}
-                            </span>
-                          )}
-                          <Kind
-                            aria-hidden
-                            className={`size-4 ${view === "top-clicks" && c.rank ? "hidden" : ""}`}
-                            strokeWidth={2.25}
-                          />
-                          <span className="sr-only">{label}</span>
+                        <span className="absolute right-1 top-1 flex items-center">
+                          <PreviewButton mode={mode} id={c.id} label={clamp(c.title || c.text, 50)} className="size-8 hover:bg-ink/10" />
+                          <span title={label} className="grid min-w-8 place-items-center text-ink/75">
+                            {view === "top-clicks" && c.rank && (
+                              <span aria-hidden className="font-display text-base leading-none">
+                                #{c.rank}
+                              </span>
+                            )}
+                            <Kind
+                              aria-hidden
+                              className={`size-4 ${view === "top-clicks" && c.rank ? "hidden" : ""}`}
+                              strokeWidth={2.25}
+                            />
+                            <span className="sr-only">{label}</span>
+                          </span>
                         </span>
                       );
                     })()}
