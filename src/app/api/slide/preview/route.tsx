@@ -13,6 +13,17 @@ import { parseTemplateFrom } from "@/lib/slides/options";
 // Without `mode` (or with mode=demo) the picks index the sample issue plus the visitor's demo highlights. With the mode of one
 // of the user's own issues (own:<publication>:<post>) they index that issue, which needs their session.
 export async function GET(req: NextRequest) {
+  try {
+    return await draw(req);
+  } catch (e) {
+    // An unhandled throw here is an empty 500 the page can only call "the server answered 500". Log it and say what failed.
+    console.error("drawing the slide failed:", e);
+    const why = process.env.NODE_ENV === "development" && e instanceof Error ? ` (${e.message})` : "";
+    return NextResponse.json({ error: `Couldn't draw this slide${why}. Try again in a moment.` }, { status: 500 });
+  }
+}
+
+async function draw(req: NextRequest): Promise<Response> {
   const q = req.nextUrl.searchParams;
   const mode = q.get("mode");
   // Buffer fetches these images without a login, so its URLs carry a signature instead (see previewSig). A bad or expired one is refused.
