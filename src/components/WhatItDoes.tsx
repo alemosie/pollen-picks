@@ -10,10 +10,12 @@ type Shot = {
 type Example = {
   /** The small heading: whose newsletter this is. */
   org: string;
-  description: string;
+  description: React.ReactNode;
   /** Where the newsletter lives, and the Instagram post it became. Both open in a new tab. */
-  newsletterUrl: string;
+  newsletterUrl?: string;
+  blogUrl?: string;
   instagramUrl?: string;
+  linkedInUrl?: string;
   before: Shot;
   after: Shot;
 };
@@ -27,8 +29,12 @@ const EXAMPLES: Example[] = [
     org: "From: A freelancer\u2019s newsletter",
     newsletterUrl: "https://thefreelancebesties.com/newsletter",
     instagramUrl: "https://www.instagram.com/p/Dfmli7SDdJk/",
-    description:
-      "The Freelance Besties turned newsletter insights from a TEDx talk into a carousel post for Instagram.",
+    description: (
+      <>
+        <ExternalLink href="https://thefreelancebesties.com/">The Freelance Besties</ExternalLink> turned newsletter insights from a TEDx talk into a
+        carousel post for Instagram.
+      </>
+    ),
     before: {
       src: "/images/what-it-does/freelancer-newsletter-before.png",
       alt: "A newsletter issue called Are goals actually helping us? The paragraphs introducing a TEDx talk and the quote \u201cI missed the goal, but I lived the dream.\u201d are in view.",
@@ -44,7 +50,7 @@ const EXAMPLES: Example[] = [
     newsletterUrl: "https://amsterdamparentproject.beehiiv.com/p/2-16-nov-2026",
     instagramUrl: "https://www.instagram.com/p/Dfgxg7sFaUq/?img_index=1",
     description:
-      "A family activities newsletter transformed the most-clicked events into an Instagram carousel, tagging the event organizers in the caption.",
+      "A family activities newsletter posted their most-clicked events on Instagram, with 3/5 of the tagged event organizers resharing.",
     before: {
       src: "/images/what-it-does/newsletter-before.png",
       alt: "A newsletter section called What\u2019s happening around town, with Sint Maarten events listed with links, dates and descriptions.",
@@ -58,8 +64,13 @@ const EXAMPLES: Example[] = [
   {
     org: "From: A health psychologist's Substack",
     newsletterUrl: "https://wintrymix.substack.com/p/what-do-you-need-more-of",
-    description:
-      "Dr. Kari Leibowitz, author of How to Winter, created a carousel from her Substack on advice for navigating winter.",
+    description: (
+      <>
+        Dr. Kari Leibowitz, author of{" "}
+        <ExternalLink href="https://www.penguinrandomhouse.com/books/721750/how-to-winter-by-kari-leibowitz-phd/">How to Winter</ExternalLink>
+        , created a carousel from her Substack on advice for navigating winter.
+      </>
+    ),
     before: {
       src: "/images/what-it-does/wintry-before.png",
       alt: "A newsletter issue called Wintry Mix: 5 ways to make the most of the season. The paragraphs introducing the five ways are in view.",
@@ -68,6 +79,22 @@ const EXAMPLES: Example[] = [
     after: {
       src: "/images/what-it-does/wintry-after.jpeg",
       alt: "A demo Instagram post from Dr. Kari Leibowitz.",
+    },
+  },
+  {
+    org: "From: Founder's personal blog",
+    blogUrl: "https://amsterdamparentproject.nl/stories/behind-the-desk/06",
+    linkedInUrl: "https://www.linkedin.com/feed/update/urn:li:activity:7526751918765940736/",
+    description:
+      "Founder's notes about Pollen Picks' early feedback was turned into a LinkedIn post to share learnings",
+    before: {
+      src: "/images/what-it-does/linkedin-before.png",
+      alt: "A blog post about brand importance for Pollen Picks",
+      position: "center",
+    },
+    after: {
+      src: "/images/what-it-does/linkedin-after.png",
+      alt: "A LinkedIn post from the founder.",
     },
   },
 ];
@@ -169,8 +196,10 @@ export function WhatItDoes() {
                 <Frame shot={ex.after} label="After" tone="bg-sage shadow-[7px_7px_0_0_#84a59d80]" sticker="border-sage" tilt="md:rotate-1" />
               </div>
               <p className="m-0 mt-8 flex flex-wrap justify-center gap-x-8 gap-y-2 text-base font-semibold">
-                <ExternalLink href={ex.newsletterUrl}>Read the newsletter</ExternalLink>
+                { ex.newsletterUrl && <ExternalLink href={ex.newsletterUrl}>Read the newsletter</ExternalLink> }
+                { ex.blogUrl && <ExternalLink href={ex.blogUrl}>Read the blog post</ExternalLink> }
                 {ex.instagramUrl && <ExternalLink href={ex.instagramUrl}>See the Instagram post</ExternalLink>}
+                {ex.linkedInUrl && <ExternalLink href={ex.linkedInUrl}>See the LinkedIn post</ExternalLink>}
               </p>
             </div>
           ))}

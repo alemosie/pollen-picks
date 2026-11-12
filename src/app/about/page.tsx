@@ -100,6 +100,14 @@ const NOTES = [
     summary:
       "It costs me nothing to run and costs you nothing to use. Three trades kept it free (no AI, almost no storage, no cron), and each one has a cost.",
   },
+  {
+    n: "06",
+    tone: "coral" as Tone,
+    date: "12 November 2026",
+    title: "A health psychologist, toy store owner, and podcaster try out a newsletter-to-social tool…",
+    summary:
+      "I asked 12 people with very different backgrounds to try Pollen Picks. Here\u2019s what I learned from them, and how I made the product better.",
+  },
 ];
 
 const NOTES_URL = "https://amsterdamparentproject.nl/stories/behind-the-desk";
@@ -113,7 +121,7 @@ const PROUD: { tag: string; tone: Tone; wide?: boolean; title: string; body: Rea
     body: (
       <p>
         Everything runs on free tiers, and the words are parsed with plain rules instead of AI, so it costs me nothing to run and costs you nothing to
-        use. It still does the job: a carousel and captions made from your own words. Every trade I made to keep it free is in{" "}
+        use. It turns out you don't need AI to create carousels and captions made from your own words. Every trade I made to keep it free is in{" "}
         <a href={`${NOTES_URL}/05`} target="_blank" rel="noopener noreferrer">
           Behind the Desk #5
         </a>
@@ -157,7 +165,7 @@ const PROUD: { tag: string; tone: Tone; wide?: boolean; title: string; body: Rea
             check in Buffer. That is how nothing goes out twice.
           </li>
           <li>
-            <b>Refusals in Buffer&rsquo;s own words,</b> on that channel&rsquo;s row, while the other channels carry on.
+            <b>Refusals in Buffer&rsquo;s own words,</b> on that channel&rsquo;s row. It doesn't block the other channels from posting.
           </li>
         </ul>
       </>
@@ -182,9 +190,9 @@ const PROUD: { tag: string; tone: Tone; wide?: boolean; title: string; body: Rea
     title: "Accessibility",
     body: (
       <p>
-        Every slide image goes to Buffer with alt text taken from the words on the slide (no AI, nothing rewritten), trimmed to 100 characters. The
-        carousels work with the arrow keys and respect reduced-motion settings. I audited the pages with Lighthouse on mobile, and every one scored
-        96 to 100 for accessibility (6 November).
+        Every slide image goes to Buffer with alt text taken from the words on the slide (no AI, nothing rewritten), trimmed to 200 characters — plus a surfaced fallback if the network rejects the post because of alt text. The
+        carousels work with the arrow keys and I respect reduced-motion settings. I audited the pages with Lighthouse on desktop and mobile, and every one scored
+        96 to 100 for accessibility.
       </p>
     ),
   },
@@ -235,12 +243,11 @@ export default function About() {
               <img src="/brand/pollen-picks-logo-light.svg" alt="Pollen Picks" width={404} height={608} className="h-16 w-auto sm:h-20" />
             </span>
             <p className="m-0 text-balance font-display text-2xl leading-snug sm:text-3xl">
-              Pollen Picks turns a newsletter issue, a blog post or any public page into a carousel for your social channels, and saves or sends it
-              via Buffer.
+              Pollen Picks transforms a newsletter or blog into a ready-made post for social media.
             </p>
           </div>
           <p className="m-0 text-balance text-lg leading-relaxed sm:text-xl">
-            The words on the slides are the ones you already wrote: that your subscribers love and your socials followers will love.{" "}
+            Cross-pollinate your content from newsletters to socials. What gets posted is what you already wrote — what your subscribers love and your socials followers will love.{" "}
             <span className="pp-mark font-bold">There is no AI under the hood</span> &mdash; it&rsquo;s free to run and free to use.
           </p>
         </div>
@@ -265,7 +272,7 @@ export default function About() {
               digest. An issue used to take me 6+ hours to write, and the cross-post to Instagram (another 1.5 hours) rarely happened because I just
               didn&rsquo;t have the time. When it did, it was to amazing results — one carousel alone brought{" "}
               <span className="pp-mark font-bold">95 new subscribers</span> (almost a 10% lift), a ton of new Instagram followers, new local
-              organizations to partner with, and about 3&times; the reach of my other posts.
+              organizations to partner with, and about 3 times the reach of my other posts.
             </p>
             <p>
               Pollen Picks is the way that the community work I do gets more visibility &mdash; benefitting not only my organization, but also the local
@@ -362,10 +369,10 @@ export default function About() {
           </h2>
           <p className="mx-auto mb-12 max-w-xl text-balance text-center text-lg">
             Behind the Desk is where I write founder&rsquo;s notes about running Amsterdam Parent Project: what worked, what broke and what I got
-            wrong. These three are about this build.
+            wrong. These four are about this build.
           </p>
         </Reveal>
-        <ul className="grid gap-x-8 gap-y-12 sm:grid-cols-3">
+        <ul className="grid gap-x-8 gap-y-12 sm:grid-cols-2">
           {NOTES.map((n, i) => (
             <li key={n.n} className="flex">
               <a
