@@ -76,6 +76,9 @@ export async function enqueue(userId: string, r: QueueRequest, client: SupabaseC
     newsletter: clip(r.newsletter, 120),
     issue_title: clip(r.issueTitle, 200),
     ...(r.postTitle ? { post_title: clip(r.postTitle, 200) } : {}),
+    // On every row of the batch, or on none: a bulk insert sends a key one row lacks as NULL for that row, and as_pdf is NOT NULL, so a send to LinkedIn
+    // and another network would be refused, and the retry below (for a database without the column) would then drop the PDF from LinkedIn too.
+    ...(r.linkedinPdf ? { as_pdf: serviceKey(c.service) === "linkedin" } : {}),
   });
   const rows = r.channels.map((c) => {
     const blocked = unsupportedReason(c.service);
@@ -88,8 +91,6 @@ export async function enqueue(userId: string, r: QueueRequest, client: SupabaseC
           picks: r.picks,
           template: r.template.slice(0, MAX_TEMPLATE_CHARS),
           caption: c.caption.slice(0, 10_000),
-          // Only sent when it is on, and only on LinkedIn rows (see the retry below for a database that doesn't have the column yet).
-          ...(r.linkedinPdf && serviceKey(c.service) === "linkedin" ? { as_pdf: true } : {}),
         };
   });
   let { error } = await client.from("post_history").insert(rows);

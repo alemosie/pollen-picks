@@ -101,6 +101,10 @@ class FakeDb {
           // A database that doesn't have a column yet refuses a row that carries it, the way PostgREST does.
           const unknown = this.missingColumns.find((c) => rows.some((r) => c in r));
           if (unknown) return { error: { message: `Could not find the '${unknown}' column of 'post_history' in the schema cache` } };
+          // A bulk insert sends a key that only some rows have as NULL for the others (supabase-js defaults missing fields to null), so a NOT NULL column
+          // must be on every row or none.
+          const notNull = this.notNullColumns.find((c) => rows.some((r) => c in r) && rows.some((r) => !(c in r)));
+          if (notNull) return { error: { message: `null value in column "${notNull}" of relation "post_history" violates not-null constraint` } };
           for (const r of rows) this.rows.push({ id: nextId++, attempts: 0, ...r } as Row);
           return { error: null };
         },
@@ -123,6 +127,7 @@ class FakeDb {
   };
   insertError: string | null = null;
   missingColumns: string[] = [];
+  notNullColumns: string[] = ["as_pdf"];
 }
 
 type Post = ChannelPostInput & { token: string };
@@ -755,11 +760,17 @@ describe("enqueue: the LinkedIn PDF choice", () => {
     ],
     ...over,
   });
-  test("asked for: only the LinkedIn rows carry it", async () => {
+  test("asked for: every row carries it, true only on LinkedIn", async () => {
     const fake = new FakeDb();
     await enqueue("u1", request({ linkedinPdf: true }), fake.client as unknown as SupabaseClient);
     assert.equal(fake.rows.find((r) => r.service === "linkedin")!.as_pdf, true);
-    assert.equal("as_pdf" in fake.rows.find((r) => r.service === "instagram")!, false);
+    assert.equal(fake.rows.find((r) => r.service === "instagram")!.as_pdf, false);
+  });
+  test("LinkedIn together with another network keeps the PDF (as_pdf is NOT NULL, so it is on every row)", async () => {
+    const fake = new FakeDb();
+    await enqueue("u1", request({ linkedinPdf: true }), fake.client as unknown as SupabaseClient);
+    assert.equal(fake.rows.length, 2);
+    assert.equal(fake.rows.find((r) => r.service === "linkedin")!.as_pdf, true);
   });
   test("a database without the as_pdf column yet: LinkedIn is queued as images instead of the send failing", async () => {
     const fake = new FakeDb();
