@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
   try {
     return await draw(req);
   } catch (e) {
+    // Next's own signals (a digest, e.g. the prerender bailout during `next build`) must reach Next, not become a 500.
+    if (typeof (e as { digest?: unknown })?.digest === "string") throw e;
     // An unhandled throw here is an empty 500 the page can only call "the server answered 500". Log it and say what failed.
     console.error("drawing the slide failed:", e);
     const why = process.env.NODE_ENV === "development" && e instanceof Error ? ` (${e.message})` : "";

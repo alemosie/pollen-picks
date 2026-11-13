@@ -42,7 +42,7 @@ export function IssueRow({
 }) {
   return (
     <label
-      className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl bg-surface px-3 py-3 ring-1 ring-ink/10 outline-offset-2 sm:px-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink ${checked ? "shadow-[0_0_0_3px_var(--color-ink)]" : "hover:ring-ink/40"}`}
+      className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-3 ring-1 ring-ink/10 outline-offset-2 sm:px-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink ${checked ? "bg-honey" : "bg-surface hover:ring-ink/40"}`}
     >
       <input type="radio" name="post" value={value} checked={checked} onChange={onChange ?? (() => {})} readOnly={!onChange} className="size-4 shrink-0 accent-ink" />
       <Thumb url={image} />
