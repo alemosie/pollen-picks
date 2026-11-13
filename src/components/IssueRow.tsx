@@ -42,7 +42,7 @@ export function IssueRow({
 }) {
   return (
     <label
-      className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-3 ring-1 ring-ink/10 outline-offset-2 sm:px-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink ${checked ? "bg-honey" : "bg-surface hover:ring-ink/40"}`}
+      className={`flex min-w-0 cursor-pointer items-center gap-3 rounded-xl px-3 py-3 ring-1 ring-ink/10 outline-offset-2 sm:px-4 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ink ${checked ? "bg-honey shadow-[0_0_0_3px_var(--color-ink)]" : "bg-surface hover:ring-ink/40"}`}
     >
       <input type="radio" name="post" value={value} checked={checked} onChange={onChange ?? (() => {})} readOnly={!onChange} className="size-4 shrink-0 accent-ink" />
       <Thumb url={image} />
@@ -50,7 +50,7 @@ export function IssueRow({
         <span className="block truncate font-semibold">{title}</span>
         <span className="flex items-center gap-2 text-sm">
           <span className="min-w-0 truncate">{detail}</span>
-          {badge && <span className="shrink-0 rounded-full bg-honey px-2.5 py-0.5 text-xs font-bold text-ink-deep">{badge}</span>}
+          {badge && <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${checked ? "bg-ink text-cream" : "bg-honey text-ink-deep"}`}>{badge}</span>}
         </span>
       </span>
     </label>
