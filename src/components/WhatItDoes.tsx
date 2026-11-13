@@ -25,27 +25,7 @@ type Example = {
  * Pictures live in public/images/what-it-does/. Both sides are cropped to one shape so each pair lines up, so put what matters in view.
  */
 const EXAMPLES: Example[] = [
-  {
-    org: "From: A freelancer\u2019s newsletter",
-    newsletterUrl: "https://thefreelancebesties.com/newsletter",
-    instagramUrl: "https://www.instagram.com/p/Dfmli7SDdJk/",
-    description: (
-      <>
-        <ExternalLink href="https://thefreelancebesties.com/">The Freelance Besties</ExternalLink> turned newsletter insights from a TEDx talk into a
-        carousel post for Instagram.
-      </>
-    ),
-    before: {
-      src: "/images/what-it-does/freelancer-newsletter-before.png",
-      alt: "A newsletter issue called Are goals actually helping us? The paragraphs introducing a TEDx talk and the quote \u201cI missed the goal, but I lived the dream.\u201d are in view.",
-      position: "center",
-    },
-    after: {
-      src: "/images/what-it-does/freelancer-instagram-after.png",
-      alt: "An Instagram post from The Freelance Besties: slide 3 of 8 is an orange card with the quote \u201cI missed the goal, but I lived the dream.\u201d, next to a caption that starts with the TEDx The Hague story.",
-    },
-  },
-  {
+   {
     org: "From: An events digest",
     newsletterUrl: "https://amsterdamparentproject.beehiiv.com/p/2-16-nov-2026",
     instagramUrl: "https://www.instagram.com/p/Dfgxg7sFaUq/?img_index=1",
@@ -62,13 +42,32 @@ const EXAMPLES: Example[] = [
     },
   },
   {
+    org: "From: A freelancer\u2019s newsletter",
+    newsletterUrl: "https://thefreelancebesties.com/newsletter",
+    instagramUrl: "https://www.instagram.com/p/Dfmli7SDdJk/",
+    description: (
+      <>
+        <ExternalLink href="https://thefreelancebesties.com/">The Freelance Besties</ExternalLink> picked the TEDx insights from their newsletter and
+        turned them into an Instagram carousel, in their own words.
+      </>
+    ),
+    before: {
+      src: "/images/what-it-does/freelancer-newsletter-before.png",
+      alt: "A newsletter issue called Are goals actually helping us? The paragraphs introducing a TEDx talk and the quote \u201cI missed the goal, but I lived the dream.\u201d are in view.",
+      position: "center",
+    },
+    after: {
+      src: "/images/what-it-does/freelancer-instagram-after.png",
+      alt: "An Instagram post from The Freelance Besties: slide 3 of 8 is an orange card with the quote \u201cI missed the goal, but I lived the dream.\u201d, next to a caption that starts with the TEDx The Hague story.",
+    },
+  },
+  {
     org: "From: A health psychologist's Substack",
     newsletterUrl: "https://wintrymix.substack.com/p/what-do-you-need-more-of",
     description: (
       <>
-        Dr. Kari Leibowitz, author of{" "}
-        <ExternalLink href="https://www.penguinrandomhouse.com/books/721750/how-to-winter-by-kari-leibowitz-phd/">How to Winter</ExternalLink>
-        , created a carousel from her Substack on advice for navigating winter.
+        Highlights from Dr. Kari Leibowitz&rsquo;s Substack became a carousel of winter tips. No click data needed: Paste the link and choose what
+        you want to share, skipping the template copy-paste.
       </>
     ),
     before: {
@@ -86,7 +85,7 @@ const EXAMPLES: Example[] = [
     blogUrl: "https://amsterdamparentproject.nl/stories/behind-the-desk/06",
     linkedInUrl: "https://www.linkedin.com/feed/update/urn:li:activity:7526751918765940736/",
     description:
-      "Founder's notes about Pollen Picks' early feedback was turned into a LinkedIn post to share learnings",
+      "The founder\u2019s notes on early feedback became a LinkedIn carousel, so what she learned reached a new audience beyond her personal blog.",
     before: {
       src: "/images/what-it-does/linkedin-before.png",
       alt: "A blog post about brand importance for Pollen Picks",
@@ -175,7 +174,7 @@ export function WhatItDoes() {
     <section
       id="what-it-does"
       aria-labelledby="what-it-does-title"
-      className="mx-auto max-w-6xl px-6 pb-4 sm:pb-8"
+      className="mx-auto max-w-6xl px-6 pb-4 pt-10 sm:pb-8 sm:pt-16"
     >
       <Reveal>
         <h2 id="what-it-does-title" className="mb-4 text-center text-3xl leading-tight sm:text-5xl">

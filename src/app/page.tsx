@@ -9,6 +9,7 @@ import { StepWord } from "@/components/StepWord";
 import { Logo } from "@/components/Logo";
 import { ResumeBanner } from "@/components/ResumeBanner";
 import { WhatItDoes } from "@/components/WhatItDoes";
+import { GrowthCycle } from "@/components/GrowthCycle";
 import { PopularList } from "@/components/path/PopularList";
 import { BuilderDemo } from "@/components/path/BuilderDemo";
 import { PickMe } from "@/components/path/PickMe";
@@ -87,7 +88,7 @@ export default function Home() {
 
       {/* Hero */}
       <section className="mx-auto flex max-w-5xl flex-col items-center gap-3 px-6 pb-10 pt-0 text-center sm:gap-5 sm:pb-14 md:pt-4">
-        <PollenBurst size="size-20 sm:size-48" />
+        <PollenBurst size="size-28 sm:size-48" />
         {/* One line at any width: the headline is about 9.6em wide, so the size follows the screen (capped at 72px). */}
         <h1 className="mb-2 whitespace-nowrap sm:mb-1 text-[clamp(1.5rem,calc((100vw-3rem)/10),4.5rem)] leading-[1.05]">
           Let your words{" "}
@@ -112,9 +113,10 @@ export default function Home() {
           .
         </h1>
         <p className="mx-auto max-w-2xl text-balance text-lg leading-relaxed sm:text-xl">
-          <strong>From picks to posts:</strong> Pollen Picks turns any newsletter
-          or blog into carousel posts via Buffer, tagging your community along the
-          way. No AI, just your words in more places.
+          <strong>Newsletters, blogs, and socials grow communities &mdash; it&rsquo;s about time they worked together.</strong>{" "}
+          Pollen Picks cross-posts the words your audience already loves as
+          carousel posts via Buffer, tagging the people you feature so they
+          benefit too.
         </p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3 sm:mt-0">
           <Link href="/demo/source" className={cta}>
@@ -129,6 +131,15 @@ export default function Home() {
       </section>
 
       <WhatItDoes />
+
+      <GrowthCycle />
+
+      {/* A quiet lead-in to the journey: DM Sans, so it doesn't compete with the first stop's heading. */}
+      <Reveal>
+        <p className="mx-auto mt-12 max-w-3xl px-6 text-center font-sans text-xl font-bold sm:text-2xl">
+          See how it works&hellip;
+        </p>
+      </Reveal>
 
       <div className="mx-auto max-w-3xl px-6 mt-12">
         <PathRail className="md:-mx-6">
@@ -225,6 +236,17 @@ export default function Home() {
                 win-win-win for <b>your audience</b>, <b>the organizers</b>, and{" "}
                 <b>your own reach</b>.
               </p>
+              <div className="mb-8 flex items-center gap-3">
+                <span className="text-sm font-semibold">Works with</span>
+                <span
+                  role="img"
+                  aria-label="Instagram"
+                  className="flex h-10 items-center rounded-2xl bg-surface px-3 ring-1 ring-ink/10 sm:h-12 sm:px-3.5"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/brand/instagram-wordmark.png" alt="" aria-hidden width={336} height={82} className="h-4 w-auto sm:h-5" />
+                </span>
+              </div>
             </Reveal>
             <Reveal delay={0.1}>
               <TagDemo event={demoEvent} />
